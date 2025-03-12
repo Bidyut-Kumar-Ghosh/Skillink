@@ -1,3 +1,8 @@
+## Project Name: SkillLink\*
+- **Creators**: Bidyut, Sourav, Basira
+- **Type**: College Final Year Project
+- **Technology Stack**: React Native, Expo, Firebase, Strapi, MySQL
+
 # SkillLink\*
 
 ## Connecting Learners and Educators through Interactive Courses
@@ -123,6 +128,8 @@ Contributions are welcome! To contribute:
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
+
+
 
 ## Contact
 
