@@ -1,50 +1,135 @@
-# Welcome to your Expo app 👋
+# SkillLink\*
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Connecting Learners and Educators through Interactive Courses
 
-## Get started
+SkillLink\* is a mobile application designed to bridge the gap between learners and educators by providing an interactive and engaging platform for online courses. Built using **React Native with Expo**, **Firebase**, **Strapi**, and **MySQL**, the app ensures a seamless learning experience with real-time interaction and dynamic course content.
 
-1. Install dependencies
+---
 
-   ```bash
+## Features
+
+- **User Authentication**: Secure login/signup using Firebase Authentication.
+- **Course Management**: Educators can create, update, and manage courses through Strapi CMS.
+- **Interactive Learning**: Students can enroll in courses, complete lessons, and participate in quizzes.
+- **Real-Time Chat & Notifications**: Stay connected with instant messaging and course notifications.
+- **Progress Tracking**: Users can track their learning progress and achievements.
+- **Secure Payment System**: Integration with payment gateways for paid courses.
+- **Cross-Platform Compatibility**: Built with React Native, ensuring smooth performance on both iOS and Android.
+
+---
+
+## Tech Stack
+
+- **Frontend**: React Native with Expo
+- **Backend**: Strapi (Headless CMS) & Firebase
+- **Database**: MySQL
+- **Authentication**: Firebase Authentication
+- **Cloud Storage**: Firebase Storage
+- **Real-Time Database**: Firebase Firestore
+
+---
+
+## Installation & Setup
+
+### Prerequisites
+
+Make sure you have the following installed:
+
+- Node.js (latest LTS version)
+- Expo CLI
+- MySQL Server
+- Strapi CMS
+- Firebase Account
+
+### Steps to Run Locally
+
+1. **Clone the Repository**
+
+   ```sh
+   git clone https://github.com/yourusername/skilllink.git
+   cd skilllink
+   ```
+
+2. **Install Dependencies**
+
+   ```sh
    npm install
    ```
 
-2. Start the app
+3. **Start Expo Development Server**
 
-   ```bash
-    npx expo start
+   ```sh
+   expo start
    ```
 
-In the output, you'll find options to open the app in a
+4. **Setup Firebase**
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   - Create a Firebase project.
+   - Enable Authentication, Firestore, and Storage.
+   - Add Firebase configuration to `firebaseConfig.js`.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+5. **Setup Strapi Backend**
 
-## Get a fresh project
+   - Navigate to the `backend/` folder.
+   - Run `npm install`.
+   - Start Strapi with `npm run develop`.
+   - Connect Strapi to MySQL.
 
-When you're ready, run:
+6. **Run the Application**
 
-```bash
-npm run reset-project
+   - Use an emulator or scan the QR code with Expo Go to test the app.
+
+---
+
+## Folder Structure
+
+```
+SkillLink/
+├── frontend/               # React Native app
+│   ├── src/
+│   │   ├── components/
+│   │   ├── screens/
+│   │   ├── navigation/
+│   │   ├── services/
+│   │   └── firebaseConfig.js
+│   ├── package.json
+│   └── App.js
+├── backend/                # Strapi CMS
+│   ├── api/
+│   ├── config/
+│   ├── database/
+│   ├── package.json
+│   └── server.js
+├── README.md
+└── .gitignore
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## Contributions
 
-To learn more about developing your project with Expo, look at the following resources:
+Contributions are welcome! To contribute:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature-name`).
+3. Commit changes (`git commit -m 'Add new feature'`).
+4. Push to the branch (`git push origin feature-name`).
+5. Create a pull request.
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## License
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Contact
+
+For queries or support, reach out to:
+
+- **Email**: [support@skilllink.com](mailto\:support@skilllink.com)
+- **GitHub**: [YourUsername](https://github.com/yourusername)
+
+Happy Learning! 🚀
+
