@@ -128,8 +128,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For queries or support, reach out to:
 
-- **Email**: [support@skilllink.com](mailto\:support@skilllink.com)
-- **GitHub**: [YourUsername](https://github.com/yourusername)
+- **Email**: [bidyutghoshoffice@yahoo.com](mailto\:bidyutghoshoffice@yahoo.com)
+- **GitHub**: [Bidyut-Kumar-Ghosh](https://github.com/Bidyut-Kumar-Ghosh)
 
 Happy Learning! 🚀
 
