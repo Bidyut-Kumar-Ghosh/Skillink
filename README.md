@@ -1,4 +1,5 @@
 ## Project Name: SkillLink\*
+
 - **Creators**: Bidyut, Sourav, Basira
 - **Type**: College Final Year Project
 - **Technology Stack**: React Native, Expo, Firebase, Strapi, MySQL
@@ -129,14 +130,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-
-
 ## Contact
 
 For queries or support, reach out to:
 
-- **Email**: [bidyutghoshoffice@yahoo.com](mailto\:bidyutghoshoffice@yahoo.com)
+- **Email**: [bidyutghoshoffice@yahoo.com](mailto:bidyutghoshoffice@yahoo.com)
 - **GitHub**: [Bidyut-Kumar-Ghosh](https://github.com/Bidyut-Kumar-Ghosh)
 
 Happy Learning! 🚀
-
