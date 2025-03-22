@@ -57,12 +57,13 @@ export default function LoginScreen() {
           style={{
             backgroundColor: Colours.WHITE,
             display: "flex",
-            flexDirection: "row",
+            // flexDirection: "row",
             alignItems: "center",
-            gap: 30,
+            padding: 150,
+            gap: 20,
           }}
         >
-          <Image source={Google} style={{ width: 80, height: 80 }} />
+          <Image source={Google} style={{ width: 40, height: 40 }} />
           <Text
             style={{
               textAlign: "center",
