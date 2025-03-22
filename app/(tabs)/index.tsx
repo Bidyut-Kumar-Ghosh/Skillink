@@ -1,13 +1,20 @@
-import { Text, View, StyleSheet } from 'react-native';
- import { Link } from 'expo-router'; 
+import { StatusBar } from "expo-status-bar";
+import { StyleSheet, Text, View } from "react-native";
+import { useFonts } from "expo-font";
+import React from "react";
+import LoginScreen from "../Screen/LoginScreen";
 
-export default function Index() {
+export default function App() {
+  <View style={styles.container}></View>;
+  const [loaded, error] = useFonts({
+    Tektur: require("../fonts/Tektur-Black.ttf"),
+  });
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Home screen</Text>
-      <Link href="/about" style={styles.button}>
-        Go to About screen
-      </Link>
+      {/* <Text style={styles.text}>Welcome</Text>
+      <Text style={styles.text1}>To Skillink</Text> */}
+      <StatusBar style="auto" />
+      <LoginScreen />
     </View>
   );
 }
@@ -15,16 +22,16 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  text: {
-    color: '#fff',
-  },
-  button: {
-    fontSize: 20,
-    textDecorationLine: 'underline',
-    color: '#fff',
-  },
+  // text: {
+  //   color: "#fff",
+  //   fontFamily: "Tektur",
+  // },
+  // text1: {
+  //   color: "#ff6600",
+  //   fontFamily: "Tektur",
+  // },
 });
