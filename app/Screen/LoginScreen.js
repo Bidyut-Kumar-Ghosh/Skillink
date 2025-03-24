@@ -1,15 +1,13 @@
 // import { Text, View, Image } from "react-native";
 // import React, { Component } from "react";
 import { useFonts } from "expo-font";
-// import icon from "../../assets/images/login.jpg";
+import icon from "../../assets/images/favicon.png";
 import Colours from "../Utils/Colours";
 import Google from "../../assets/images/Google.png";
 
 // export default function LoginScreen() {
 //   <View></View>;
-//   const [loaded, error] = useFonts({
-//     Tektur: require("../fonts/Tektur-Bold.ttf"),
-//   });
+//
 //   return (
 //     <View style={{ display: "flex", alignItems: "centers" }}>
 //       <Image
@@ -95,6 +93,9 @@ const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
+  const [loaded, error] = useFonts({
+    Tektur: require("../fonts/Tektur-Bold.ttf"),
+  });
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -114,6 +115,17 @@ const LoginScreen = () => {
 
   return (
     <View style={styles.container}>
+      <Image
+        source={icon}
+        style={{
+          width: 200,
+          height: 200,
+          objectFit: "contain",
+          // backgroundColor: Colours.SECONDARY,
+          marginTop: 50,
+          // marginBottom: 50,
+        }}
+      />
       <Text style={styles.title}>Welcome to Skillink</Text>
       <Text style={styles.subtitle}>Your Learning Solutions</Text>
 
@@ -216,17 +228,17 @@ const styles = StyleSheet.create({
     height: 45,
   },
   loginButton: {
-    backgroundColor: "#1E88E5",
-    paddingVertical: 20,
+    // backgroundColor: "#1E88E5",
+    paddingVertical: 10,
     width: "100%",
-    borderRadius: 100,
+    borderRadius: 10,
     alignItems: "center",
   },
   loginText: {
-    color: "#fff",
+    color: Colours.BLACK,
     fontSize: 18,
     // fontFamily: "Tektur",
-    fontWeight: "bold",
+    // fontWeight: "bold",
     textAlign: "center",
   },
   forgotPassword: {
