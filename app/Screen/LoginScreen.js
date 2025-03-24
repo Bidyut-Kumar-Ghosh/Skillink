@@ -79,6 +79,7 @@ import Google from "../../assets/images/Google.png";
 // }
 
 import React, { useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -93,6 +94,7 @@ const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
+  const navigation = useNavigation();
   const [loaded, error] = useFonts({
     Tektur: require("../fonts/Tektur-Bold.ttf"),
   });
@@ -112,6 +114,7 @@ const LoginScreen = () => {
       return;
     }
     alert("Login Successful");
+    navigation.navigate("Dashboard");
   };
 
   return (
