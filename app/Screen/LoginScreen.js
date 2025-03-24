@@ -106,6 +106,7 @@ const LoginScreen = () => {
       alert("Please fill in both fields");
       return;
     }
+    // if
     if (!validateEmail(email)) {
       alert("Please enter a valid email address");
       return;
