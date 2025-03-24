@@ -6,8 +6,7 @@ import LoginScreen from "./Screen/LoginScreen";
 
 export default function App() {
   <View style={styles.container}></View>;
-  const [loaded, error] = useFonts
-  ({
+  const [loaded, error] = useFonts({
     Tektur: require("./fonts/Tektur-Black.ttf"),
   });
   return (
