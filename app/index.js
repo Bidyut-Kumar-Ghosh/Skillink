@@ -1,37 +1,26 @@
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View } from "react-native";
+import { createStackNavigator } from "@react-navigation/stack";
 import { useFonts } from "expo-font";
 import React from "react";
 import LoginScreen from "./Screen/LoginScreen";
+import SignupScreen from "./Screen/SignupScreen";
+import { useNavigation } from "expo-router"; // Ensure navigation works with Expo Router
+
+const Stack = createStackNavigator();
 
 export default function App() {
-  <View style={styles.container}></View>;
-  const [loaded, error] = useFonts({
+  const [loaded] = useFonts({
     Tektur: require("./fonts/Tektur-Black.ttf"),
   });
+
+  if (!loaded) {
+    return null; // Ensures app does not render before font is loaded
+  }
+
   return (
-    <View style={styles.container}>
-      {/* <Text style={styles.text}>Welcome</Text>
-      <Text style={styles.text1}>To Skillink</Text> */}
-      {/* <StatusBar style="auto" /> */}
-      <LoginScreen />
-    </View>
+    <Stack.Navigator initialRouteName="Login">
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Signup" component={SignupScreen} />
+    </Stack.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    // backgroundColor: "#ffffff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // text: {
-  //   color: "#fff",
-  //   fontFamily: "Tektur",
-  // },
-  // text1: {
-  //   color: "#ff6600",
-  //   fontFamily: "Tektur",
-  // },
-});

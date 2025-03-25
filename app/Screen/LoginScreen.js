@@ -1,19 +1,21 @@
+import React from "react";
 import { useFonts } from "expo-font";
 import icon from "../../assets/images/favicon.png";
 import Colours from "../Utils/Colours";
 import Google from "../../assets/images/Google.png";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import {
   View,
   Text,
+  Button,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   Image,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import SignUpScreen from "./SignupScreen";
+// import SignUpScreen from "./SignupScreen";
 
 const LoginScreen = () => {
   const [email, setEmail] = useState("");
@@ -89,7 +91,7 @@ const LoginScreen = () => {
         <Image source={Google} style={{ width: 40, height: 40 }} />
         <Text style={styles.loginText}>Sign in with Google</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
+      <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
         <Text style={styles.switchText}>Don't have an account? Sign Up</Text>
       </TouchableOpacity>
       <TouchableOpacity>
