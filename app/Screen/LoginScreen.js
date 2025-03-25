@@ -89,6 +89,7 @@ import {
   Image,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import SignUpScreen from "./SignupScreen";
 
 const LoginScreen = () => {
   const [email, setEmail] = useState("");
@@ -114,7 +115,7 @@ const LoginScreen = () => {
       return;
     }
     alert("Login Successful");
-    navigation.navigate("Dashboard");
+    navigation.navigate("Signupscreen");
   };
 
   return (
