@@ -165,6 +165,9 @@ const LoginScreen = () => {
         <Image source={Google} style={{ width: 40, height: 40 }} />
         <Text style={styles.loginText}>Sign in with Google</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
+        <Text style={styles.switchText}>Don't have an account? Sign Up</Text>
+      </TouchableOpacity>
       <TouchableOpacity>
         <Text style={styles.forgotPassword}>Forgot Password?</Text>
       </TouchableOpacity>
