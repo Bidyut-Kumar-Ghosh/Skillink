@@ -1,101 +1,159 @@
-import React from "react";
-import { useFonts } from "expo-font";
-import icon from "../../assets/images/favicon.png";
-import Colours from "../Utils/Colours";
-import Google from "../../assets/images/Google.png";
-import { useState } from "react";
-import { useNavigation } from "@react-navigation/native";
+import React, { useState } from "react";
 import {
   View,
   Text,
-  Button,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   Image,
 } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
-// import SignUpScreen from "./SignupScreen";
+import { useNavigation } from "@react-navigation/native";
+import Colours from "../Utils/Colours";
+import icon from "../../assets/images/favicon.png";
 
 const LoginScreen = () => {
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [secureText, setSecureText] = useState(true);
+  const [useEmail, setUseEmail] = useState(false);
   const navigation = useNavigation();
-  const [loaded, error] = useFonts({
-    Tektur: require("../fonts/Tektur-Bold.ttf"),
-  });
 
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  const handleContinue = () => {
+    if (useEmail) {
+      if (!email.includes("@")) {
+        alert("Please enter a valid email");
+        return;
+      }
+      checkUser(email);
+    } else {
+      if (phoneNumber.length !== 10) {
+        alert("Please enter a valid 10-digit mobile number");
+        return;
+      }
+      checkUser(phoneNumber);
+    }
   };
   const handleLogin = () => {
-    if (!email || !password) {
-      alert("Please fill in both fields");
+    if (!emailOrPhone) {
+      alert("Please enter your email or phone number");
       return;
     }
-    // if
-    if (!validateEmail(email)) {
-      alert("Please enter a valid email address");
-      return;
+
+    navigation.navigate("CompleteProfile", { emailOrPhone });
+  };
+
+  const checkUser = (identifier) => {
+    const existingUsers = ["9876543210", "test@example.com"];
+    if (existingUsers.includes(identifier)) {
+      navigation.navigate("Home");
+    } else {
+      navigation.navigate("CompleteProfile");
     }
-    alert("Login Successful");
-    navigation.navigate("Signupscreen");
   };
 
   return (
     <View style={styles.container}>
-      <Image
-        source={icon}
-        style={{
-          width: 200,
-          height: 200,
-          objectFit: "contain",
-          // backgroundColor: Colours.SECONDARY,
-          marginTop: 50,
-          // marginBottom: 50,
-        }}
-      />
-      <Text style={styles.title}>Welcome to Skillink</Text>
-      <Text style={styles.subtitle}>Your Learning Solutions</Text>
+      <Image source={icon} style={styles.logo} />
+      <Text style={styles.tagline}>India’s largest learning platform</Text>
 
-      <View style={styles.EmailContainer}>
-        <TextInput
-          style={styles.inputEmail}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
-      <View style={styles.PasswordContainer}>
-        <TextInput
-          style={styles.inputPassword}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={secureText}
-        />
-
-        <TouchableOpacity onPress={() => setSecureText(!secureText)}>
-          <MaterialIcons
-            name={secureText ? "visibility-off" : "visibility"}
-            size={24}
-            color="gray"
+      {useEmail ? (
+        <>
+          <Text style={styles.label}>Enter your email</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Email address"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
           />
-        </TouchableOpacity>
-      </View>
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-        <Image source={Google} style={{ width: 40, height: 40 }} />
-        <Text style={styles.loginText}>Sign in with Google</Text>
+        </>
+      ) : (
+        <>
+          <Text style={styles.label}>Enter your mobile number</Text>
+          <View style={styles.inputContainer}>
+            <Text style={styles.countryCode}>+91</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Mobile number"
+              keyboardType="phone-pad"
+              maxLength={10}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+            />
+          </View>
+        </>
+      )}
+
+      <TouchableOpacity onPress={() => setUseEmail(!useEmail)}>
+        <Text style={styles.emailOption}>
+          {useEmail
+            ? "Or continue with phone number"
+            : "Or continue with email"}
+        </Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-        <Text style={styles.switchText}>Don't have an account? Sign Up</Text>
+
+      <TouchableOpacity
+        style={[
+          styles.continueButton,
+          (useEmail ? email.includes("@") : phoneNumber.length === 10)
+            ? styles.activeButton
+            : styles.disabledButton,
+        ]}
+        onPress={handleContinue}
+        disabled={useEmail ? !email.includes("@") : phoneNumber.length !== 10}
+      >
+        <Text style={styles.continueText}>Continue</Text>
       </TouchableOpacity>
-      <TouchableOpacity>
-        <Text style={styles.forgotPassword}>Forgot Password?</Text>
+    </View>
+  );
+};
+
+const CompleteProfileScreen = () => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [state, setState] = useState("");
+  const navigation = useNavigation();
+
+  const handleSubmit = () => {
+    if (!name || !email.includes("@") || phoneNumber.length !== 10 || !state) {
+      alert("Please fill all fields correctly");
+      return;
+    }
+    navigation.navigate("Home");
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Complete your profile</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Full name"
+        value={name}
+        onChangeText={setName}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Email address"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Mobile number"
+        keyboardType="phone-pad"
+        maxLength={10}
+        value={phoneNumber}
+        onChangeText={setPhoneNumber}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="State of residence"
+        value={state}
+        onChangeText={setState}
+      />
+      <TouchableOpacity style={styles.continueButton} onPress={handleSubmit}>
+        <Text style={styles.continueText}>Continue</Text>
       </TouchableOpacity>
     </View>
   );
@@ -104,80 +162,58 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colours.WHITE,
     padding: 20,
+    backgroundColor: Colours.WHITE,
+  },
+  logo: {
+    width: "100%",
+    height: 150,
+    resizeMode: "contain",
+    marginTop: 50,
+  },
+  tagline: {
+    fontSize: 16,
+    color: Colours.BLACK,
+    fontWeight: "bold",
+    marginVertical: 10,
   },
   title: {
-    fontSize: 25,
-    fontFamily: "Tektur",
+    fontSize: 22,
+    fontWeight: "semibold",
+    marginVertical: 20,
+  },
+  input: {
+    width: "100%",
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 10,
+  },
+  continueButton: {
+    width: "100%",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    backgroundColor: "#00A86B",
+    marginTop: 20,
+  },
+  continueText: {
+    color: "white",
+    fontSize: 16,
     fontWeight: "bold",
-    marginBottom: 20,
-    color: Colours.MAIN,
   },
-  subtitle: {
-    textAlign: "center",
-    fontSize: 17,
-    // fontWeight: "medium",
-    fontFamily: "Tektur",
-    // marginTop: 20,
-    marginBottom: 20,
-    color: Colours.VAS,
-  },
-  EmailContainer: {
-    // gap: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    // paddingBottom:16,
-    paddingLeft: 30,
-    paddingRight: 10,
-    marginBottom: 10,
-  },
-
-  PasswordContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    paddingLeft: 30,
-    paddingRight: 10,
-    marginBottom: 15,
-  },
-  inputPassword: {
-    flex: 1,
-    height: 45,
-  },
-  inputEmail: {
-    flex: 1,
-    // backgroundColor: Colours.MAIN,
-    height: 45,
-  },
-  loginButton: {
-    // backgroundColor: "#1E88E5",
-    paddingVertical: 10,
-    width: "100%",
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  loginText: {
-    color: Colours.BLACK,
-    fontSize: 18,
-    // fontFamily: "Tektur",
-    // fontWeight: "bold",
-    textAlign: "center",
-  },
-  forgotPassword: {
+  emailOption: {
+    color: "#00A86B",
     marginTop: 15,
-    color: "#1E88E5",
+  },
+  activeButton: {
+    backgroundColor: "#00A86B",
+  },
+  disabledButton: {
+    backgroundColor: "#A0DAB5",
   },
 });
 
