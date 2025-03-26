@@ -6,28 +6,21 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
+  Alert,
 } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
-import icon from "../../assets/images/favicon.png";
+import { db, setDoc, doc } from "../Database/firebaseConfig";
+import { getAuth } from "firebase/auth";
 import Colours from "../Utils/Colours";
-import { Picker } from "@react-native-picker/picker";
 
 const CompleteProfileScreen = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const navigation = useNavigation();
+  const auth = getAuth();
 
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const validateMobileNumber = (number) => {
-    const mobileRegex = /^[6-9]\d{9}$/;
-    return mobileRegex.test(number);
-  };
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const validateMobileNumber = (number) => /^[6-9]\d{9}$/.test(number);
 
   const isFormValid =
     fullName &&
@@ -36,18 +29,41 @@ const CompleteProfileScreen = () => {
     validateEmail(email) &&
     validateMobileNumber(mobileNumber);
 
-  const handleProfileCompletion = () => {
+  const handleProfileCompletion = async () => {
     if (!isFormValid) {
-      alert("Please complete all fields correctly");
+      Alert.alert("Invalid Input", "Please complete all fields correctly.");
       return;
     }
-    alert("Profile Completed Successfully");
-    navigation.navigate("Home");
+
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert("Error", "User not authenticated.");
+        return;
+      }
+
+      const userProfile = {
+        uid: user.uid,
+        name: fullName,
+        email: email,
+        phone: mobileNumber,
+        profileImage: "https://example.com/photo.jpg", // Update with actual image upload feature later
+        skills: [], // You can let the user select skills later
+      };
+
+      await setDoc(doc(db, "users", user.uid), userProfile);
+
+      Alert.alert("Success", "Profile completed successfully!");
+      navigation.navigate("Home");
+    } catch (error) {
+      Alert.alert("Error", "Failed to save profile data: " + error.message);
+    }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Complete Your Profile</Text>
+
       <Text style={styles.label}>Name</Text>
       <TextInput
         style={styles.input}
@@ -55,6 +71,7 @@ const CompleteProfileScreen = () => {
         value={fullName}
         onChangeText={setFullName}
       />
+
       <Text style={styles.label}>E-mail address</Text>
       <TextInput
         style={styles.input}
@@ -63,19 +80,17 @@ const CompleteProfileScreen = () => {
         onChangeText={setEmail}
         keyboardType="email-address"
       />
+
       <Text style={styles.label}>Mobile number</Text>
       <TextInput
         style={styles.input}
         placeholder="Mobile number"
         value={mobileNumber}
-        onChangeText={(text) => {
-          if (text.length <= 10) {
-            setMobileNumber(text);
-          }
-        }}
+        onChangeText={(text) => text.length <= 10 && setMobileNumber(text)}
         keyboardType="phone-pad"
         maxLength={10}
       />
+
       <TouchableOpacity
         style={isFormValid ? styles.activeButton : styles.disabledButton}
         onPress={handleProfileCompletion}
