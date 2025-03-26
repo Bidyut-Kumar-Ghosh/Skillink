@@ -57,5 +57,18 @@
     "react-test-renderer": "18.3.1",
     "typescript": "^5.3.3"
   },
-  "private": true
+  "private": true,
+  "description": "- **Creators**: Bidyut, Sourav, Basira\r - **Type**: College Final Year Project\r - **Technology Stack**: React Native, Expo, Firebase, Strapi, MySQL",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bidyut-Kumar-Ghosh/Skillink.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Bidyut-Kumar-Ghosh/Skillink/issues"
+  },
+  "homepage": "https://github.com/Bidyut-Kumar-Ghosh/Skillink#readme"
 }
