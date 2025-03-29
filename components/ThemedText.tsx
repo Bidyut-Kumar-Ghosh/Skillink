@@ -1,11 +1,12 @@
 import { Text, type TextProps, StyleSheet } from 'react-native';
-
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { useTheme } from '@/context/ThemeContext';
+import { Fonts } from '@/constants/Fonts';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
-  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
+  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link' | 'caption';
 };
 
 export function ThemedText({
@@ -15,7 +16,8 @@ export function ThemedText({
   type = 'default',
   ...rest
 }: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const { theme } = useTheme();
+  const color = lightColor || darkColor ? useThemeColor({ light: lightColor, dark: darkColor }, 'text') : theme.text;
 
   return (
     <Text
@@ -26,6 +28,7 @@ export function ThemedText({
         type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
         type === 'subtitle' ? styles.subtitle : undefined,
         type === 'link' ? styles.link : undefined,
+        type === 'caption' ? styles.caption : undefined,
         style,
       ]}
       {...rest}
@@ -35,26 +38,35 @@ export function ThemedText({
 
 const styles = StyleSheet.create({
   default: {
-    fontSize: 16,
+    fontSize: Fonts.sizes.medium,
     lineHeight: 24,
+    fontFamily: Fonts.primary.regular,
   },
   defaultSemiBold: {
-    fontSize: 16,
+    fontSize: Fonts.sizes.medium,
     lineHeight: 24,
-    fontWeight: '600',
+    fontFamily: Fonts.primary.semiBold,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 32,
+    fontSize: Fonts.sizes.title,
+    fontFamily: Fonts.primary.bold,
+    lineHeight: 38,
   },
   subtitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: Fonts.sizes.xl,
+    fontFamily: Fonts.primary.semiBold,
+    lineHeight: 28,
   },
   link: {
     lineHeight: 30,
-    fontSize: 16,
-    color: '#0a7ea4',
+    fontSize: Fonts.sizes.medium,
+    fontFamily: Fonts.primary.medium,
+    textDecorationLine: 'underline',
+  },
+  caption: {
+    fontSize: Fonts.sizes.small,
+    fontFamily: Fonts.primary.regular,
+    lineHeight: 18,
+    opacity: 0.8,
   },
 });

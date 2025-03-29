@@ -1,45 +1,56 @@
-import { Tabs } from 'expo-router';
+import { Stack } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
-
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
+import { Platform, StatusBar } from 'react-native';
+import { useTheme, ThemeProvider } from '@/context/ThemeContext';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { AuthProvider } from '@/context/AuthContext';
+import { useFonts } from 'expo-font';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+function StackLayoutContent() {
+    const { theme, isDarkMode } = useTheme();
 
-  return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-    </Tabs>
-  );
+    return (
+        <>
+            <StatusBar
+                barStyle={isDarkMode ? "light-content" : "dark-content"}
+                backgroundColor={theme.background}
+            />
+            <Stack
+                screenOptions={{
+                    headerShown: false,
+                    contentStyle: {
+                        backgroundColor: theme.background,
+                    }
+                }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="dashboard" />
+                <Stack.Screen name="explore" />
+                <Stack.Screen name="(auth)" options={{
+                    headerShown: false,
+                    animation: 'fade',
+                }} />
+            </Stack>
+        </>
+    );
 }
+
+export default function RootLayout() {
+    const [fontsLoaded] = useFonts({
+        'Inter-Regular': require('@/assets/fonts/Inter-Regular.ttf'),
+        'Inter-Medium': require('@/assets/fonts/Inter-Medium.ttf'),
+        'Inter-SemiBold': require('@/assets/fonts/Inter-SemiBold.ttf'),
+        'Inter-Bold': require('@/assets/fonts/Inter-Bold.ttf'),
+    });
+
+    if (!fontsLoaded) {
+        return null; // Return a loading indicator if you prefer
+    }
+
+    return (
+        <ThemeProvider>
+            <AuthProvider>
+                <StackLayoutContent />
+            </AuthProvider>
+        </ThemeProvider>
+    );
+} 
