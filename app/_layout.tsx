@@ -1,50 +1,9 @@
-import { Stack, router } from 'expo-router';
 import React from 'react';
-import { Platform, StatusBar } from 'react-native';
-import { useTheme, ThemeProvider } from '@/context/ThemeContext';
-import { Colors } from '@/constants/Colors';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
-
-function StackLayoutContent() {
-    const { theme } = useTheme();
-    const { isLoggedIn, isAdmin } = useAuth();
-
-    // Redirect logged-in users directly to dashboard
-    React.useEffect(() => {
-        if (isLoggedIn) {
-            router.replace(isAdmin ? '/' : '/dashboard');
-        }
-    }, [isLoggedIn, isAdmin]);
-
-    return (
-        <>
-            <StatusBar
-                barStyle="dark-content"
-                backgroundColor={theme.background}
-            />
-            <Stack
-                screenOptions={{
-                    headerShown: false,
-                    contentStyle: {
-                        backgroundColor: theme.background,
-                    }
-                }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="(auth)" options={{
-                    headerShown: false,
-                    animation: 'fade',
-                }} />
-                <Stack.Screen name="dashboard" options={{
-                    headerShown: false,
-                }} />
-                <Stack.Screen name="admin" options={{
-                    headerShown: false,
-                }} />
-            </Stack>
-        </>
-    );
-}
+import { ThemeProvider } from '@/context/ThemeContext';
+import { AuthProvider } from '@/context/AuthContext';
+import { StatusBar } from 'react-native';
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -60,8 +19,14 @@ export default function RootLayout() {
 
     return (
         <ThemeProvider>
+            <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
             <AuthProvider>
-                <StackLayoutContent />
+                <Stack
+                    screenOptions={{
+                        headerShown: false,
+                        contentStyle: { backgroundColor: 'transparent' }
+                    }}
+                />
             </AuthProvider>
         </ThemeProvider>
     );

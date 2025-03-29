@@ -1,0 +1,20 @@
+SVG to PNG Conversion Instructions:
+
+1. Convert these SVG files to PNG format:
+   - icon.svg → icon.png (1024x1024px)
+   - adaptive-icon.svg → adaptive-icon.png (1024x1024px)
+   - splash.svg → splash.png (1242x2436px)
+   - favicon.svg → favicon.png (32x32px)
+
+2. You can use online converters like:
+   - https://www.svgbackgrounds.com/tools/svg-to-png/
+   - https://convertio.co/svg-png/
+   - https://cloudconvert.com/svg-to-png
+
+3. For app development, you can manually create simple PNG files with these names until you have a proper design.
+
+4. To create simple PNGs, you can use any image editing software like:
+   - Paint.NET
+   - GIMP
+   - Photoshop
+   - Online tools like Canva or Figma 

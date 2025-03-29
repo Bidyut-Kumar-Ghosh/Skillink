@@ -1,386 +1,390 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
-  TouchableOpacity,
   View,
-  Platform,
-  ActivityIndicator,
-  Dimensions,
-  SafeAreaView,
-  TextInput,
-  KeyboardAvoidingView,
+  Text,
+  TouchableOpacity,
   ScrollView,
-  Image
+  SafeAreaView,
+  ActivityIndicator,
+  RefreshControl,
+  Image,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
-import { router, Link } from 'expo-router';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { Fonts } from '@/constants/Fonts';
-import ThemeToggle from '@/components/ThemeToggle';
+import { router } from 'expo-router';
+import { connectToDatabase } from '@/config/mongodb';
+import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
-const isSmallDevice = width < 375;
+const { width, height } = Dimensions.get('window');
 
-type LoginMethod = 'phone' | 'email';
+// Fallback theme for safety
+const fallbackTheme = {
+  background: '#f8f9fa',
+  primary: '#3366FF',
+  buttonText: '#ffffff',
+  text: '#333333',
+  textLight: '#8f9bb3',
+  cardBackground: '#ffffff',
+  error: '#ff3d71',
+};
 
-export default function LoginScreen() {
+export default function Dashboard() {
+  const { user, isLoggedIn, logOut, loading, authLoading } = useAuth();
   const { theme } = useTheme();
-  const { signInWithEmail, sendOTP, verifyOTP } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastLogin, setLastLogin] = useState<string>('');
+  const [accountCreated, setAccountCreated] = useState<string>('');
 
-  const [method, setMethod] = useState<LoginMethod>('phone');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [verificationId, setVerificationId] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [error, setError] = useState('');
+  // Use fallback theme if the real theme is not available
+  const activeTheme = theme || fallbackTheme;
 
-  const handleSendOTP = async () => {
+  // Redirect to login if not logged in
+  useEffect(() => {
+    if (!loading && !isLoggedIn) {
+      router.replace('/authentication/login');
+    } else if (user) {
+      fetchUserDetails();
+    }
+  }, [isLoggedIn, loading, user]);
+
+  const fetchUserDetails = async () => {
     try {
-      setError('');
-      if (!phoneNumber) {
-        setError('Please enter a phone number');
-        return;
-      }
-      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-      const vid = await sendOTP(formattedPhone);
-      setVerificationId(vid);
-      setOtpSent(true);
+      if (!user) return;
+
+      // Connect to MongoDB and get latest user data
+      await connectToDatabase();
+
+      // Format dates for display
+      const now = new Date();
+      const loginDate = new Date(user.lastLoginAt || now);
+      const createdDate = new Date(user.createdAt || now);
+
+      setLastLogin(formatDate(loginDate));
+      setAccountCreated(formatDate(createdDate));
     } catch (error) {
-      setError('Failed to send OTP. Please try again.');
-      console.error(error);
+      console.error('Error fetching user details:', error);
     }
   };
 
-  const handleVerifyOTP = async () => {
-    try {
-      setError('');
-      if (!otp) {
-        setError('Please enter the OTP');
-        return;
-      }
-      await verifyOTP(verificationId, otp);
-      router.replace('/dashboard');
-    } catch (error) {
-      setError('Invalid OTP. Please try again.');
-      console.error(error);
-    }
+  const formatDate = (date: Date): string => {
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const handleEmailLogin = async () => {
-    try {
-      setError('');
-      if (!email || !password) {
-        setError('Please fill in all fields');
-        return;
-      }
-      await signInWithEmail(email, password);
-      router.replace('/dashboard');
-    } catch (error) {
-      setError('Invalid email or password.');
-      console.error(error);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchUserDetails();
+    setRefreshing(false);
+  };
+
+  // Show loading while checking authentication
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3366FF" />
+      </View>
+    );
+  }
+
+  // Get first letter of name or email for avatar
+  const getInitial = () => {
+    if (user?.name && user.name.length > 0) {
+      return user.name.charAt(0).toUpperCase();
+    } else if (user?.email && user.email.length > 0) {
+      return user.email.charAt(0).toUpperCase();
     }
+    return 'U';
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1, backgroundColor: '#FFFFFF' }}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.themeToggleContainer}>
-          <ThemeToggle size={32} />
-        </View>
-
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('@/assets/images/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <ThemedText type="title" style={[styles.title, { color: theme.primary }]}>
-              Skillink
-            </ThemedText>
-          </View>
-
-          <ThemedView style={styles.container}>
-            <View style={styles.toggleContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.toggleButton,
-                  method === 'phone' && {
-                    borderBottomWidth: 2,
-                    borderBottomColor: theme.primary
-                  }
-                ]}
-                onPress={() => setMethod('phone')}
-              >
-                <ThemedText
-                  type={method === 'phone' ? 'defaultSemiBold' : 'default'}
-                  style={method === 'phone' ? { color: theme.primary } : undefined}
-                >
-                  Phone
-                </ThemedText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.toggleButton,
-                  method === 'email' && {
-                    borderBottomWidth: 2,
-                    borderBottomColor: theme.primary
-                  }
-                ]}
-                onPress={() => setMethod('email')}
-              >
-                <ThemedText
-                  type={method === 'email' ? 'defaultSemiBold' : 'default'}
-                  style={method === 'email' ? { color: theme.primary } : undefined}
-                >
-                  Email
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-
-            {error ? (
-              <View style={styles.errorContainer}>
-                <ThemedText style={[styles.errorText, { color: theme.error }]}>
-                  {error}
-                </ThemedText>
-              </View>
-            ) : null}
-
-            {method === 'phone' ? (
-              // Phone login form
-              <>
-                {!otpSent ? (
-                  // Phone number input
-                  <View style={styles.inputContainer}>
-                    <ThemedText style={styles.label}>Phone Number</ThemedText>
-                    <TextInput
-                      style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-                      value={phoneNumber}
-                      onChangeText={setPhoneNumber}
-                      placeholder="Enter your phone number"
-                      placeholderTextColor={theme.textLight}
-                      keyboardType="phone-pad"
-                      editable={!otpSent}
-                    />
-
-                    <TouchableOpacity
-                      style={[styles.button, { backgroundColor: theme.primary }]}
-                      onPress={handleSendOTP}
-                      disabled={otpSent}
-                    >
-                      {otpSent ? (
-                        <ActivityIndicator color={theme.buttonText} />
-                      ) : (
-                        <ThemedText style={[styles.buttonText, { color: theme.buttonText }]}>
-                          Send OTP
-                        </ThemedText>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  // OTP verification
-                  <View style={styles.inputContainer}>
-                    <ThemedText style={styles.label}>Verification Code</ThemedText>
-                    <TextInput
-                      style={[styles.input, styles.otpInput, { borderColor: theme.border, color: theme.text }]}
-                      value={otp}
-                      onChangeText={setOtp}
-                      placeholder="Enter 6-digit code"
-                      placeholderTextColor={theme.textLight}
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      editable={!otpSent}
-                    />
-
-                    <ThemedText style={styles.otpMessage}>
-                      We've sent a 6-digit verification code to {phoneNumber}
-                    </ThemedText>
-
-                    <TouchableOpacity
-                      style={[styles.button, { backgroundColor: theme.primary }]}
-                      onPress={handleVerifyOTP}
-                      disabled={otpSent}
-                    >
-                      {otpSent ? (
-                        <ActivityIndicator color={theme.buttonText} />
-                      ) : (
-                        <ThemedText style={[styles.buttonText, { color: theme.buttonText }]}>
-                          Verify OTP
-                        </ThemedText>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#3366FF" />
+      <View style={styles.backgroundContainer}>
+        <View style={styles.header}>
+          <View style={styles.avatarContainer}>
+            {user?.photoURL ? (
+              <Image source={{ uri: user.photoURL }} style={styles.avatar} />
             ) : (
-              // Email login form
-              <View style={styles.inputContainer}>
-                <ThemedText style={styles.label}>Email</ThemedText>
-                <TextInput
-                  style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Enter your email"
-                  placeholderTextColor={theme.textLight}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  editable={!otpSent}
-                />
-
-                <ThemedText style={styles.label}>Password</ThemedText>
-                <TextInput
-                  style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Enter your password"
-                  placeholderTextColor={theme.textLight}
-                  secureTextEntry
-                  editable={!otpSent}
-                />
-
-                <TouchableOpacity
-                  style={[styles.button, { backgroundColor: theme.primary }]}
-                  onPress={handleEmailLogin}
-                  disabled={otpSent}
-                >
-                  {otpSent ? (
-                    <ActivityIndicator color={theme.buttonText} />
-                  ) : (
-                    <ThemedText style={[styles.buttonText, { color: theme.buttonText }]}>
-                      Login
-                    </ThemedText>
-                  )}
-                </TouchableOpacity>
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>{getInitial()}</Text>
               </View>
             )}
+          </View>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.welcomeText}>Welcome back,</Text>
+            <Text style={styles.nameText}>{user?.name || 'User'}</Text>
+          </View>
+        </View>
 
-            <View style={styles.footerContainer}>
-              <ThemedText>Don't have an account?</ThemedText>
-              <Link href="/(auth)/signup" asChild>
-                <TouchableOpacity style={styles.textButton}>
-                  <ThemedText style={{ color: theme.primary, fontFamily: Fonts.primary.semiBold }}>
-                    Sign up
-                  </ThemedText>
-                </TouchableOpacity>
-              </Link>
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.profileCard}>
+            <View style={styles.profileHeader}>
+              <Ionicons name="person" size={20} color="#3366FF" />
+              <Text style={styles.profileTitle}>Profile Information</Text>
             </View>
-          </ThemedView>
+            <View style={styles.profileInfoItem}>
+              <Text style={styles.infoLabel}>Name:</Text>
+              <Text style={styles.infoValue}>{user?.name || 'Not set'}</Text>
+            </View>
+            <View style={styles.profileInfoItem}>
+              <Text style={styles.infoLabel}>Email:</Text>
+              <Text style={styles.infoValue}>{user?.email}</Text>
+            </View>
+            <View style={styles.profileInfoItem}>
+              <Text style={styles.infoLabel}>Role:</Text>
+              <Text style={styles.roleValue}>
+                {user?.role === 'admin' ? 'Administrator' : 'Student'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.analyticsCard}>
+            <View style={styles.profileHeader}>
+              <Ionicons name="analytics" size={20} color="#3366FF" />
+              <Text style={styles.profileTitle}>Account Statistics</Text>
+            </View>
+            <View style={styles.profileInfoItem}>
+              <Text style={styles.infoLabel}>Account Created:</Text>
+              <Text style={styles.infoValue}>{accountCreated}</Text>
+            </View>
+            <View style={styles.profileInfoItem}>
+              <Text style={styles.infoLabel}>Last Login:</Text>
+              <Text style={styles.infoValue}>{lastLogin}</Text>
+            </View>
+          </View>
+
+          <View style={styles.quickActionsCard}>
+            <View style={styles.profileHeader}>
+              <Ionicons name="flash" size={20} color="#3366FF" />
+              <Text style={styles.profileTitle}>Quick Actions</Text>
+            </View>
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
+                <Text style={styles.actionText}>Settings</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="help-circle-outline" size={24} color="#FFFFFF" />
+                <Text style={styles.actionText}>Help</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="star-outline" size={24} color="#FFFFFF" />
+                <Text style={styles.actionText}>Rate Us</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={logOut}
+            disabled={authLoading}
+          >
+            {authLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="log-out-outline" size={20} color="#FFFFFF" style={styles.logoutIcon} />
+                <Text style={styles.logoutText}>LOG OUT</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </ScrollView>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F5F5',
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
+  backgroundContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F5F5F5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(51, 102, 255, 0.8)',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  avatarContainer: {
+    marginRight: 15,
+  },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarText: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#3366FF',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: '#E0E0E0',
+    marginBottom: 5,
+  },
+  nameText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  scrollContainer: {
+    padding: 20,
     paddingBottom: 40,
   },
-  themeToggleContainer: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    zIndex: 10,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginTop: 60,
-    marginBottom: 32,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: Fonts.sizes.title,
-  },
-  container: {
-    padding: 20,
-    borderRadius: 12,
+  profileCard: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 3,
   },
-  toggleContainer: {
+  profileHeader: {
     flexDirection: 'row',
-    marginBottom: 24,
-  },
-  toggleButton: {
-    flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
-  },
-  errorContainer: {
-    marginBottom: 16,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(211, 47, 47, 0.1)',
-  },
-  errorText: {
-    fontSize: Fonts.sizes.small,
-    textAlign: 'center',
-  },
-  inputContainer: {
     marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    paddingBottom: 10,
   },
-  label: {
-    marginBottom: 8,
-    fontFamily: Fonts.primary.medium,
+  profileTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginLeft: 10,
   },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-    fontSize: Fonts.sizes.medium,
-  },
-  otpInput: {
-    textAlign: 'center',
-    letterSpacing: 2,
-    fontSize: 20,
-  },
-  otpMessage: {
-    marginBottom: 16,
-    textAlign: 'center',
-    fontSize: Fonts.sizes.small,
-  },
-  button: {
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    fontFamily: Fonts.primary.semiBold,
-    fontSize: Fonts.sizes.medium,
-  },
-  footerContainer: {
+  profileInfoItem: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 15,
   },
-  textButton: {
-    marginLeft: 8,
-    padding: 4,
+  infoLabel: {
+    fontSize: 14,
+    color: '#777777',
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333333',
+  },
+  roleValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#3366FF',
+    backgroundColor: 'rgba(51, 102, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  analyticsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickActionsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    backgroundColor: '#3366FF',
+    width: width / 4,
+    height: 80,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  actionText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    marginTop: 5,
+    textAlign: 'center',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    backgroundColor: '#ff3d71',
+    height: 55,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  logoutIcon: {
+    marginRight: 10,
+  },
+  logoutText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
