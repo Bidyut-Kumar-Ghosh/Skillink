@@ -1,131 +1,115 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
-import { router } from 'expo-router';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { auth } from '@/config/firebase';
+import {
+    PhoneAuthProvider,
+    signInWithCredential,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut,
+    User,
+} from 'firebase/auth';
 
-// Define user type
-type User = {
-    id: string;
-    name: string;
-    email: string;
-    provider: string;
-    avatar?: string;
-};
-
-// Define signup data type
-type SignupData = {
-    name: string;
-    email: string;
-    password: string;
-};
-
-// Define context type
-type AuthContextType = {
+interface AuthContextType {
     user: User | null;
-    isLoading: boolean;
-    login: (provider: string) => Promise<void>;
-    logout: () => void;
     isLoggedIn: boolean;
-    register: (data: SignupData) => Promise<void>;
-};
+    isAdmin: boolean;
+    loading: boolean;
+    sendOTP: (phoneNumber: string) => Promise<string>;
+    verifyOTP: (verificationId: string, otp: string) => Promise<void>;
+    signUpWithEmail: (email: string, password: string) => Promise<void>;
+    signInWithEmail: (email: string, password: string) => Promise<void>;
+    logout: () => Promise<void>;
+}
 
-// Create context with default values
-const AuthContext = createContext<AuthContextType>({
-    user: null,
-    isLoading: false,
-    login: async () => { },
-    logout: () => { },
-    isLoggedIn: false,
-    register: async () => { },
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Auth provider props type
-type AuthProviderProps = {
-    children: ReactNode;
-};
-
-// Auth provider component
-export const AuthProvider = ({ children }: AuthProviderProps) => {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [loading, setLoading] = useState(true);
 
-    // Mock login function - would connect to real auth providers in production
-    const login = async (provider: string) => {
-        setIsLoading(true);
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            setUser(user);
+            setLoading(false);
+        });
 
+        return unsubscribe;
+    }, []);
+
+    const sendOTP = async (phoneNumber: string) => {
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Mock user data based on provider
-            const mockUser: User = {
-                id: `user-${Math.floor(Math.random() * 10000)}`,
-                name: `Test User (${provider})`,
-                email: `user@${provider.toLowerCase()}.com`,
-                provider: provider,
-                avatar: provider === 'GitHub' ? 'https://github.com/identicons/app/to/image.png' : undefined,
-            };
-
-            setUser(mockUser);
-            console.log(`Logged in with ${provider}`, mockUser);
-
-            // Navigate to dashboard after successful login
-            router.replace('/dashboard');
+            const provider = new PhoneAuthProvider(auth);
+            // Note: In a real app, you would need to implement reCAPTCHA verification
+            // This is a simplified version for demonstration
+            return await provider.verifyPhoneNumber(phoneNumber, window.recaptchaVerifier);
         } catch (error) {
-            console.error(`Login with ${provider} failed:`, error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Register function for signup
-    const register = async (data: SignupData) => {
-        setIsLoading(true);
-
-        try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            // Create user from signup data
-            const newUser: User = {
-                id: `user-${Math.floor(Math.random() * 10000)}`,
-                name: data.name,
-                email: data.email,
-                provider: 'Email',
-            };
-
-            setUser(newUser);
-            console.log('Registered new user:', newUser);
-
-            // Navigate to dashboard after successful registration
-            router.replace('/dashboard');
-        } catch (error) {
-            console.error('Registration failed:', error);
+            console.error('Error sending OTP:', error);
             throw error;
-        } finally {
-            setIsLoading(false);
         }
     };
 
-    // Logout function
-    const logout = () => {
-        setUser(null);
-        // Navigate back to home page
-        router.replace('/');
+    const verifyOTP = async (verificationId: string, otp: string) => {
+        try {
+            const credential = PhoneAuthProvider.credential(verificationId, otp);
+            await signInWithCredential(auth, credential);
+        } catch (error) {
+            console.error('Error verifying OTP:', error);
+            throw error;
+        }
+    };
+
+    const signUpWithEmail = async (email: string, password: string) => {
+        try {
+            await createUserWithEmailAndPassword(auth, email, password);
+        } catch (error) {
+            console.error('Error signing up with email:', error);
+            throw error;
+        }
+    };
+
+    const signInWithEmail = async (email: string, password: string) => {
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+        } catch (error) {
+            console.error('Error signing in with email:', error);
+            throw error;
+        }
+    };
+
+    const logout = async () => {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error('Error signing out:', error);
+            throw error;
+        }
+    };
+
+    const isAdmin = user?.email === 'admin@skillink.com'; // Replace with your admin email
+
+    const value = {
+        user,
+        isLoggedIn: !!user,
+        isAdmin,
+        loading,
+        sendOTP,
+        verifyOTP,
+        signUpWithEmail,
+        signInWithEmail,
+        logout,
     };
 
     return (
-        <AuthContext.Provider
-            value={{
-                user,
-                isLoading,
-                login,
-                logout,
-                isLoggedIn: !!user,
-                register,
-            }}>
-            {children}
+        <AuthContext.Provider value={value}>
+            {!loading && children}
         </AuthContext.Provider>
     );
-};
+}
 
-// Custom hook to use the auth context
-export const useAuth = () => useContext(AuthContext); 
+export function useAuth() {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+} 

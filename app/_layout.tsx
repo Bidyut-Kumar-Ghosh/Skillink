@@ -1,18 +1,26 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import React from 'react';
 import { Platform, StatusBar } from 'react-native';
 import { useTheme, ThemeProvider } from '@/context/ThemeContext';
 import { Colors } from '@/constants/Colors';
-import { AuthProvider } from '@/context/AuthContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { useFonts } from 'expo-font';
 
 function StackLayoutContent() {
-    const { theme, isDarkMode } = useTheme();
+    const { theme } = useTheme();
+    const { isLoggedIn, isAdmin } = useAuth();
+
+    // Redirect logged-in users directly to dashboard
+    React.useEffect(() => {
+        if (isLoggedIn) {
+            router.replace(isAdmin ? '/' : '/dashboard');
+        }
+    }, [isLoggedIn, isAdmin]);
 
     return (
         <>
             <StatusBar
-                barStyle={isDarkMode ? "light-content" : "dark-content"}
+                barStyle="dark-content"
                 backgroundColor={theme.background}
             />
             <Stack
@@ -23,11 +31,15 @@ function StackLayoutContent() {
                     }
                 }}>
                 <Stack.Screen name="index" />
-                <Stack.Screen name="dashboard" />
-                <Stack.Screen name="explore" />
                 <Stack.Screen name="(auth)" options={{
                     headerShown: false,
                     animation: 'fade',
+                }} />
+                <Stack.Screen name="dashboard" options={{
+                    headerShown: false,
+                }} />
+                <Stack.Screen name="admin" options={{
+                    headerShown: false,
                 }} />
             </Stack>
         </>

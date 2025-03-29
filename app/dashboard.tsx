@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, ScrollView, TouchableOpacity, Dimensions, Image } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useTheme } from '@/context/ThemeContext';
@@ -7,150 +7,171 @@ import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import { Fonts } from '@/constants/Fonts';
 import ThemeToggle from '@/components/ThemeToggle';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const isSmallDevice = width < 375;
 
-export default function DashboardScreen() {
-    const { theme, isDarkMode } = useTheme();
-    const { user, logout } = useAuth();
+// Suggested books data
+const suggestedBooks = [
+    {
+        id: '1',
+        title: 'React Native in Action',
+        author: 'Nader Dabit',
+        price: '$39.99',
+        rating: 4.5,
+        description: 'A practical guide to building React Native applications',
+    },
+    {
+        id: '2',
+        title: 'JavaScript: The Good Parts',
+        author: 'Douglas Crockford',
+        price: '$29.99',
+        rating: 4.8,
+        description: 'A guide to JavaScript best practices and patterns',
+    },
+    {
+        id: '3',
+        title: 'Eloquent JavaScript',
+        author: 'Marijn Haverbeke',
+        price: '$34.99',
+        rating: 4.7,
+        description: 'A modern introduction to programming with JavaScript',
+    }
+];
 
-    const handleLogout = async () => {
-        await logout();
-        router.replace('/');
+// Course data
+const enrolledCourses = [
+    {
+        id: 1,
+        title: 'Introduction to React Native',
+        progress: 65,
+        totalLessons: 12,
+        completedLessons: 8,
+        relatedBooks: ['React Native in Action', 'Learning React Native']
+    },
+    {
+        id: 2,
+        title: 'Advanced JavaScript Patterns',
+        progress: 30,
+        totalLessons: 16,
+        completedLessons: 5,
+        relatedBooks: ['JavaScript: The Good Parts', 'Eloquent JavaScript']
+    },
+    {
+        id: 3,
+        title: 'UI/UX Design Fundamentals',
+        progress: 10,
+        totalLessons: 14,
+        completedLessons: 1,
+        relatedBooks: []
+    }
+];
+
+// Sample data - replace with actual data from your backend
+const sampleCourses = [
+    { id: 1, title: 'Introduction to Programming', progress: 30 },
+    { id: 2, title: 'Web Development Basics', progress: 45 },
+    { id: 3, title: 'Data Structures', progress: 15 },
+];
+
+const sampleBooks = [
+    { id: 1, title: 'JavaScript: The Good Parts', author: 'Douglas Crockford' },
+    { id: 2, title: 'Clean Code', author: 'Robert C. Martin' },
+    { id: 3, title: 'Design Patterns', author: 'Gang of Four' },
+];
+
+export default function DashboardScreen() {
+    const { theme } = useTheme();
+    const { user } = useAuth();
+    const [activeTab, setActiveTab] = useState<'courses' | 'books'>('courses');
+
+    const navigateToCourse = (courseId: number) => {
+        router.push('/');  // Replace with actual course route when available
     };
 
-    const enrolledCourses = [
-        { id: 1, title: 'Introduction to React Native', progress: 65, totalLessons: 12, completedLessons: 8 },
-        { id: 2, title: 'Advanced JavaScript Patterns', progress: 30, totalLessons: 16, completedLessons: 5 },
-        { id: 3, title: 'UI/UX Design Fundamentals', progress: 10, totalLessons: 14, completedLessons: 1 }
-    ];
+    const navigateToBook = (bookId: number) => {
+        router.push('/');  // Replace with actual book route when available
+    };
 
     return (
-        <ThemedView style={styles.container}>
-            <View style={styles.header}>
-                <View>
-                    <ThemedText type="title" style={styles.welcomeText}>
-                        Welcome{user?.name ? ', ' + user.name : ''}!
+        <SafeAreaView style={styles.container}>
+            <ScrollView style={styles.scrollView}>
+                <ThemedView style={styles.header}>
+                    <ThemedText type="title">Welcome back!</ThemedText>
+                    <ThemedText type="subtitle" style={styles.name}>
+                        {user?.name || 'Student'}
                     </ThemedText>
-                    <ThemedText style={styles.subtitle}>
-                        Track your learning progress
+                </ThemedView>
+
+                <ThemedView style={styles.section}>
+                    <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                        Your Courses
                     </ThemedText>
-                </View>
-                <View style={styles.themeToggleContainer}>
-                    <ThemeToggle size={32} />
-                </View>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
-                <View style={styles.statsContainer}>
-                    <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
-                        <ThemedText style={styles.statNumber}>3</ThemedText>
-                        <ThemedText style={styles.statLabel}>Courses</ThemedText>
-                    </View>
-                    <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
-                        <ThemedText style={styles.statNumber}>14</ThemedText>
-                        <ThemedText style={styles.statLabel}>Hours</ThemedText>
-                    </View>
-                    <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
-                        <ThemedText style={styles.statNumber}>35%</ThemedText>
-                        <ThemedText style={styles.statLabel}>Overall</ThemedText>
-                    </View>
-                </View>
-
-                <ThemedText type="subtitle" style={styles.sectionTitle}>
-                    Your Courses
-                </ThemedText>
-
-                {enrolledCourses.map((course) => (
-                    <View
-                        key={course.id}
-                        style={[styles.courseCard, { backgroundColor: theme.cardBackground }]}
-                    >
-                        <ThemedText type="defaultSemiBold" style={styles.courseTitle}>{course.title}</ThemedText>
-                        <View style={styles.progressContainer}>
-                            <View style={styles.progressBarBackground}>
-                                <View
-                                    style={[
-                                        styles.progressBar,
-                                        {
-                                            width: `${course.progress}%`,
-                                            backgroundColor: theme.primary
-                                        }
-                                    ]}
-                                />
-                            </View>
-                            <ThemedText style={styles.progressText}>
-                                {course.progress}% complete ({course.completedLessons}/{course.totalLessons} lessons)
-                            </ThemedText>
-                        </View>
+                    {sampleCourses.map(course => (
                         <TouchableOpacity
-                            style={[styles.continueButton, { backgroundColor: theme.primary }]}
-                            onPress={() => console.log(`Continue course ${course.id}`)}
+                            key={course.id}
+                            style={[styles.card, { backgroundColor: theme.cardBackground }]}
+                            onPress={() => navigateToCourse(course.id)}
                         >
-                            <ThemedText style={[styles.buttonText, { color: theme.buttonText }]}>Continue Learning</ThemedText>
+                            <ThemedText type="defaultSemiBold">{course.title}</ThemedText>
+                            <ThemedText type="subtitle">Progress: {course.progress}%</ThemedText>
                         </TouchableOpacity>
-                    </View>
-                ))}
+                    ))}
+                </ThemedView>
 
-                <ThemedText type="subtitle" style={styles.sectionTitle}>
-                    Recommended Next
-                </ThemedText>
-
-                <View style={[styles.recommendedCard, { backgroundColor: theme.cardBackground }]}>
-                    <View style={[styles.recommendedImage, { backgroundColor: theme.border }]} />
-                    <View style={styles.recommendedDetails}>
-                        <ThemedText type="defaultSemiBold">Mobile App Testing Strategies</ThemedText>
-                        <ThemedText style={styles.recommendedDescription}>
-                            Learn best practices for testing mobile applications and ensuring quality releases.
-                        </ThemedText>
+                <ThemedView style={styles.section}>
+                    <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                        Your Books
+                    </ThemedText>
+                    {sampleBooks.map(book => (
                         <TouchableOpacity
-                            style={[styles.enrollButton, { borderColor: theme.primary }]}
-                            onPress={() => console.log('Enroll in recommended course')}
+                            key={book.id}
+                            style={[styles.card, { backgroundColor: theme.cardBackground }]}
+                            onPress={() => navigateToBook(book.id)}
                         >
-                            <ThemedText style={{ color: theme.primary }}>Enroll Now</ThemedText>
+                            <ThemedText type="defaultSemiBold">{book.title}</ThemedText>
+                            <ThemedText type="subtitle">By {book.author}</ThemedText>
                         </TouchableOpacity>
-                    </View>
-                </View>
-
-                <View style={styles.navigationButtons}>
-                    <TouchableOpacity
-                        style={styles.navButton}
-                        onPress={() => router.push('/explore')}
-                    >
-                        <ThemedText type="link" style={{ color: theme.primary }}>Explore Courses</ThemedText>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={styles.navButton}
-                        onPress={() => router.push('/')}
-                    >
-                        <ThemedText type="link">Home</ThemedText>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.logoutButton, { borderColor: theme.error }]}
-                        onPress={handleLogout}
-                    >
-                        <ThemedText style={{ color: theme.error }}>Logout</ThemedText>
-                    </TouchableOpacity>
-                </View>
+                    ))}
+                </ThemedView>
             </ScrollView>
-        </ThemedView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
+    },
+    scrollView: {
+        flex: 1,
     },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginTop: 60,
-        marginBottom: 24,
+        padding: 20,
+        marginBottom: 20,
+    },
+    name: {
+        marginTop: 8,
+    },
+    section: {
+        padding: 20,
+    },
+    sectionTitle: {
+        marginBottom: 16,
+    },
+    card: {
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     welcomeText: {
         marginBottom: 4,
@@ -158,11 +179,16 @@ const styles = StyleSheet.create({
     subtitle: {
         opacity: 0.7,
     },
-    themeToggleContainer: {
-        alignSelf: 'flex-start',
+    tabContainer: {
+        flexDirection: 'row',
+        marginBottom: 24,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E0E0E0',
     },
-    scrollView: {
+    tab: {
         flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
     },
     statsContainer: {
         flexDirection: 'row',
@@ -188,10 +214,6 @@ const styles = StyleSheet.create({
     statLabel: {
         fontSize: Fonts.sizes.small,
         opacity: 0.7,
-    },
-    sectionTitle: {
-        marginTop: 12,
-        marginBottom: 16,
     },
     courseCard: {
         borderRadius: 12,
@@ -233,9 +255,26 @@ const styles = StyleSheet.create({
     buttonText: {
         fontFamily: Fonts.primary.medium,
     },
-    recommendedCard: {
-        borderRadius: 12,
+    footer: {
+        marginTop: 24,
         marginBottom: 24,
+        alignItems: 'center',
+    },
+    logoutButton: {
+        borderWidth: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    bookIntro: {
+        marginBottom: 16,
+        lineHeight: 22,
+    },
+    bookCard: {
+        borderRadius: 12,
+        marginBottom: 16,
+        flexDirection: 'row',
         overflow: 'hidden',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -243,40 +282,77 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
     },
-    recommendedImage: {
-        height: 140,
+    bookImageContainer: {
+        width: 100,
+        height: 180,
+    },
+    bookImagePlaceholder: {
         width: '100%',
+        height: '100%',
     },
-    recommendedDetails: {
-        padding: 16,
+    bookInfo: {
+        flex: 1,
+        padding: 12,
     },
-    recommendedDescription: {
-        marginTop: 8,
-        marginBottom: 16,
+    bookTitle: {
+        fontSize: Fonts.sizes.large,
+        marginBottom: 4,
+    },
+    bookAuthor: {
+        fontSize: Fonts.sizes.small,
+        marginBottom: 8,
         opacity: 0.7,
     },
-    enrollButton: {
+    bookDescription: {
+        fontSize: Fonts.sizes.small,
+        lineHeight: 20,
+        marginBottom: 12,
+    },
+    bookPriceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    bookRating: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    bookPrice: {
+        fontSize: Fonts.sizes.medium,
+    },
+    buyButton: {
         borderWidth: 1,
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
         borderRadius: 8,
         alignItems: 'center',
         alignSelf: 'flex-start',
     },
-    navigationButtons: {
-        marginTop: 8,
-        marginBottom: 32,
+    infoCard: {
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 24,
     },
-    navButton: {
-        paddingVertical: 12,
-        alignItems: 'center',
+    infoTitle: {
+        fontFamily: Fonts.primary.semiBold,
+        fontSize: Fonts.sizes.medium,
+        marginBottom: 8,
     },
-    logoutButton: {
-        marginTop: 16,
-        borderWidth: 1,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
+    infoText: {
+        lineHeight: 22,
+    },
+    relatedBooksContainer: {
+        backgroundColor: '#F5F5F5',
+        padding: 12,
         borderRadius: 8,
-        alignItems: 'center',
+        marginBottom: 16,
+    },
+    relatedBooksTitle: {
+        marginBottom: 8,
+    },
+    relatedBook: {
+        marginLeft: 8,
+        marginBottom: 4,
     },
 }); 

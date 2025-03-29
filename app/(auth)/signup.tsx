@@ -9,204 +9,220 @@ import {
     ScrollView,
     ActivityIndicator,
     Dimensions,
-    SafeAreaView
+    SafeAreaView,
+    Alert
 } from 'react-native';
 import { Link } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { FacebookIcon, GithubIcon, GoogleIcon } from '@/components/SocialIcons';
 import { Fonts } from '@/constants/Fonts';
 import ThemeToggle from '@/components/ThemeToggle';
+import { router } from 'expo-router';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const isSmallDevice = width < 375;
-const isTablet = width > 768;
+
+type SignupMethod = 'phone' | 'email';
 
 export default function SignupScreen() {
-    const [name, setName] = useState('');
+    const { theme } = useTheme();
+    const { signUpWithEmail, sendOTP, verifyOTP } = useAuth();
+
+    const [method, setMethod] = useState<SignupMethod>('phone');
+    const [phoneNumber, setPhoneNumber] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [verificationId, setVerificationId] = useState('');
+    const [otp, setOtp] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
     const [error, setError] = useState('');
-    const { theme, isDarkMode } = useTheme();
 
-    const { isLoading, register } = useAuth();
-
-    const handleSignup = async () => {
-        // Basic validation
-        if (!name || !email || !password || !confirmPassword) {
-            setError('All fields are required');
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters');
-            return;
-        }
-
+    const handleSendOTP = async () => {
         try {
             setError('');
-            // Use the register function from AuthContext
-            await register({ name, email, password });
-            // Navigation is handled in the register function
-        } catch (err) {
-            setError('Registration failed. Please try again.');
-            console.error('Signup error:', err);
+            if (!phoneNumber) {
+                setError('Please enter a phone number');
+                return;
+            }
+            const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+            const vid = await sendOTP(formattedPhone);
+            setVerificationId(vid);
+            setOtpSent(true);
+        } catch (error) {
+            setError('Failed to send OTP. Please try again.');
+            console.error(error);
+        }
+    };
+
+    const handleVerifyOTP = async () => {
+        try {
+            setError('');
+            if (!otp) {
+                setError('Please enter the OTP');
+                return;
+            }
+            await verifyOTP(verificationId, otp);
+            router.replace('/dashboard');
+        } catch (error) {
+            setError('Invalid OTP. Please try again.');
+            console.error(error);
+        }
+    };
+
+    const handleEmailSignup = async () => {
+        try {
+            setError('');
+            if (!email || !password) {
+                setError('Please fill in all fields');
+                return;
+            }
+            if (password !== confirmPassword) {
+                setError('Passwords do not match');
+                return;
+            }
+            await signUpWithEmail(email, password);
+            router.replace('/dashboard');
+        } catch (error) {
+            setError('Failed to sign up. Please try again.');
+            console.error(error);
         }
     };
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: '#FFFFFF' }]}>
             <View style={styles.themeToggleContainer}>
                 <ThemeToggle size={32} />
             </View>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={[styles.container, { backgroundColor: theme.background }]}
+                style={[styles.container, { backgroundColor: '#FFFFFF' }]}
             >
                 <ScrollView contentContainerStyle={styles.scrollContainer}>
                     <ThemedView style={styles.header}>
-                        <ThemedText type="title" style={[styles.title, isSmallDevice && styles.smallTitle, { color: theme.primary }]}>Join Skillink</ThemedText>
-                        <ThemedText type="subtitle" style={[styles.subtitle, isSmallDevice && styles.smallSubtitle]}>Create your account to start learning</ThemedText>
+                        <ThemedText type="title" style={[styles.title, { color: theme.primary }]}>Join Skillink</ThemedText>
+                        <ThemedText type="subtitle">Create your account to start learning</ThemedText>
                     </ThemedView>
 
-                    <ThemedView style={[styles.formContainer, isTablet && styles.tabletFormContainer, { backgroundColor: isDarkMode ? theme.cardBackground : theme.surface }]}>
-                        {error ? (
-                            <ThemedView style={[styles.errorContainer, { backgroundColor: isDarkMode ? 'rgba(211, 47, 47, 0.2)' : 'rgba(211, 47, 47, 0.1)' }]}>
-                                <ThemedText style={[styles.errorText, isSmallDevice && styles.smallText, { color: theme.error }]}>{error}</ThemedText>
-                            </ThemedView>
-                        ) : null}
-
-                        <View style={styles.inputContainer}>
-                            <ThemedText style={[styles.label, isSmallDevice && styles.smallLabel]}>Full Name</ThemedText>
-                            <TextInput
-                                style={[styles.input, isSmallDevice && styles.smallInput,
-                                {
-                                    backgroundColor: isDarkMode ? theme.surface : '#fff',
-                                    color: theme.text,
-                                    borderColor: theme.border
-                                }
+                    <View style={styles.methodToggle}>
+                        <TouchableOpacity
+                            style={[
+                                styles.methodButton,
+                                method === 'phone' && { backgroundColor: theme.primary }
+                            ]}
+                            onPress={() => setMethod('phone')}
+                        >
+                            <ThemedText
+                                style={[
+                                    styles.methodButtonText,
+                                    method === 'phone' && { color: theme.buttonText }
                                 ]}
-                                placeholder="Enter your full name"
+                            >
+                                Phone
+                            </ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.methodButton,
+                                method === 'email' && { backgroundColor: theme.primary }
+                            ]}
+                            onPress={() => setMethod('email')}
+                        >
+                            <ThemedText
+                                style={[
+                                    styles.methodButtonText,
+                                    method === 'email' && { color: theme.buttonText }
+                                ]}
+                            >
+                                Email
+                            </ThemedText>
+                        </TouchableOpacity>
+                    </View>
+
+                    {method === 'phone' ? (
+                        <>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+                                placeholder="Phone Number (with country code)"
                                 placeholderTextColor={theme.textLight}
-                                value={name}
-                                onChangeText={setName}
-                                autoCapitalize="words"
+                                value={phoneNumber}
+                                onChangeText={setPhoneNumber}
+                                keyboardType="phone-pad"
+                                editable={!otpSent}
                             />
-                        </View>
-
-                        <View style={styles.inputContainer}>
-                            <ThemedText style={[styles.label, isSmallDevice && styles.smallLabel]}>Email</ThemedText>
+                            {otpSent && (
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+                                    placeholder="Enter OTP"
+                                    placeholderTextColor={theme.textLight}
+                                    value={otp}
+                                    onChangeText={setOtp}
+                                    keyboardType="number-pad"
+                                />
+                            )}
+                            <TouchableOpacity
+                                style={[styles.button, { backgroundColor: theme.primary }]}
+                                onPress={otpSent ? handleVerifyOTP : handleSendOTP}
+                            >
+                                <ThemedText style={[styles.buttonText, { color: theme.buttonText }]}>
+                                    {otpSent ? 'Verify OTP' : 'Send OTP'}
+                                </ThemedText>
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <>
                             <TextInput
-                                style={[styles.input, isSmallDevice && styles.smallInput,
-                                {
-                                    backgroundColor: isDarkMode ? theme.surface : '#fff',
-                                    color: theme.text,
-                                    borderColor: theme.border
-                                }
-                                ]}
-                                placeholder="Enter your email"
+                                style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+                                placeholder="Email"
                                 placeholderTextColor={theme.textLight}
                                 value={email}
                                 onChangeText={setEmail}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                             />
-                        </View>
-
-                        <View style={styles.inputContainer}>
-                            <ThemedText style={[styles.label, isSmallDevice && styles.smallLabel]}>Password</ThemedText>
                             <TextInput
-                                style={[styles.input, isSmallDevice && styles.smallInput,
-                                {
-                                    backgroundColor: isDarkMode ? theme.surface : '#fff',
-                                    color: theme.text,
-                                    borderColor: theme.border
-                                }
-                                ]}
-                                placeholder="Create a password"
+                                style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+                                placeholder="Password"
                                 placeholderTextColor={theme.textLight}
                                 value={password}
                                 onChangeText={setPassword}
                                 secureTextEntry
                             />
-                        </View>
-
-                        <View style={styles.inputContainer}>
-                            <ThemedText style={[styles.label, isSmallDevice && styles.smallLabel]}>Confirm Password</ThemedText>
                             <TextInput
-                                style={[styles.input, isSmallDevice && styles.smallInput,
-                                {
-                                    backgroundColor: isDarkMode ? theme.surface : '#fff',
-                                    color: theme.text,
-                                    borderColor: theme.border
-                                }
-                                ]}
-                                placeholder="Confirm your password"
+                                style={[styles.input, { backgroundColor: theme.cardBackground, color: theme.text }]}
+                                placeholder="Confirm Password"
                                 placeholderTextColor={theme.textLight}
                                 value={confirmPassword}
                                 onChangeText={setConfirmPassword}
                                 secureTextEntry
                             />
-                        </View>
-
-                        <TouchableOpacity
-                            style={[styles.signupButton, isTablet && styles.tabletButton, { backgroundColor: theme.primary }]}
-                            onPress={handleSignup}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <ActivityIndicator color={theme.buttonText} />
-                            ) : (
-                                <ThemedText style={[styles.signupButtonText, isSmallDevice && styles.smallButtonText, { color: theme.buttonText }]}>Create Account</ThemedText>
-                            )}
-                        </TouchableOpacity>
-
-                        <View style={styles.dividerContainer}>
-                            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                            <ThemedText style={[styles.dividerText, { color: theme.textLight }]}>or sign up with</ThemedText>
-                            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                        </View>
-
-                        <View style={styles.socialButtonsContainer}>
                             <TouchableOpacity
-                                style={[styles.socialButton, { backgroundColor: '#fff', borderColor: theme.border }]}
-                                onPress={() => register({ name: 'Google User', email: 'google@example.com', password: 'password123' })}
+                                style={[styles.button, { backgroundColor: theme.primary }]}
+                                onPress={handleEmailSignup}
                             >
-                                <GoogleIcon size={24} />
+                                <ThemedText style={[styles.buttonText, { color: theme.buttonText }]}>
+                                    Sign Up
+                                </ThemedText>
                             </TouchableOpacity>
+                        </>
+                    )}
 
-                            <TouchableOpacity
-                                style={[styles.socialButton, { backgroundColor: theme.facebook }]}
-                                onPress={() => register({ name: 'Facebook User', email: 'facebook@example.com', password: 'password123' })}
-                            >
-                                <FacebookIcon size={24} />
-                            </TouchableOpacity>
+                    {error ? (
+                        <ThemedText style={[styles.error, { color: theme.error }]}>
+                            {error}
+                        </ThemedText>
+                    ) : null}
 
-                            <TouchableOpacity
-                                style={[styles.socialButton, { backgroundColor: theme.github }]}
-                                onPress={() => register({ name: 'GitHub User', email: 'github@example.com', password: 'password123' })}
-                            >
-                                <GithubIcon size={24} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.loginContainer}>
-                            <ThemedText style={isSmallDevice && styles.smallText}>Already have an account?</ThemedText>
-                            <Link href="/" asChild>
-                                <TouchableOpacity>
-                                    <ThemedText type="link" style={[styles.loginText, isSmallDevice && styles.smallText, { color: theme.primary }]}> Log in</ThemedText>
-                                </TouchableOpacity>
-                            </Link>
-                        </View>
-                    </ThemedView>
+                    <TouchableOpacity
+                        style={styles.loginLink}
+                        onPress={() => router.push('/')}
+                    >
+                        <ThemedText style={styles.loginLinkText}>
+                            Already have an account? Login
+                        </ThemedText>
+                    </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -228,7 +244,7 @@ const styles = StyleSheet.create({
     },
     scrollContainer: {
         flexGrow: 1,
-        padding: isSmallDevice ? 16 : 24,
+        padding: 24,
     },
     header: {
         alignItems: 'center',
@@ -238,134 +254,49 @@ const styles = StyleSheet.create({
         fontSize: Fonts.sizes.title,
         marginBottom: 8,
     },
-    smallTitle: {
-        fontSize: 28,
-    },
-    subtitle: {
-        textAlign: 'center',
-    },
-    smallSubtitle: {
-        fontSize: Fonts.sizes.medium,
-    },
-    formContainer: {
-        borderRadius: 12,
-        padding: isSmallDevice ? 16 : 24,
-        ...(Platform.OS === 'ios'
-            ? {
-                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.1)'
-            }
-            : {
-                elevation: 3
-            }
-        ),
-    },
-    tabletFormContainer: {
-        width: '80%',
-        alignSelf: 'center',
-        maxWidth: 600,
-    },
-    errorContainer: {
-        padding: 12,
+    methodToggle: {
+        flexDirection: 'row',
+        marginBottom: 24,
         borderRadius: 8,
-        marginBottom: 16,
+        overflow: 'hidden',
     },
-    errorText: {
-        fontSize: Fonts.sizes.medium,
-        fontFamily: Fonts.primary.medium,
+    methodButton: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
     },
-    inputContainer: {
-        marginBottom: 16,
-    },
-    label: {
-        fontSize: Fonts.sizes.medium,
-        fontFamily: Fonts.primary.medium,
-        marginBottom: 8,
-    },
-    smallLabel: {
-        fontSize: Fonts.sizes.small,
+    methodButtonText: {
+        fontSize: 16,
     },
     input: {
+        width: '100%',
         height: 48,
-        borderWidth: 1,
         borderRadius: 8,
-        paddingHorizontal: 12,
-        fontSize: Fonts.sizes.medium,
-        fontFamily: Fonts.primary.regular,
+        paddingHorizontal: 16,
+        marginBottom: 16,
+        fontSize: 16,
     },
-    smallInput: {
-        height: 40,
-        fontSize: Fonts.sizes.small,
-        paddingHorizontal: 10,
-    },
-    signupButton: {
+    button: {
+        width: '100%',
         height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
+        borderRadius: 8,
         alignItems: 'center',
+        justifyContent: 'center',
         marginTop: 8,
-        ...(Platform.OS === 'ios'
-            ? {
-                boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.2)'
-            }
-            : {
-                elevation: 2
-            }
-        ),
     },
-    tabletButton: {
-        width: '60%',
-        alignSelf: 'center',
+    buttonText: {
+        fontSize: 16,
+        fontWeight: '600',
     },
-    signupButtonText: {
-        fontSize: Fonts.sizes.medium,
-        fontFamily: Fonts.primary.semiBold,
+    error: {
+        marginTop: 16,
+        textAlign: 'center',
     },
-    smallButtonText: {
-        fontSize: Fonts.sizes.small,
-    },
-    dividerContainer: {
-        flexDirection: 'row',
+    loginLink: {
+        marginTop: 24,
         alignItems: 'center',
-        marginVertical: 24,
     },
-    divider: {
-        height: 1,
-        flex: 1,
-    },
-    dividerText: {
-        marginHorizontal: 12,
-        fontSize: Fonts.sizes.small,
-        fontFamily: Fonts.primary.regular,
-    },
-    socialButtonsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-evenly',
-        marginBottom: 24,
-    },
-    socialButton: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        ...(Platform.OS === 'ios'
-            ? {
-                boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.2)'
-            }
-            : {
-                elevation: 1
-            }
-        ),
-    },
-    loginContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-    },
-    loginText: {
-        fontFamily: Fonts.primary.semiBold,
-    },
-    smallText: {
-        fontSize: Fonts.sizes.small,
+    loginLinkText: {
+        fontSize: 16,
     },
 }); 

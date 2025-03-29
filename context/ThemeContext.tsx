@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useContext, useState } from 'react';
 
-// Define theme colors
+// Define theme colors - Use only light theme now
 export const LightTheme = {
     primary: '#6C63FF',
     primaryDark: '#5046e4',
@@ -26,72 +25,25 @@ export const LightTheme = {
     }
 };
 
-export const DarkTheme = {
-    primary: '#8C7FFF',
-    primaryDark: '#6C63FF',
-    background: '#121212',
-    cardBackground: '#1E1E1E',
-    surface: '#282828',
-    text: '#F5F5F5',
-    textLight: '#BBBBBB',
-    buttonText: '#FFFFFF',
-    border: '#444444',
-    error: '#EF5350',
-    success: '#4CAF50',
-    warning: '#FFD54F',
-    shadow: 'rgba(0, 0, 0, 0.3)',
-    facebook: '#4267B2',
-    github: '#2B2B2B',
-    google: {
-        red: '#EA4335',
-        blue: '#4285F4',
-        yellow: '#FBBC05',
-        green: '#34A853',
-    }
-};
-
 // Theme context type
 type ThemeContextType = {
-    theme: typeof LightTheme | typeof DarkTheme;
-    isDarkMode: boolean;
-    toggleTheme: () => void;
-    setDarkMode: (isDark: boolean) => void;
+    theme: typeof LightTheme;
+    isDarkMode: boolean; // Keep for compatibility but always false
 };
 
 // Create the context
 const ThemeContext = createContext<ThemeContextType>({
     theme: LightTheme,
     isDarkMode: false,
-    toggleTheme: () => { },
-    setDarkMode: () => { },
 });
 
 // Provider component
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Get the system color scheme
-    const deviceColorScheme = useColorScheme();
-    const [isDarkMode, setIsDarkMode] = useState<boolean>(deviceColorScheme === 'dark');
-
-    // Update theme when system theme changes
-    useEffect(() => {
-        setIsDarkMode(deviceColorScheme === 'dark');
-    }, [deviceColorScheme]);
-
-    // Toggle between light and dark themes
-    const toggleTheme = () => {
-        setIsDarkMode((prev) => !prev);
-    };
-
-    // Set specific theme
-    const setDarkMode = (isDark: boolean) => {
-        setIsDarkMode(isDark);
-    };
-
-    // Current theme object
-    const theme = isDarkMode ? DarkTheme : LightTheme;
+    // Always use light theme
+    const theme = LightTheme;
 
     return (
-        <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme, setDarkMode }}>
+        <ThemeContext.Provider value={{ theme, isDarkMode: false }}>
             {children}
         </ThemeContext.Provider>
     );
