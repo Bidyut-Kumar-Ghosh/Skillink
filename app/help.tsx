@@ -78,14 +78,14 @@ function Help() {
                     <View style={styles.contactItem}>
                         <Ionicons name="mail" size={20} color={isDarkMode ? "#8F9BB3" : "#777777"} />
                         <Text style={[styles.contactDetail, isDarkMode && styles.darkText]}>
-                            support@skillink.com
+                            bidyutghoshoffice@yahoo.com
                         </Text>
                     </View>
 
                     <View style={styles.contactItem}>
                         <Ionicons name="call" size={20} color={isDarkMode ? "#8F9BB3" : "#777777"} />
                         <Text style={[styles.contactDetail, isDarkMode && styles.darkText]}>
-                            +1 (555) 123-4567
+                            +91 6290728881,7076754831
                         </Text>
                     </View>
 
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F5',
     },
     darkBackground: {
-        backgroundColor: '#222B45',
+        backgroundColor: '#000000',
     },
     darkCard: {
         backgroundColor: '#1A2138',

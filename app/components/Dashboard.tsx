@@ -6,91 +6,41 @@ import {
     TouchableOpacity,
     ScrollView,
     SafeAreaView,
-    ActivityIndicator,
-    RefreshControl,
+    TextInput,
     Image,
     StatusBar,
     Dimensions,
-    Alert,
 } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
-// Fallback theme for safety
-const fallbackTheme = {
-    background: '#f8f9fa',
-    primary: '#3366FF',
-    buttonText: '#ffffff',
-    text: '#333333',
-    textLight: '#8f9bb3',
-    cardBackground: '#ffffff',
-    error: '#ff3d71',
-};
-
 function Dashboard() {
-    const { user, isLoggedIn, logOut, loading, authLoading } = useAuth();
-    const { theme, isDarkMode, toggleTheme } = useTheme();
-    const [refreshing, setRefreshing] = useState(false);
-    const [lastLogin, setLastLogin] = useState<string>('');
-    const [accountCreated, setAccountCreated] = useState<string>('');
+    const { user, isLoggedIn, loading } = useAuth();
+    const { theme, isDarkMode } = useTheme();
+    const [storageUsed, setStorageUsed] = useState('2.8');
+    const [totalStorage, setTotalStorage] = useState('10');
+    const [firstName, setFirstName] = useState('');
 
-    // Use fallback theme if the real theme is not available
-    const activeTheme = theme || fallbackTheme;
-
-    // Redirect to login if not logged in
+    // Fetch user details
     useEffect(() => {
         if (!loading && !isLoggedIn) {
             router.replace('/authentication/login');
         } else if (user) {
-            fetchUserDetails();
+            // Extract first name from full name
+            if (user.name) {
+                const firstNameOnly = user.name.split(' ')[0];
+                setFirstName(firstNameOnly);
+            }
+
+            // Mock storage values - would come from backend in real app
+            setStorageUsed('2.8');
+            setTotalStorage('10');
         }
     }, [isLoggedIn, loading, user]);
-
-    const fetchUserDetails = async () => {
-        try {
-            if (!user) return;
-
-            // Format dates for display
-            const now = new Date();
-            const loginDate = new Date(user.lastLoginAt || now);
-            const createdDate = new Date(user.createdAt || now);
-
-            setLastLogin(formatDate(loginDate));
-            setAccountCreated(formatDate(createdDate));
-        } catch (error) {
-            console.error('Error fetching user details:', error);
-        }
-    };
-
-    const formatDate = (date: Date): string => {
-        return date.toLocaleString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    const onRefresh = async () => {
-        setRefreshing(true);
-        await fetchUserDetails();
-        setRefreshing(false);
-    };
-
-    // Show loading while checking authentication
-    if (loading) {
-        return (
-            <View style={[styles.loadingContainer, isDarkMode && styles.darkBackground]}>
-                <ActivityIndicator size="large" color={theme.primary} />
-            </View>
-        );
-    }
 
     // Get first letter of name or email for avatar
     const getInitial = () => {
@@ -102,119 +52,133 @@ function Dashboard() {
         return 'U';
     };
 
+    const navigateToProfile = () => {
+        router.push('/profile');
+    };
+
     return (
         <SafeAreaView style={[styles.container, isDarkMode && styles.darkBackground]}>
-            <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={isDarkMode ? '#1A2138' : '#3366FF'} />
-            <View style={[styles.backgroundContainer, isDarkMode && styles.darkBackground]}>
-                <View style={[styles.header, isDarkMode && styles.darkHeader]}>
-                    <View style={styles.avatarContainer}>
-                        {user?.photoURL ? (
-                            <Image source={{ uri: user.photoURL }} style={styles.avatar} />
-                        ) : (
-                            <View style={[styles.avatarPlaceholder, isDarkMode && styles.darkAvatarPlaceholder]}>
-                                <Text style={styles.avatarText}>{getInitial()}</Text>
-                            </View>
-                        )}
-                    </View>
-                    <View style={styles.headerTextContainer}>
-                        <Text style={styles.welcomeText}>Welcome back,</Text>
-                        <Text style={styles.nameText}>{user?.name || 'User'}</Text>
+            <View style={styles.header}>
+                <Text style={[styles.appName, isDarkMode && styles.darkText]}>Skillink</Text>
+                <TouchableOpacity onPress={navigateToProfile}>
+                    {user?.photoURL ? (
+                        <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+                    ) : (
+                        <View style={[styles.avatarPlaceholder, isDarkMode && styles.darkAvatarPlaceholder]}>
+                            <Text style={styles.avatarText}>{getInitial()}</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchContainer}>
+                <View style={[styles.searchInputContainer, isDarkMode && styles.darkSearchInputContainer]}>
+                    <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
+                    <TextInput
+                        style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
+                        placeholder="Search courses..."
+                        placeholderTextColor="#888"
+                    />
+                </View>
+            </View>
+
+            <ScrollView style={styles.content}>
+                <View style={styles.learningBanner}>
+                    <View style={styles.bannerTextContainer}>
+                        <Text style={styles.bannerTitle}>Learning that fits</Text>
+                        <Text style={styles.bannerSubtitle}>Skills for your present (and future)</Text>
                     </View>
                 </View>
 
-                <ScrollView
-                    contentContainerStyle={styles.scrollContainer}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            tintColor={isDarkMode ? '#FFFFFF' : '#3366FF'}
-                        />
-                    }
-                >
-                    <View style={[styles.profileCard, isDarkMode && styles.darkCard]}>
-                        <View style={[styles.profileHeader, isDarkMode && styles.darkBorder]}>
-                            <Ionicons name="person" size={20} color={theme.primary} />
-                            <Text style={[styles.profileTitle, isDarkMode && styles.darkText]}>Profile Information</Text>
-                        </View>
-                        <View style={styles.profileInfoItem}>
-                            <Text style={[styles.infoLabel, isDarkMode && styles.darkTextLight]}>Name:</Text>
-                            <Text style={[styles.infoValue, isDarkMode && styles.darkText]}>{user?.name || 'Not set'}</Text>
-                        </View>
-                        <View style={styles.profileInfoItem}>
-                            <Text style={[styles.infoLabel, isDarkMode && styles.darkTextLight]}>Email:</Text>
-                            <Text style={[styles.infoValue, isDarkMode && styles.darkText]}>{user?.email}</Text>
-                        </View>
-                        <View style={styles.profileInfoItem}>
-                            <Text style={[styles.infoLabel, isDarkMode && styles.darkTextLight]}>Role:</Text>
-                            <Text style={styles.roleValue}>
-                                {user?.role === 'admin' ? 'Administrator' : 'Student'}
-                            </Text>
-                        </View>
-                    </View>
+                <TouchableOpacity style={styles.notificationBanner}>
+                    <Text style={styles.notificationText}>Future-ready skills on your schedule</Text>
+                    <Ionicons name="close" size={18} color="#333" />
+                </TouchableOpacity>
 
-                    <View style={[styles.analyticsCard, isDarkMode && styles.darkCard]}>
-                        <View style={[styles.profileHeader, isDarkMode && styles.darkBorder]}>
-                            <Ionicons name="analytics" size={20} color={theme.primary} />
-                            <Text style={[styles.profileTitle, isDarkMode && styles.darkText]}>Account Statistics</Text>
-                        </View>
-                        <View style={styles.profileInfoItem}>
-                            <Text style={[styles.infoLabel, isDarkMode && styles.darkTextLight]}>Account Created:</Text>
-                            <Text style={[styles.infoValue, isDarkMode && styles.darkText]}>{accountCreated}</Text>
-                        </View>
-                        <View style={styles.profileInfoItem}>
-                            <Text style={[styles.infoLabel, isDarkMode && styles.darkTextLight]}>Last Login:</Text>
-                            <Text style={[styles.infoValue, isDarkMode && styles.darkText]}>{lastLogin}</Text>
-                        </View>
-                    </View>
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Categories</Text>
+                    <TouchableOpacity>
+                        <Text style={styles.seeAllText}>See all</Text>
+                    </TouchableOpacity>
+                </View>
 
-                    <View style={[styles.quickActionsCard, isDarkMode && styles.darkCard]}>
-                        <View style={[styles.profileHeader, isDarkMode && styles.darkBorder]}>
-                            <Ionicons name="flash" size={20} color={theme.primary} />
-                            <Text style={[styles.profileTitle, isDarkMode && styles.darkText]}>Quick Actions</Text>
-                        </View>
-                        <View style={styles.actionsContainer}>
-                            <TouchableOpacity
-                                style={styles.actionButton}
-                                onPress={() => router.push('/profile/edit')}
-                            >
-                                <Ionicons name="person-outline" size={24} color="#FFFFFF" />
-                                <Text style={styles.actionText}>Update Profile</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.actionButton}
-                                onPress={() => router.push('/settings')}
-                            >
-                                <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
-                                <Text style={styles.actionText}>Settings</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.actionButton}
-                                onPress={() => router.push('/help')}
-                            >
-                                <Ionicons name="help-circle-outline" size={24} color="#FFFFFF" />
-                                <Text style={styles.actionText}>Help</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    <TouchableOpacity
-                        style={styles.logoutButton}
-                        onPress={logOut}
-                        disabled={authLoading}
-                    >
-                        {authLoading ? (
-                            <ActivityIndicator color="#FFFFFF" />
-                        ) : (
-                            <>
-                                <Ionicons name="log-out-outline" size={20} color="#FFFFFF" style={styles.logoutIcon} />
-                                <Text style={styles.logoutText}>LOG OUT</Text>
-                            </>
-                        )}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
+                    <TouchableOpacity style={styles.categoryButton}>
+                        <Text style={styles.categoryText}>Development</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.categoryButton}>
+                        <Text style={styles.categoryText}>Finance & Accounting</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.categoryButton}>
+                        <Text style={styles.categoryText}>Business</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.categoryButton}>
+                        <Text style={styles.categoryText}>IT & Software</Text>
                     </TouchableOpacity>
                 </ScrollView>
+
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
+                        Top courses in <Text style={styles.highlightText}>Design</Text>
+                    </Text>
+                </View>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.coursesContainer}>
+                    <TouchableOpacity style={[styles.courseCard, isDarkMode && styles.darkCard]}>
+                        <View style={styles.courseImageContainer}>
+                            <View style={[styles.courseImagePlaceholder, isDarkMode && styles.darkCoursePlaceholder]}>
+                                <Ionicons name="logo-apple" size={40} color={isDarkMode ? "#5C7CFA" : "#3366FF"} />
+                            </View>
+                        </View>
+                        <Text style={[styles.courseTitle, isDarkMode && styles.darkText]}>{isDarkMode ? "Java Masterclass" : "Java Masterclass"}</Text>
+                        <Text style={[styles.courseInstructor, isDarkMode && styles.darkCourseInstructor]}>Avishek Gupta</Text>
+                        <View style={styles.courseRating}>
+                            <Ionicons name="star" size={16} color="#FFD700" />
+                            <Text style={[styles.courseRatingText, isDarkMode && styles.darkCourseInstructor]}>4.8</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.courseCard, isDarkMode && styles.darkCard]}>
+                        <View style={styles.courseImageContainer}>
+                            <View style={[styles.courseImagePlaceholder, isDarkMode && styles.darkCoursePlaceholder]}>
+                                <Ionicons name="pencil" size={40} color={isDarkMode ? "#5C7CFA" : "#3366FF"} />
+                            </View>
+                        </View>
+                        <Text style={[styles.courseTitle, isDarkMode && styles.darkText]}>{isDarkMode ? "Drawing Fundamentals" : "The Ultimate Drawing Course"}</Text>
+                        <Text style={[styles.courseInstructor, isDarkMode && styles.darkCourseInstructor]}>Sarah Johnson</Text>
+                        <View style={styles.courseRating}>
+                            <Ionicons name="star" size={16} color="#FFD700" />
+                            <Text style={[styles.courseRatingText, isDarkMode && styles.darkCourseInstructor]}>4.7</Text>
+                        </View>
+                    </TouchableOpacity>
+                </ScrollView>
+            </ScrollView>
+
+            <View style={[styles.bottomNavContainer, isDarkMode && styles.darkBottomNav]}>
+                <TouchableOpacity style={styles.navItem}>
+                    <Ionicons name="home" size={24} color="#3366FF" />
+                    <Text style={styles.navTextActive}>Home</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem}>
+                    <Ionicons name="search" size={24} color={isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={[styles.navText, isDarkMode && styles.darkNavText]}>Search</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem}>
+                    <Ionicons name="play-circle" size={24} color={isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={[styles.navText, isDarkMode && styles.darkNavText]}>My learning</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem}>
+                    <Ionicons name="heart" size={24} color={isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={[styles.navText, isDarkMode && styles.darkNavText]}>Wishlist</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem} onPress={navigateToProfile}>
+                    <Ionicons name="person" size={24} color={isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={[styles.navText, isDarkMode && styles.darkNavText]}>Account</Text>
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
     );
@@ -225,204 +189,244 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F5F5F5',
     },
-    backgroundContainer: {
-        flex: 1,
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#F5F5F5',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#F5F5F5',
+    darkBackground: {
+        backgroundColor: '#000000',
     },
     header: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: 'rgba(51, 102, 255, 0.8)',
-        paddingVertical: 20,
         paddingHorizontal: 20,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 5,
-    },
-    avatarContainer: {
-        marginRight: 15,
-    },
-    avatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        borderWidth: 2,
-        borderColor: '#FFFFFF',
-    },
-    avatarPlaceholder: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#FFFFFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#FFFFFF',
-    },
-    avatarText: {
-        fontSize: 26,
-        fontWeight: 'bold',
-        color: '#3366FF',
-    },
-    headerTextContainer: {
-        flex: 1,
-    },
-    welcomeText: {
-        fontSize: 14,
-        color: '#E0E0E0',
-        marginBottom: 5,
-    },
-    nameText: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#FFFFFF',
-    },
-    scrollContainer: {
-        padding: 20,
-        paddingBottom: 40,
-    },
-    profileCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 15,
-        padding: 20,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    profileHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        paddingTop: 20,
         paddingBottom: 10,
     },
-    profileTitle: {
-        fontSize: 18,
+    appName: {
+        fontSize: 24,
         fontWeight: 'bold',
-        color: '#333333',
-        marginLeft: 10,
-    },
-    profileInfoItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    infoLabel: {
-        fontSize: 14,
-        color: '#777777',
-    },
-    infoValue: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#333333',
-    },
-    roleValue: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#3366FF',
-        backgroundColor: 'rgba(51, 102, 255, 0.1)',
-        paddingHorizontal: 10,
-        paddingVertical: 3,
-        borderRadius: 10,
-    },
-    analyticsCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 15,
-        padding: 20,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    quickActionsCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 15,
-        padding: 20,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    actionsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    actionButton: {
-        backgroundColor: '#3366FF',
-        width: width / 3.6,
-        height: 80,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 10,
-    },
-    actionText: {
-        fontSize: 12,
-        color: '#FFFFFF',
-        marginTop: 5,
-        textAlign: 'center',
-    },
-    logoutButton: {
-        flexDirection: 'row',
-        backgroundColor: '#ff3d71',
-        height: 55,
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    logoutIcon: {
-        marginRight: 10,
-    },
-    logoutText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    // Dark mode styles
-    darkBackground: {
-        backgroundColor: '#222B45',
-    },
-    darkCard: {
-        backgroundColor: '#1A2138',
-        shadowColor: '#000',
-    },
-    darkHeader: {
-        backgroundColor: 'rgba(51, 102, 255, 0.6)',
+        color: '#333',
     },
     darkText: {
-        color: '#EDF1F7',
+        color: '#FFFFFF',
     },
-    darkTextLight: {
-        color: '#A0A0A0',
+    avatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
     },
-    darkBorder: {
-        borderBottomColor: '#323759',
+    avatarPlaceholder: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#F0F0F0',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     darkAvatarPlaceholder: {
         backgroundColor: '#323759',
-        borderColor: '#323759',
+    },
+    avatarText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#3366FF',
+    },
+    searchContainer: {
+        paddingHorizontal: 20,
+        marginTop: 10,
+        marginBottom: 15,
+    },
+    searchInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 10,
+        paddingHorizontal: 15,
+        height: 48,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    darkSearchInputContainer: {
+        backgroundColor: '#121212',
+    },
+    searchIcon: {
+        marginRight: 10,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 16,
+        color: '#333',
+    },
+    darkSearchInput: {
+        color: '#FFFFFF',
+    },
+    content: {
+        flex: 1,
+    },
+    learningBanner: {
+        height: 180,
+        backgroundColor: '#3366FF',
+        marginBottom: 20,
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+    },
+    bannerTextContainer: {
+        width: '70%',
+    },
+    bannerTitle: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+        marginBottom: 10,
+    },
+    bannerSubtitle: {
+        fontSize: 16,
+        color: '#FFFFFF',
+        opacity: 0.9,
+    },
+    notificationBanner: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#FFF9C4',
+        padding: 16,
+        marginHorizontal: 20,
+        borderRadius: 10,
+        marginBottom: 20,
+    },
+    notificationText: {
+        fontSize: 14,
+        color: '#333',
+        flex: 1,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 10,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    seeAllText: {
+        fontSize: 14,
+        color: '#3366FF',
+    },
+    highlightText: {
+        color: '#3366FF',
+    },
+    categoriesContainer: {
+        paddingHorizontal: 15,
+        marginBottom: 25,
+    },
+    categoryButton: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 25,
+        marginRight: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    categoryText: {
+        fontSize: 14,
+        color: '#333',
+    },
+    coursesContainer: {
+        paddingHorizontal: 15,
+        marginBottom: 20,
+    },
+    courseCard: {
+        width: 220,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        padding: 12,
+        marginRight: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    darkCard: {
+        backgroundColor: '#121212',
+    },
+    courseImageContainer: {
+        width: '100%',
+        height: 120,
+        borderRadius: 8,
+        marginBottom: 10,
+        overflow: 'hidden',
+    },
+    courseImagePlaceholder: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#E0E0FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    darkCoursePlaceholder: {
+        backgroundColor: '#1A1A1A',
+    },
+    courseTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 4,
+    },
+    courseInstructor: {
+        fontSize: 12,
+        color: '#777777',
+        marginBottom: 4,
+    },
+    darkCourseInstructor: {
+        color: '#AAAAAA',
+    },
+    courseRating: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    courseRatingText: {
+        fontSize: 12,
+        color: '#777777',
+        marginLeft: 4,
+    },
+    bottomNavContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+        backgroundColor: '#FFFFFF',
+    },
+    darkBottomNav: {
+        backgroundColor: '#121212',
+        borderTopColor: '#222222',
+    },
+    navItem: {
+        alignItems: 'center',
+    },
+    navText: {
+        fontSize: 12,
+        marginTop: 4,
+        color: '#888',
+    },
+    darkNavText: {
+        color: '#AAAAAA',
+    },
+    navTextActive: {
+        fontSize: 12,
+        marginTop: 4,
+        color: '#3366FF',
+        fontWeight: '500',
     },
 });
 

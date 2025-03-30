@@ -15,6 +15,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Dimensions } from 'react-native';
+import ThemeToggle from './components/ThemeToggle';
 
 const { width } = Dimensions.get('window');
 
@@ -58,47 +59,16 @@ function Settings() {
                         Choose your preferred theme appearance:
                     </Text>
 
-                    <View style={styles.themeButtonsContainer}>
-                        <TouchableOpacity
-                            style={[
-                                styles.themeButton,
-                                !isDarkMode && styles.activeThemeButton
-                            ]}
-                            onPress={() => isDarkMode && handleToggleTheme()}
-                        >
-                            <Ionicons
-                                name="sunny"
-                                size={24}
-                                color={!isDarkMode ? "#FFFFFF" : "#3366FF"}
-                            />
-                            <Text style={[
-                                styles.themeButtonText,
-                                !isDarkMode && styles.activeThemeButtonText
-                            ]}>
-                                Light
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[
-                                styles.themeButton,
-                                isDarkMode && styles.activeThemeButton
-                            ]}
-                            onPress={() => !isDarkMode && handleToggleTheme()}
-                        >
-                            <Ionicons
-                                name="moon"
-                                size={24}
-                                color={isDarkMode ? "#FFFFFF" : "#3366FF"}
-                            />
-                            <Text style={[
-                                styles.themeButtonText,
-                                isDarkMode && styles.activeThemeButtonText
-                            ]}>
-                                Dark
-                            </Text>
-                        </TouchableOpacity>
+                    <View style={styles.themeContainer}>
+                        <Text style={[styles.themeLabel, isDarkMode && styles.darkText]}>
+                            Dark Mode (Pitch Black)
+                        </Text>
+                        <ThemeToggle />
                     </View>
+
+                    <Text style={[styles.sectionDescription, isDarkMode && styles.darkTextLight, styles.themeHint]}>
+                        Dark mode now uses a pitch black background for better eye comfort during night study sessions.
+                    </Text>
                 </View>
 
                 <View style={[styles.section, isDarkMode && styles.darkCard]}>
@@ -135,21 +105,21 @@ function Settings() {
                         <Text style={[styles.menuItemText, isDarkMode && styles.darkText]}>
                             Privacy Policy
                         </Text>
-                        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? "#8F9BB3" : "#777777"} />
+                        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? "#AAAAAA" : "#777777"} />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuItem}>
                         <Text style={[styles.menuItemText, isDarkMode && styles.darkText]}>
                             Terms of Service
                         </Text>
-                        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? "#8F9BB3" : "#777777"} />
+                        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? "#AAAAAA" : "#777777"} />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuItem}>
                         <Text style={[styles.menuItemText, isDarkMode && styles.darkText]}>
                             Change Password
                         </Text>
-                        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? "#8F9BB3" : "#777777"} />
+                        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? "#AAAAAA" : "#777777"} />
                     </TouchableOpacity>
                 </View>
 
@@ -177,7 +147,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F5',
     },
     darkBackground: {
-        backgroundColor: '#222B45',
+        backgroundColor: '#000000',
     },
     header: {
         flexDirection: 'row',
@@ -189,7 +159,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#EEEEEE',
     },
     darkBorder: {
-        borderBottomColor: '#323759',
+        borderBottomColor: '#222222',
     },
     backButton: {
         padding: 5,
@@ -218,7 +188,7 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     darkCard: {
-        backgroundColor: '#1A2138',
+        backgroundColor: '#121212',
         shadowColor: '#000',
     },
     sectionHeader: {
@@ -244,49 +214,36 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     darkTextLight: {
-        color: '#8F9BB3',
+        color: '#BBBBBB',
     },
-    themeButtonsContainer: {
+    themeContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginVertical: 10,
-    },
-    themeButton: {
-        flexDirection: 'column',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 12,
-        padding: 15,
-        width: width / 2.5,
-        borderWidth: 1,
-        borderColor: '#3366FF',
+        marginBottom: 10,
     },
-    themeButtonText: {
+    themeLabel: {
+        fontSize: 16,
+        color: '#333333',
+    },
+    themeHint: {
+        fontStyle: 'italic',
         marginTop: 10,
-        fontWeight: '500',
-        color: '#3366FF',
-    },
-    activeThemeButton: {
-        backgroundColor: '#3366FF',
-    },
-    activeThemeButtonText: {
-        color: '#FFFFFF',
     },
     settingItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 10,
+        marginBottom: 15,
     },
     settingLabel: {
         fontSize: 16,
-        fontWeight: '500',
         color: '#333333',
+        marginBottom: 4,
     },
     settingDescription: {
         fontSize: 14,
         color: '#777777',
-        marginTop: 4,
     },
     menuItem: {
         flexDirection: 'row',

@@ -1,9 +1,29 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { ThemeProvider } from '@/context/ThemeContext';
+import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { StatusBar } from 'react-native';
+
+// Layout component that will include the dynamic StatusBar
+function RootLayoutNav() {
+    const { isDarkMode } = useTheme();
+
+    return (
+        <>
+            <StatusBar
+                barStyle={isDarkMode ? "light-content" : "dark-content"}
+                backgroundColor={isDarkMode ? "#000000" : "#ffffff"}
+            />
+            <Stack
+                screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: 'transparent' }
+                }}
+            />
+        </>
+    );
+}
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -19,14 +39,8 @@ export default function RootLayout() {
 
     return (
         <ThemeProvider>
-            <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
             <AuthProvider>
-                <Stack
-                    screenOptions={{
-                        headerShown: false,
-                        contentStyle: { backgroundColor: 'transparent' }
-                    }}
-                />
+                <RootLayoutNav />
             </AuthProvider>
         </ThemeProvider>
     );
