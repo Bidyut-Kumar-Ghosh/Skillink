@@ -48,6 +48,16 @@ export default function SignupScreen() {
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [isNavigating, setIsNavigating] = useState(false);
+
+    // Debounce navigation to prevent multiple clicks
+    const navigateToLogin = () => {
+        if (isNavigating) return;
+        setIsNavigating(true);
+        router.replace('/authentication/login');
+        // Reset after a delay to allow navigation to complete
+        setTimeout(() => setIsNavigating(false), 1000);
+    };
 
     const handleSignup = async () => {
         try {
@@ -79,6 +89,11 @@ export default function SignupScreen() {
         <SafeAreaView style={styles.safeArea}>
             <StatusBar style="light" />
             <View style={styles.backgroundContainer}>
+                <Image
+                    source={require('@/assets/images/landing.png')}
+                    style={styles.backgroundImage}
+                    resizeMode="cover"
+                />
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.container}
@@ -90,7 +105,11 @@ export default function SignupScreen() {
                         <View style={styles.overlay}>
                             <View style={styles.logoContainer}>
                                 <View style={styles.logoCircle}>
-                                    <Text style={styles.logoText}>S</Text>
+                                    <Image
+                                        source={require('@/assets/images/logo.png')}
+                                        style={styles.logoImage}
+                                        resizeMode="contain"
+                                    />
                                 </View>
                                 <Text style={styles.appName}>Skillink</Text>
                                 <Text style={styles.tagline}>Join our community of skilled professionals</Text>
@@ -201,13 +220,14 @@ export default function SignupScreen() {
                                     <Text style={styles.footerText}>
                                         Already have an account?
                                     </Text>
-                                    <Link href="/authentication/login" asChild>
-                                        <TouchableOpacity>
-                                            <Text style={styles.loginLink}>
-                                                Login
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </Link>
+                                    <TouchableOpacity
+                                        onPress={navigateToLogin}
+                                        disabled={isNavigating}
+                                    >
+                                        <Text style={styles.loginLink}>
+                                            Login
+                                        </Text>
+                                    </TouchableOpacity>
                                 </View>
                             </View>
                         </View>
@@ -226,10 +246,15 @@ const styles = StyleSheet.create({
         flex: 1,
         width: '100%',
         height: '100%',
-        backgroundColor: '#3366FF',
+    },
+    backgroundImage: {
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
     },
     container: {
         flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.4)',
     },
     scrollContainer: {
         flexGrow: 1,
@@ -238,7 +263,6 @@ const styles = StyleSheet.create({
     },
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
         borderRadius: 20,
         padding: 20,
         marginVertical: 20,
@@ -255,11 +279,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 10,
+        overflow: 'hidden',
     },
-    logoText: {
-        fontSize: 50,
-        fontWeight: 'bold',
-        color: '#3366FF',
+    logoImage: {
+        width: 70,
+        height: 70,
     },
     appName: {
         fontSize: 32,
@@ -296,11 +320,12 @@ const styles = StyleSheet.create({
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F5F5F5',
-        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#E4E9F2',
+        borderRadius: 10,
         marginBottom: 15,
-        paddingHorizontal: 15,
         height: 55,
+        paddingHorizontal: 15,
     },
     inputIcon: {
         marginRight: 10,
@@ -308,8 +333,8 @@ const styles = StyleSheet.create({
     input: {
         flex: 1,
         height: '100%',
-        fontSize: 16,
         color: '#333333',
+        fontSize: 16,
     },
     eyeIcon: {
         padding: 10,
@@ -317,14 +342,14 @@ const styles = StyleSheet.create({
     errorText: {
         color: '#ff3d71',
         marginBottom: 15,
-        textAlign: 'center',
+        fontSize: 14,
     },
     signupButton: {
-        backgroundColor: '#3366FF',
-        borderRadius: 8,
         height: 55,
-        alignItems: 'center',
+        backgroundColor: '#3366FF',
+        borderRadius: 10,
         justifyContent: 'center',
+        alignItems: 'center',
         marginBottom: 20,
     },
     signupButtonText: {
@@ -340,23 +365,23 @@ const styles = StyleSheet.create({
     divider: {
         flex: 1,
         height: 1,
-        backgroundColor: '#E0E0E0',
+        backgroundColor: '#E4E9F2',
     },
     dividerText: {
-        marginHorizontal: 15,
-        color: '#777777',
+        marginHorizontal: 10,
+        color: '#6c757d',
         fontSize: 14,
     },
     googleButton: {
         flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+        height: 55,
         backgroundColor: '#FFFFFF',
         borderWidth: 1,
-        borderColor: '#E0E0E0',
-        borderRadius: 8,
-        height: 55,
-        marginBottom: 25,
+        borderColor: '#E4E9F2',
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
     },
     googleIconCircle: {
         width: 24,
@@ -366,12 +391,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 10,
-        borderWidth: 1,
-        borderColor: '#4285F4',
     },
     googleButtonText: {
-        fontSize: 16,
         color: '#333333',
+        fontSize: 16,
     },
     footer: {
         flexDirection: 'row',
@@ -379,13 +402,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     footerText: {
-        fontSize: 14,
-        color: '#777777',
+        color: '#6c757d',
         marginRight: 5,
     },
     loginLink: {
-        fontSize: 14,
-        fontWeight: 'bold',
         color: '#3366FF',
+        fontWeight: 'bold',
     },
 }); 

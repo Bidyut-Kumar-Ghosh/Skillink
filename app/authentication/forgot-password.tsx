@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
     StyleSheet,
     TouchableOpacity,
@@ -12,8 +12,8 @@ import {
     Text,
     Image,
     Dimensions,
+    Alert,
 } from 'react-native';
-import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { router, Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -34,39 +34,62 @@ const fallbackTheme = {
     border: '#e4e9f2',
 };
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
     const { theme } = useTheme();
-    const { signIn, signInWithGoogle, authLoading } = useAuth();
 
     // Use fallback theme if the real theme is not available
     const activeTheme = theme || fallbackTheme;
 
     const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [resetSent, setResetSent] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
 
     // Debounce navigation to prevent multiple clicks
-    const navigateToSignup = () => {
+    const navigateToLogin = () => {
         if (isNavigating) return;
         setIsNavigating(true);
-        router.replace('/authentication/signup');
+        router.replace('/authentication/login');
         // Reset after a delay to allow navigation to complete
         setTimeout(() => setIsNavigating(false), 1000);
     };
 
-    const handleLogin = async () => {
+    // Mock function for reset password - to be replaced with Firebase
+    const handleResetPassword = async () => {
         try {
             setError('');
-            if (!email || !password) {
-                setError('Please fill in all fields');
+            setLoading(true);
+
+            if (!email) {
+                setError('Please enter your email address');
+                setLoading(false);
                 return;
             }
-            await signIn(email, password);
+
+            // Email validation regex
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                setError('Please enter a valid email address');
+                setLoading(false);
+                return;
+            }
+
+            // TODO: Replace with actual Firebase implementation
+            // Simulate API call
+            setTimeout(() => {
+                setLoading(false);
+                setResetSent(true);
+                Alert.alert(
+                    "Password Reset Email Sent",
+                    "Check your email for instructions to reset your password."
+                );
+            }, 1500);
+
         } catch (error: any) {
-            // Error is already handled in AuthContext
-            console.error('Login error:', error);
+            setLoading(false);
+            setError(error.message || 'Failed to send reset email. Please try again.');
+            console.error('Reset password error:', error);
         }
     };
 
@@ -97,12 +120,14 @@ export default function LoginScreen() {
                                     />
                                 </View>
                                 <Text style={styles.appName}>Skillink</Text>
-                                <Text style={styles.tagline}>Unlock Your Potential, Connect With Skills</Text>
+                                <Text style={styles.tagline}>Password Recovery</Text>
                             </View>
 
                             <View style={styles.formContainer}>
-                                <Text style={styles.welcomeBack}>Welcome Back!</Text>
-                                <Text style={styles.loginPrompt}>Please sign in to continue</Text>
+                                <Text style={styles.welcomeBack}>Forgot Password?</Text>
+                                <Text style={styles.loginPrompt}>
+                                    Enter your email address and we'll send you instructions to reset your password
+                                </Text>
 
                                 <View style={styles.inputContainer}>
                                     <Ionicons name="mail-outline" size={20} color={activeTheme.textLight} style={styles.inputIcon} />
@@ -114,81 +139,47 @@ export default function LoginScreen() {
                                         onChangeText={setEmail}
                                         keyboardType="email-address"
                                         autoCapitalize="none"
+                                        editable={!resetSent}
                                     />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <Ionicons name="lock-closed-outline" size={20} color={activeTheme.textLight} style={styles.inputIcon} />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Password"
-                                        placeholderTextColor={activeTheme.textLight}
-                                        value={password}
-                                        onChangeText={setPassword}
-                                        secureTextEntry={!showPassword}
-                                    />
-                                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                                        <Ionicons
-                                            name={showPassword ? "eye-off-outline" : "eye-outline"}
-                                            size={20}
-                                            color={activeTheme.textLight}
-                                        />
-                                    </TouchableOpacity>
-                                </View>
-
-                                <View style={styles.forgotPasswordContainer}>
-                                    <Link href="/authentication/forgot-password" asChild>
-                                        <TouchableOpacity>
-                                            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-                                        </TouchableOpacity>
-                                    </Link>
                                 </View>
 
                                 {error ? (
                                     <Text style={styles.errorText}>{error}</Text>
                                 ) : null}
 
-                                <TouchableOpacity
-                                    style={styles.loginButton}
-                                    onPress={handleLogin}
-                                    disabled={authLoading}
-                                >
-                                    {authLoading ? (
-                                        <ActivityIndicator color="#FFFFFF" />
-                                    ) : (
-                                        <Text style={styles.loginButtonText}>SIGN IN</Text>
-                                    )}
-                                </TouchableOpacity>
-
-                                <View style={styles.dividerContainer}>
-                                    <View style={styles.divider} />
-                                    <Text style={styles.dividerText}>OR</Text>
-                                    <View style={styles.divider} />
-                                </View>
-
-                                <TouchableOpacity
-                                    style={styles.googleButton}
-                                    onPress={signInWithGoogle}
-                                    disabled={authLoading}
-                                >
-                                    <View style={styles.googleIconCircle}>
-                                        <Text style={{ color: '#4285F4', fontWeight: 'bold' }}>G</Text>
+                                {resetSent ? (
+                                    <View style={styles.sentContainer}>
+                                        <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
+                                        <Text style={styles.sentText}>
+                                            Password reset email sent!
+                                        </Text>
+                                        <Text style={styles.sentSubText}>
+                                            Check your inbox for further instructions
+                                        </Text>
                                     </View>
-                                    <Text style={styles.googleButtonText}>
-                                        Sign in with Google
-                                    </Text>
-                                </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity
+                                        style={styles.resetButton}
+                                        onPress={handleResetPassword}
+                                        disabled={loading}
+                                    >
+                                        {loading ? (
+                                            <ActivityIndicator color="#FFFFFF" />
+                                        ) : (
+                                            <Text style={styles.resetButtonText}>RESET PASSWORD</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
 
                                 <View style={styles.footer}>
-                                    <Text style={styles.footerText}>
-                                        Don't have an account?
-                                    </Text>
                                     <TouchableOpacity
-                                        onPress={navigateToSignup}
+                                        style={styles.backButton}
+                                        onPress={navigateToLogin}
                                         disabled={isNavigating}
                                     >
-                                        <Text style={styles.signupLink}>
-                                            Sign up
+                                        <Ionicons name="arrow-back" size={20} color={activeTheme.primary} />
+                                        <Text style={styles.backText}>
+                                            Back to Login
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -302,82 +293,57 @@ const styles = StyleSheet.create({
     eyeIcon: {
         padding: 10,
     },
-    forgotPasswordContainer: {
-        alignItems: 'flex-end',
-        marginBottom: 20,
-    },
-    forgotPasswordText: {
-        color: '#3366FF',
-        fontSize: 14,
-    },
     errorText: {
         color: '#ff3d71',
         marginBottom: 15,
         fontSize: 14,
     },
-    loginButton: {
+    resetButton: {
         height: 55,
         backgroundColor: '#3366FF',
         borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 5,
+        marginTop: 10,
+        marginBottom: 20,
     },
-    loginButtonText: {
+    resetButtonText: {
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: 'bold',
-    },
-    dividerContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 20,
-    },
-    divider: {
-        flex: 1,
-        height: 1,
-        backgroundColor: '#E4E9F2',
-    },
-    dividerText: {
-        marginHorizontal: 10,
-        color: '#6c757d',
-        fontSize: 14,
-    },
-    googleButton: {
-        flexDirection: 'row',
-        height: 55,
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E4E9F2',
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    googleIconCircle: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#FFFFFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 10,
-    },
-    googleButtonText: {
-        color: '#333333',
-        fontSize: 16,
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
+        marginTop: 10,
     },
-    footerText: {
-        color: '#6c757d',
-        marginRight: 5,
+    backButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
     },
-    signupLink: {
+    backText: {
         color: '#3366FF',
         fontWeight: 'bold',
+        marginLeft: 5,
+    },
+    sentContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    sentText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333333',
+        marginTop: 15,
+        marginBottom: 5,
+    },
+    sentSubText: {
+        fontSize: 14,
+        color: '#777777',
+        textAlign: 'center',
+        marginBottom: 20,
     },
 }); 

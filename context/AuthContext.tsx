@@ -1,9 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Alert } from 'react-native';
-import { getUserData } from '@/config/mongodb';
-import { registerWithEmail, loginWithEmail, loginWithGoogle, logout } from '@/services/authService';
 import { router } from 'expo-router';
 import { useTheme } from './ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+// TODO: Replace with actual Firebase implementation
+// Mock functions to be replaced with Firebase
+const getUserData = async () => {
+    try {
+        const storedUser = await AsyncStorage.getItem('userData');
+        return storedUser ? JSON.parse(storedUser) : null;
+    } catch (error) {
+        console.error('Error retrieving user data:', error);
+        return null;
+    }
+};
 
 // Mock Google authentication for development
 const mockGoogleAuth = async () => {
@@ -14,6 +24,55 @@ const mockGoogleAuth = async () => {
         googleId: 'google123',
         photoURL: 'https://via.placeholder.com/150',
     };
+};
+
+// Mock authentication functions - to be replaced with Firebase
+const registerWithEmail = async (email: string, password: string, name: string = '') => {
+    // TODO: Replace with Firebase implementation
+    const userData = {
+        id: Date.now().toString(),
+        email,
+        name,
+        role: email === "admin@skillink.com" ? "admin" : "user",
+        createdAt: new Date(),
+        lastLoginAt: new Date(),
+    };
+    await AsyncStorage.setItem('userData', JSON.stringify(userData));
+    return userData;
+};
+
+const loginWithEmail = async (email: string, password: string) => {
+    // TODO: Replace with Firebase implementation
+    const userData = {
+        id: Date.now().toString(),
+        email,
+        name: 'Test User',
+        role: email === "admin@skillink.com" ? "admin" : "user",
+        createdAt: new Date(),
+        lastLoginAt: new Date(),
+    };
+    await AsyncStorage.setItem('userData', JSON.stringify(userData));
+    return userData;
+};
+
+const loginWithGoogle = async (googleUser: any) => {
+    // TODO: Replace with Firebase implementation
+    const userData = {
+        id: Date.now().toString(),
+        email: googleUser.email,
+        name: googleUser.name,
+        role: googleUser.email === "admin@skillink.com" ? "admin" : "user",
+        photoURL: googleUser.photoURL,
+        createdAt: new Date(),
+        lastLoginAt: new Date(),
+    };
+    await AsyncStorage.setItem('userData', JSON.stringify(userData));
+    return userData;
+};
+
+const logout = async () => {
+    // TODO: Replace with Firebase implementation
+    await AsyncStorage.removeItem('userData');
 };
 
 interface User {
@@ -64,7 +123,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const checkUserLoggedIn = async () => {
             try {
                 setLoading(true);
-                // Connect to mock database
                 const userData = await getUserData();
                 if (userData) {
                     setUser(userData);

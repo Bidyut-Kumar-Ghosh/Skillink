@@ -15,7 +15,6 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
-import { connectToDatabase } from '@/config/mongodb';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
@@ -53,9 +52,6 @@ export default function Dashboard() {
   const fetchUserDetails = async () => {
     try {
       if (!user) return;
-
-      // Connect to MongoDB and get latest user data
-      await connectToDatabase();
 
       // Format dates for display
       const now = new Date();
