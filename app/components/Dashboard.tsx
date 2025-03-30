@@ -32,7 +32,7 @@ const fallbackTheme = {
     error: '#ff3d71',
 };
 
-export default function Dashboard() {
+function Dashboard() {
     const { user, isLoggedIn, logOut, loading, authLoading } = useAuth();
     const { theme, isDarkMode, toggleTheme } = useTheme();
     const [refreshing, setRefreshing] = useState(false);
@@ -81,16 +81,6 @@ export default function Dashboard() {
         setRefreshing(true);
         await fetchUserDetails();
         setRefreshing(false);
-    };
-
-    // Handle theme changes
-    const handleToggleTheme = () => {
-        toggleTheme();
-        Alert.alert(
-            'Theme Changed',
-            `Theme has been changed to ${isDarkMode ? 'Light' : 'Dark'} mode.`,
-            [{ text: 'OK' }]
-        );
     };
 
     // Show loading while checking authentication
@@ -184,70 +174,28 @@ export default function Dashboard() {
                             <Text style={[styles.profileTitle, isDarkMode && styles.darkText]}>Quick Actions</Text>
                         </View>
                         <View style={styles.actionsContainer}>
-                            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/profile/edit')}>
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => router.push('/profile/edit')}
+                            >
                                 <Ionicons name="person-outline" size={24} color="#FFFFFF" />
                                 <Text style={styles.actionText}>Update Profile</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/settings')}>
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => router.push('/settings')}
+                            >
                                 <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
                                 <Text style={styles.actionText}>Settings</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.actionButton}>
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => router.push('/help')}
+                            >
                                 <Ionicons name="help-circle-outline" size={24} color="#FFFFFF" />
                                 <Text style={styles.actionText}>Help</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    <View style={[styles.themeSection, isDarkMode && styles.darkCard]}>
-                        <View style={[styles.profileHeader, isDarkMode && styles.darkBorder]}>
-                            <Ionicons name="color-palette" size={20} color={theme.primary} />
-                            <Text style={[styles.profileTitle, isDarkMode && styles.darkText]}>Theme Settings</Text>
-                        </View>
-                        <Text style={[styles.themeDescription, isDarkMode && styles.darkTextLight]}>
-                            Choose your preferred theme appearance:
-                        </Text>
-                        <View style={styles.themeButtonsContainer}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.themeButton,
-                                    !isDarkMode && styles.activeThemeButton
-                                ]}
-                                onPress={() => isDarkMode && toggleTheme()}
-                            >
-                                <Ionicons
-                                    name="sunny"
-                                    size={24}
-                                    color={!isDarkMode ? "#FFFFFF" : "#3366FF"}
-                                />
-                                <Text style={[
-                                    styles.themeButtonText,
-                                    !isDarkMode && styles.activeThemeButtonText
-                                ]}>
-                                    Light
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[
-                                    styles.themeButton,
-                                    isDarkMode && styles.activeThemeButton
-                                ]}
-                                onPress={() => !isDarkMode && toggleTheme()}
-                            >
-                                <Ionicons
-                                    name="moon"
-                                    size={24}
-                                    color={isDarkMode ? "#FFFFFF" : "#3366FF"}
-                                />
-                                <Text style={[
-                                    styles.themeButtonText,
-                                    isDarkMode && styles.activeThemeButtonText
-                                ]}>
-                                    Dark
-                                </Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -435,48 +383,6 @@ const styles = StyleSheet.create({
         marginTop: 5,
         textAlign: 'center',
     },
-    themeSection: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 15,
-        padding: 20,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    themeButtonsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginTop: 15,
-    },
-    themeButton: {
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 12,
-        padding: 15,
-        width: width / 2.5,
-        borderWidth: 1,
-        borderColor: '#3366FF',
-    },
-    themeButtonText: {
-        marginTop: 10,
-        fontWeight: '500',
-        color: '#3366FF',
-    },
-    activeThemeButton: {
-        backgroundColor: '#3366FF',
-    },
-    activeThemeButtonText: {
-        color: '#FFFFFF',
-    },
-    themeDescription: {
-        fontSize: 14,
-        color: '#777777',
-        marginBottom: 10,
-    },
     logoutButton: {
         flexDirection: 'row',
         backgroundColor: '#ff3d71',
@@ -518,4 +424,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#323759',
         borderColor: '#323759',
     },
-}); 
+});
+
+export default Dashboard; 
