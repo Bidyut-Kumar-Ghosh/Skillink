@@ -20,7 +20,7 @@ type ThemeType = {
 
 // Define the light theme
 const lightTheme: ThemeType = {
-    background: '#FFFFFF',
+    background: '#F8F9FA',
     cardBackground: '#FFFFFF',
     primary: '#3366FF',
     secondary: '#8F9BB3',
@@ -41,13 +41,13 @@ const darkTheme: ThemeType = {
     primary: '#3366FF',
     secondary: '#8F9BB3',
     text: '#FFFFFF',
-    textLight: '#E4E9F2',
+    textLight: '#AAAAAA',
     buttonText: '#FFFFFF',
     error: '#FF3D71',
     success: '#00E096',
     warning: '#FFAA00',
     info: '#0095FF',
-    border: '#222222',
+    border: '#1E1E1E',
 };
 
 // Define Theme Context type

@@ -11,6 +11,8 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
+import { hashPassword, verifyPassword } from '@/utils/crypto';
+import { showError, showSuccess, getErrorCode } from '@/app/components/NotificationHandler';
 
 // Function to get user data from Firestore
 const getUserData = async (uid: string) => {
@@ -44,11 +46,10 @@ const getUserByEmail = async (email: string) => {
 };
 
 // Custom log function to avoid excessive error logging
-const logAuthError = (message: string, error: any, isExpected: boolean = false) => {
-    // If it's an expected error (like invalid credentials), don't log to console
-    if (!isExpected) {
-        console.error(message, error);
-    }
+const logAuthError = (message: string, error: any) => {
+    // Report the error to our notification handler
+    const errorCode = getErrorCode(error);
+    showError(errorCode, error.message || message);
 };
 
 interface User {
@@ -57,7 +58,6 @@ interface User {
     name: string;
     role: string;
     photoURL?: string;
-    lastLoginAt?: Date;
     createdAt?: Date;
 }
 
@@ -70,6 +70,7 @@ interface AuthContextType {
     signUp: (email: string, password: string, name?: string) => Promise<void>;
     signIn: (email: string, password: string) => Promise<void>;
     logOut: () => Promise<void>;
+    setUser: React.Dispatch<React.SetStateAction<User | null>>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -95,34 +96,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Check if user is logged in on app load
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const checkPersistedUser = async () => {
             try {
-                setLoading(true);
-                if (firebaseUser) {
-                    // Get user data from Firestore
-                    const userData = await getUserData(firebaseUser.uid);
-                    if (userData) {
-                        setUser({
-                            id: firebaseUser.uid,
-                            email: firebaseUser.email || '',
-                            name: userData.name || '',
-                            role: userData.role || 'user',
-                            photoURL: userData.photoURL,
-                            lastLoginAt: userData.lastLoginAt,
-                            createdAt: userData.createdAt,
-                        });
-                    }
-                } else {
-                    setUser(null);
+                // First check AsyncStorage for persisted user
+                const storedUser = await AsyncStorage.getItem('user');
+                if (storedUser) {
+                    const parsedUser = JSON.parse(storedUser);
+                    setUser(parsedUser);
+                    setLoading(false);
+                    return;
                 }
             } catch (error) {
-                console.error('Error checking user session:', error);
-            } finally {
-                setLoading(false);
+                console.error('Error checking persisted user:', error);
             }
-        });
 
-        return () => unsubscribe();
+            // If no persisted user, check Firebase auth state
+            const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+                try {
+                    if (firebaseUser) {
+                        // Get user data from Firestore
+                        const userData = await getUserData(firebaseUser.uid);
+                        if (userData) {
+                            const userObj = {
+                                id: firebaseUser.uid,
+                                email: firebaseUser.email || '',
+                                name: userData.name || '',
+                                role: userData.role || 'user',
+                                photoURL: userData.photoURL,
+                                createdAt: userData.createdAt,
+                            };
+
+                            setUser(userObj);
+
+                            // Store user in AsyncStorage for persistence
+                            try {
+                                await AsyncStorage.setItem('user', JSON.stringify(userObj));
+                            } catch (storageError) {
+                                console.error('Error saving user to storage:', storageError);
+                            }
+                        }
+                    } else {
+                        setUser(null);
+                        // Clear AsyncStorage if no user
+                        try {
+                            await AsyncStorage.removeItem('user');
+                        } catch (storageError) {
+                            console.error('Error removing user from storage:', storageError);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error checking user session:', error);
+                } finally {
+                    setLoading(false);
+                }
+            });
+
+            return () => unsubscribe();
+        };
+
+        checkPersistedUser();
     }, []);
 
     const signUp = async (email: string, password: string, name?: string) => {
@@ -132,31 +164,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const firebaseUser = userCredential.user;
 
+            // Hash the password before storing
+            const hashedPassword = await hashPassword(password);
+
+            // Current timestamp for account creation
+            const timestamp = serverTimestamp();
+
             // Save additional user data to Firestore
             const userData = {
                 name: name || '',
                 email: email,
                 uid: firebaseUser.uid,
-                password: password, // Store password for credential login
+                password: hashedPassword, // Store hashed password
                 role: email === "admin@skillink.com" ? "admin" : "user",
-                createdAt: serverTimestamp(),
-                lastLoginAt: serverTimestamp(),
+                createdAt: timestamp,
             };
 
             await setDoc(doc(db, "users", firebaseUser.uid), userData);
 
-            // Update local user state
-            setUser({
-                id: firebaseUser.uid,
-                email: email,
-                name: name || '',
-                role: email === "admin@skillink.com" ? "admin" : "user",
-                createdAt: new Date(),
-                lastLoginAt: new Date(),
-            });
+            // Don't automatically sign in or update local user state
+            // Don't navigate to home automatically
 
-            router.replace('/');
-            Alert.alert("Success", "Your account has been created successfully!");
+            // Sign out the user to force them to log in
+            await signOut(auth);
+
         } catch (error: any) {
             logAuthError('Error signing up with email:', error);
             throw error;
@@ -169,73 +200,158 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             setAuthLoading(true);
 
-            // First try to find user in Firestore by email
-            const firestoreUser = await getUserByEmail(email);
-
-            if (!firestoreUser) {
-                setAuthLoading(false);
-                // This is an expected error, so no need to log it
-                return Promise.reject(new Error('Invalid email or password'));
-            }
-
-            if (firestoreUser.password !== password) {
-                setAuthLoading(false);
-                // This is an expected error, so no need to log it
-                return Promise.reject(new Error('Invalid email or password'));
-            }
-
-            // Password matches in Firestore, now sign in with Firebase Auth
+            // Try to sign in directly with Firebase Auth
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const firebaseUser = userCredential.user;
 
-                // Update Firestore with last login time
-                await setDoc(doc(db, "users", firebaseUser.uid), {
-                    lastLoginAt: serverTimestamp()
-                }, { merge: true });
+                // Get user data from Firestore
+                const userData = await getUserData(firebaseUser.uid);
 
-                // Update local user state
-                setUser({
+                if (!userData) {
+                    // User exists in Auth but not in Firestore - create a record
+                    const timestamp = serverTimestamp();
+                    const hashedPassword = await hashPassword(password);
+
+                    const newUserData = {
+                        name: '',
+                        email: email,
+                        uid: firebaseUser.uid,
+                        password: hashedPassword,
+                        role: 'user',
+                        createdAt: timestamp,
+                    };
+
+                    await setDoc(doc(db, "users", firebaseUser.uid), newUserData);
+
+                    // Create user object
+                    const userObj = {
+                        id: firebaseUser.uid,
+                        email: email,
+                        name: '',
+                        role: 'user',
+                        createdAt: timestamp,
+                    };
+
+                    // Update local user state
+                    setUser(userObj);
+
+                    // Store in AsyncStorage for persistence
+                    await AsyncStorage.setItem('user', JSON.stringify(userObj));
+
+                    router.replace('/');
+                    return;
+                }
+
+                // Create user object with all necessary info
+                const userObj = {
                     id: firebaseUser.uid,
                     email: email,
-                    name: firestoreUser.name || '',
-                    role: firestoreUser.role || 'user',
-                    photoURL: firestoreUser.photoURL,
-                    lastLoginAt: new Date(),
-                    createdAt: firestoreUser.createdAt,
-                });
+                    name: userData.name || '',
+                    role: userData.role || 'user',
+                    photoURL: userData.photoURL,
+                    createdAt: userData.createdAt,
+                };
+
+                // Update local user state
+                setUser(userObj);
+
+                // Store in AsyncStorage for persistence
+                await AsyncStorage.setItem('user', JSON.stringify(userObj));
 
                 router.replace('/');
-                // Optional: Show welcome alert
-                // Alert.alert("Welcome", `Welcome back, ${firestoreUser.name}!`);
+                return;
             } catch (firebaseError: any) {
-                // This is an unexpected Firebase error, log it but don't overwhelm the console
-                logAuthError('Firebase Auth error:', firebaseError);
+                // Don't log to console, only use our error handler for UI display
+                // Instead of console.error, use reportError
+                const errorCode = getErrorCode(firebaseError);
+                showError(errorCode, firebaseError.message || 'Authentication failed');
 
-                // If Firebase auth fails but Firestore credentials match, still log the user in
-                setUser({
-                    id: firestoreUser.uid,
-                    email: email,
-                    name: firestoreUser.name || '',
-                    role: firestoreUser.role || 'user',
-                    photoURL: firestoreUser.photoURL,
-                    lastLoginAt: new Date(),
-                    createdAt: firestoreUser.createdAt,
-                });
+                // If Firebase auth fails, try to find user in Firestore by email
+                const firestoreUser = await getUserByEmail(email);
 
-                // Update Firestore with last login time
-                await setDoc(doc(db, "users", firestoreUser.uid), {
-                    lastLoginAt: serverTimestamp()
-                }, { merge: true });
+                if (!firestoreUser) {
+                    setAuthLoading(false);
+                    // User doesn't exist at all
+                    return Promise.reject(new Error('Invalid email or password'));
+                }
 
-                router.replace('/');
+                // Verify password against stored hash
+                const passwordMatches = await verifyPassword(password, firestoreUser.password);
+
+                if (!passwordMatches) {
+                    setAuthLoading(false);
+                    return Promise.reject(new Error('Invalid email or password'));
+                }
+
+                // Password matches in Firestore, but Firebase Auth failed
+                // This could happen if Firebase Auth is reset but Firestore records remain
+                // In this case, create a new Firebase Auth account
+                try {
+                    // Try to create the user in Firebase Auth
+                    await createUserWithEmailAndPassword(auth, email, password);
+
+                    // Then sign in again
+                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                    const firebaseUser = userCredential.user;
+
+                    // Update Firestore record to match new UID if needed
+                    if (firestoreUser.uid !== firebaseUser.uid) {
+                        await setDoc(doc(db, "users", firebaseUser.uid), {
+                            ...firestoreUser,
+                            uid: firebaseUser.uid
+                        });
+                    }
+
+                    // Create user object
+                    const userObj = {
+                        id: firebaseUser.uid,
+                        email: email,
+                        name: firestoreUser.name || '',
+                        role: firestoreUser.role || 'user',
+                        photoURL: firestoreUser.photoURL,
+                        createdAt: firestoreUser.createdAt,
+                    };
+
+                    // Update local user state
+                    setUser(userObj);
+
+                    // Store in AsyncStorage for persistence
+                    await AsyncStorage.setItem('user', JSON.stringify(userObj));
+
+                    router.replace('/');
+                    return;
+                } catch (createError: any) {
+                    // Don't log to console
+                    const createErrorCode = getErrorCode(createError);
+                    showError(createErrorCode, createError.message || 'Error creating user');
+
+                    // If we can't create/signin with Firebase Auth, 
+                    // but we verified credentials in Firestore, still allow login
+                    console.error('Error creating Firebase Auth user:', createError);
+
+                    const userObj = {
+                        id: firestoreUser.uid,
+                        email: email,
+                        name: firestoreUser.name || '',
+                        role: firestoreUser.role || 'user',
+                        photoURL: firestoreUser.photoURL,
+                        createdAt: firestoreUser.createdAt,
+                    };
+
+                    // Update local user state
+                    setUser(userObj);
+
+                    // Store in AsyncStorage for persistence
+                    await AsyncStorage.setItem('user', JSON.stringify(userObj));
+
+                    router.replace('/');
+                    return;
+                }
             }
         } catch (error: any) {
             // This could be either an expected or unexpected error
-            // If it's an "Invalid email or password" error, it's expected
-            const isExpectedError = error.message === 'Invalid email or password';
-            logAuthError('Error signing in with email:', error, isExpectedError);
-
+            logAuthError('Error signing in:', error);
             setAuthLoading(false);
             return Promise.reject(error);
         } finally {
@@ -246,10 +362,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const logOut = async () => {
         try {
             setAuthLoading(true);
+
+            // Clear AsyncStorage first
+            await AsyncStorage.removeItem('user');
+
+            // Sign out from Firebase
             await signOut(auth);
+
+            // Clear local state
             setUser(null);
+
+            // Navigate to login
             router.replace('/authentication/login');
-            Alert.alert("Success", "You have been logged out successfully!");
+            showSuccess("Success", "You have been logged out successfully!");
         } catch (error: any) {
             logAuthError('Error signing out:', error);
             throw error;
@@ -261,17 +386,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Admin check
     const isAdmin = user?.role === 'admin';
 
+    // Return context provider with authentication state and functions
     return (
         <AuthContext.Provider
             value={{
                 user,
-                isLoggedIn: !!user,
-                isAdmin,
                 loading,
                 authLoading,
+                isLoggedIn: !!user,
+                isAdmin,
                 signUp,
                 signIn,
                 logOut,
+                setUser,
             }}
         >
             {children}

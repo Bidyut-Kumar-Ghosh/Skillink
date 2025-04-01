@@ -18,6 +18,11 @@ import { useTheme } from "@/context/ThemeContext";
 import { router, Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  showError,
+  showSuccess,
+  getErrorCode,
+} from "@/app/components/NotificationHandler";
 
 const { width, height } = Dimensions.get("window");
 
@@ -43,7 +48,6 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
 
@@ -57,27 +61,27 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    // Clear previous errors
-    setError("");
-
     // Validate input fields
     if (!email) {
-      setError("Please enter your email");
+      showError("auth/empty-email", "Please enter your email");
       return;
     }
 
     if (!password) {
-      setError("Please enter your password");
+      showError("auth/empty-password", "Please enter your password");
       return;
     }
 
     try {
       // Proceed with login
       await signIn(email, password);
+      // Show success message
+      showSuccess("auth/login-success");
       // If successful, we won't reach here because router.replace will be called
     } catch (error) {
-      // Handle error
-      setError("Invalid email or password");
+      // Use the NotificationHandler to show the error
+      const errorCode = getErrorCode(error);
+      showError(errorCode, error.message || "Invalid email or password");
     }
   };
 
@@ -173,8 +177,6 @@ export default function LoginScreen() {
                     </TouchableOpacity>
                   </Link>
                 </View>
-
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                 <TouchableOpacity
                   style={styles.loginButton}

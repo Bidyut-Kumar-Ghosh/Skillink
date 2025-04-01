@@ -18,6 +18,8 @@ import { useTheme } from "@/context/ThemeContext";
 import { router, Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/config/firebase";
 
 const { width, height } = Dimensions.get("window");
 
@@ -55,7 +57,7 @@ export default function ForgotPasswordScreen() {
     setTimeout(() => setIsNavigating(false), 1000);
   };
 
-  // Mock function for reset password - to be replaced with Firebase
+  // Function for password reset using Firebase
   const handleResetPassword = async () => {
     try {
       setError("");
@@ -75,21 +77,29 @@ export default function ForgotPasswordScreen() {
         return;
       }
 
-      // TODO: Replace with actual Firebase implementation
-      // Simulate API call
-      setTimeout(() => {
-        setLoading(false);
-        setResetSent(true);
-        Alert.alert(
-          "Password Reset Email Sent",
-          "Check your email for instructions to reset your password."
-        );
-      }, 1500);
+      // Send password reset email using Firebase
+      await sendPasswordResetEmail(auth, email);
+
+      setLoading(false);
+      setResetSent(true);
+      Alert.alert(
+        "Password Reset Email Sent",
+        "Check your email for instructions to reset your password."
+      );
     } catch (error) {
       setLoading(false);
-      setError(
-        error.message || "Failed to send reset email. Please try again."
-      );
+      let errorMessage = "Failed to send reset email. Please try again.";
+
+      // Handle specific Firebase error codes
+      if (error.code === "auth/user-not-found") {
+        errorMessage = "No account found with this email address.";
+      } else if (error.code === "auth/invalid-email") {
+        errorMessage = "Please enter a valid email address.";
+      } else if (error.code === "auth/too-many-requests") {
+        errorMessage = "Too many requests. Please try again later.";
+      }
+
+      setError(errorMessage);
       console.error("Reset password error:", error);
     }
   };

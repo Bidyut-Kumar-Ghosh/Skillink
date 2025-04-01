@@ -9,18 +9,54 @@
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#3366FF",
-      "image": "./assets/images/Google.png"
+      "image": "./assets/images/splash.png"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow Skillink to access your photos to update your profile picture.",
+        "NSCameraUsageDescription": "Allow Skillink to access your camera to take profile pictures."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Skillink to access your photos to update your profile picture.",
+          "cameraPermission": "Allow Skillink to access your camera to take profile pictures."
+        }
+      ]
+    ],
+    "fonts": [
+      {
+        "asset": "./assets/fonts/Inter-Regular.ttf",
+        "family": "Inter-Regular"
+      },
+      {
+        "asset": "./assets/fonts/Inter-Bold.ttf",
+        "family": "Inter-Bold"
+      },
+      {
+        "asset": "./assets/fonts/Inter-Medium.ttf",
+        "family": "Inter-Medium"
+      },
+      {
+        "asset": "./assets/fonts/Inter-SemiBold.ttf",
+        "family": "Inter-SemiBold"
+      }
+    ],
     "newArchEnabled": true
   }
 }

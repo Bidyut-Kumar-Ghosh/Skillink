@@ -27,9 +27,7 @@ function Dashboard() {
 
     // Fetch user details
     useEffect(() => {
-        if (!loading && !isLoggedIn) {
-            router.replace('/authentication/login');
-        } else if (user) {
+        if (user) {
             // Extract first name from full name
             if (user.name) {
                 const firstNameOnly = user.name.split(' ')[0];
@@ -40,7 +38,7 @@ function Dashboard() {
             setStorageUsed('2.8');
             setTotalStorage('10');
         }
-    }, [isLoggedIn, loading, user]);
+    }, [user]);
 
     // Get first letter of name or email for avatar
     const getInitial = () => {
@@ -60,12 +58,14 @@ function Dashboard() {
         <SafeAreaView style={[styles.container, isDarkMode && styles.darkBackground]}>
             <View style={styles.header}>
                 <View style={styles.headerLeftSection}>
-                    <Text style={[styles.appName, isDarkMode && styles.darkText]}>Skillink</Text>
-                    {firstName && (
-                        <Text style={[styles.welcomeMessage, isDarkMode && styles.darkText]}>
-                            Welcome, {firstName}
-                        </Text>
-                    )}
+                    <Text style={[styles.welcomeMessage, isDarkMode && styles.darkText]}>
+                        Welcome
+                        {firstName && (
+                            <Text style={[styles.userName, isDarkMode && styles.darkText]}>
+                                {' ' + firstName + '!'}
+                            </Text>
+                        )}
+                    </Text>
                 </View>
                 <TouchableOpacity onPress={navigateToProfile}>
                     {user?.photoURL ? (
@@ -211,14 +211,16 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     welcomeMessage: {
-        fontSize: 14,
-        color: '#666',
+        fontSize: 18,
+        color: '#444',
         marginTop: 2,
+        fontFamily: 'Inter-Regular',
     },
-    appName: {
-        fontSize: 24,
+    userName: {
+        fontSize: 18,
         fontWeight: 'bold',
-        color: '#333',
+        color: '#3366FF',
+        fontFamily: 'Inter-Bold',
     },
     darkText: {
         color: '#FFFFFF',

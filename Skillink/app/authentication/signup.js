@@ -12,15 +12,18 @@ import {
   Text,
   Image,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { router, Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { setDoc, doc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/config/firebase";
+import { hashPassword } from "@/utils/crypto";
+import { showError, showSuccess } from "@/app/components/NotificationHandler";
 
 const { width, height } = Dimensions.get("window");
 
@@ -64,25 +67,45 @@ export default function SignupScreen() {
   };
 
   const handleSignup = async () => {
-    setError("");
     setLoading(true);
 
     try {
       // Validate all fields
-      if (!name || !email || !password || !confirmPassword) {
-        setError("Please fill in all fields");
+      if (!name) {
+        showError("auth/empty-name", "Please enter your full name");
+        setLoading(false);
+        return;
+      }
+
+      if (!email) {
+        showError("auth/empty-email", "Please enter your email address");
+        setLoading(false);
+        return;
+      }
+
+      if (!password) {
+        showError("auth/empty-password", "Please enter a password");
+        setLoading(false);
+        return;
+      }
+
+      if (!confirmPassword) {
+        showError("auth/empty-confirm", "Please confirm your password");
         setLoading(false);
         return;
       }
 
       if (password !== confirmPassword) {
-        setError("Passwords do not match");
+        showError("auth/password-mismatch", "Passwords do not match");
         setLoading(false);
         return;
       }
 
       if (password.length < 6) {
-        setError("Password must be at least 6 characters");
+        showError(
+          "auth/weak-password",
+          "Password must be at least 6 characters"
+        );
         setLoading(false);
         return;
       }
@@ -110,13 +133,23 @@ export default function SignupScreen() {
       // Save additional user data to Firestore
       await saveUserToFirestore(user, name);
 
-      // Navigate to home after successful signup
-      router.replace("/");
+      // Sign out the user after registration
+      await signOut(auth);
+
+      // Show success notification
+      showSuccess(
+        "auth/register-success",
+        "Your account has been created successfully!"
+      );
+
+      // Navigate to login page after successful signup
+      router.replace("/authentication/login");
     } catch (error) {
-      // Show error in UI
-      const errorMessage =
-        error.message || "Failed to create account. Please try again.";
-      setError(errorMessage);
+      // Show error notification
+      showError(
+        "auth/signup-error",
+        error.message || "Failed to create account. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -124,12 +157,19 @@ export default function SignupScreen() {
 
   const saveUserToFirestore = async (user, fullName) => {
     try {
+      // Hash the password before storing it
+      const hashedPassword = await hashPassword(password);
+
+      // Current timestamp for account creation
+      const timestamp = serverTimestamp();
+
       await setDoc(doc(db, "users", user.uid), {
         name: fullName,
         email: user.email,
         uid: user.uid,
-        password: password,
-        createdAt: serverTimestamp(),
+        password: hashedPassword, // Store hashed password instead of plain text
+        createdAt: timestamp,
+        role: user.email === "admin@skillink.com" ? "admin" : "user",
       });
     } catch (error) {
       console.error("Error saving user data:", error);
