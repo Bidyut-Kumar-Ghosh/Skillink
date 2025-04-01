@@ -36,7 +36,7 @@ const fallbackTheme = {
 
 export default function LoginScreen() {
   const { theme } = useTheme();
-  const { signIn, signInWithGoogle, authLoading } = useAuth();
+  const { signIn, authLoading } = useAuth();
 
   // Use fallback theme if the real theme is not available
   const activeTheme = theme || fallbackTheme;
@@ -57,16 +57,27 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    // Clear previous errors
+    setError("");
+
+    // Validate input fields
+    if (!email) {
+      setError("Please enter your email");
+      return;
+    }
+
+    if (!password) {
+      setError("Please enter your password");
+      return;
+    }
+
     try {
-      setError("");
-      if (!email || !password) {
-        setError("Please fill in all fields");
-        return;
-      }
+      // Proceed with login
       await signIn(email, password);
+      // If successful, we won't reach here because router.replace will be called
     } catch (error) {
-      // Error is already handled in AuthContext
-      console.error("Login error:", error);
+      // Handle error
+      setError("Invalid email or password");
     }
   };
 
@@ -175,27 +186,6 @@ export default function LoginScreen() {
                   ) : (
                     <Text style={styles.loginButtonText}>SIGN IN</Text>
                   )}
-                </TouchableOpacity>
-
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                  <Text style={styles.dividerText}>OR</Text>
-                  <View style={styles.divider} />
-                </View>
-
-                <TouchableOpacity
-                  style={styles.googleButton}
-                  onPress={signInWithGoogle}
-                  disabled={authLoading}
-                >
-                  <View style={styles.googleIconCircle}>
-                    <Text style={{ color: "#4285F4", fontWeight: "bold" }}>
-                      G
-                    </Text>
-                  </View>
-                  <Text style={styles.googleButtonText}>
-                    Sign in with Google
-                  </Text>
                 </TouchableOpacity>
 
                 <View style={styles.footer}>
@@ -345,48 +335,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E0E0E0",
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    color: "#666666",
-    fontSize: 14,
-  },
-  googleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    height: 50,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    marginBottom: 20,
-  },
-  googleIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: "#4285F4",
-  },
-  googleButtonText: {
-    color: "#333333",
-    fontSize: 16,
-    fontWeight: "500",
   },
   footer: {
     flexDirection: "row",

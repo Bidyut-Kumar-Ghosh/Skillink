@@ -59,7 +59,14 @@ function Dashboard() {
     return (
         <SafeAreaView style={[styles.container, isDarkMode && styles.darkBackground]}>
             <View style={styles.header}>
-                <Text style={[styles.appName, isDarkMode && styles.darkText]}>Skillink</Text>
+                <View style={styles.headerLeftSection}>
+                    <Text style={[styles.appName, isDarkMode && styles.darkText]}>Skillink</Text>
+                    {firstName && (
+                        <Text style={[styles.welcomeMessage, isDarkMode && styles.darkText]}>
+                            Welcome, {firstName}
+                        </Text>
+                    )}
+                </View>
                 <TouchableOpacity onPress={navigateToProfile}>
                     {user?.photoURL ? (
                         <Image source={{ uri: user.photoURL }} style={styles.avatar} />
@@ -199,6 +206,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 20,
         paddingBottom: 10,
+    },
+    headerLeftSection: {
+        flex: 1,
+    },
+    welcomeMessage: {
+        fontSize: 14,
+        color: '#666',
+        marginTop: 2,
     },
     appName: {
         fontSize: 24,

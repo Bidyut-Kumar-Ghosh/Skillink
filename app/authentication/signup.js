@@ -18,6 +18,9 @@ import { useTheme } from "@/context/ThemeContext";
 import { router, Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "@/config/firebase";
 
 const { width, height } = Dimensions.get("window");
 
@@ -36,7 +39,7 @@ const fallbackTheme = {
 
 export default function SignupScreen() {
   const { theme } = useTheme();
-  const { signUp, signInWithGoogle, authLoading } = useAuth();
+  const { signUp, authLoading } = useAuth();
 
   // Use fallback theme if the real theme is not available
   const activeTheme = theme || fallbackTheme;
@@ -49,6 +52,7 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Debounce navigation to prevent multiple clicks
   const navigateToLogin = () => {
@@ -60,28 +64,76 @@ export default function SignupScreen() {
   };
 
   const handleSignup = async () => {
-    try {
-      setError("");
+    setError("");
+    setLoading(true);
 
+    try {
+      // Validate all fields
       if (!name || !email || !password || !confirmPassword) {
         setError("Please fill in all fields");
+        setLoading(false);
         return;
       }
 
       if (password !== confirmPassword) {
         setError("Passwords do not match");
+        setLoading(false);
         return;
       }
 
       if (password.length < 6) {
         setError("Password must be at least 6 characters");
+        setLoading(false);
         return;
       }
 
-      await signUp(email, password, name);
+      // Create user with Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      ).catch((error) => {
+        // Handle Firebase authentication errors
+        if (error.code === "auth/email-already-in-use") {
+          throw new Error(
+            "Email already in use. Please try a different email."
+          );
+        } else if (error.code === "auth/invalid-email") {
+          throw new Error("Invalid email address format.");
+        } else {
+          throw error;
+        }
+      });
+
+      const user = userCredential.user;
+
+      // Save additional user data to Firestore
+      await saveUserToFirestore(user, name);
+
+      // Navigate to home after successful signup
+      router.replace("/");
     } catch (error) {
-      // Error is already handled in AuthContext
-      console.error("Signup error:", error);
+      // Show error in UI
+      const errorMessage =
+        error.message || "Failed to create account. Please try again.";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveUserToFirestore = async (user, fullName) => {
+    try {
+      await setDoc(doc(db, "users", user.uid), {
+        name: fullName,
+        email: user.email,
+        uid: user.uid,
+        password: password,
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Error saving user data:", error);
+      throw error;
     }
   };
 
@@ -218,34 +270,13 @@ export default function SignupScreen() {
                 <TouchableOpacity
                   style={styles.signupButton}
                   onPress={handleSignup}
-                  disabled={authLoading}
+                  disabled={loading}
                 >
-                  {authLoading ? (
+                  {loading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text style={styles.signupButtonText}>SIGN UP</Text>
                   )}
-                </TouchableOpacity>
-
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                  <Text style={styles.dividerText}>OR</Text>
-                  <View style={styles.divider} />
-                </View>
-
-                <TouchableOpacity
-                  style={styles.googleButton}
-                  onPress={signInWithGoogle}
-                  disabled={authLoading}
-                >
-                  <View style={styles.googleIconCircle}>
-                    <Text style={{ color: "#4285F4", fontWeight: "bold" }}>
-                      G
-                    </Text>
-                  </View>
-                  <Text style={styles.googleButtonText}>
-                    Sign up with Google
-                  </Text>
                 </TouchableOpacity>
 
                 <View style={styles.footer}>
@@ -389,48 +420,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E0E0E0",
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    color: "#666666",
-    fontSize: 14,
-  },
-  googleButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    height: 50,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    marginBottom: 20,
-  },
-  googleIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: "#4285F4",
-  },
-  googleButtonText: {
-    color: "#333333",
-    fontSize: 16,
-    fontWeight: "500",
   },
   footer: {
     flexDirection: "row",
