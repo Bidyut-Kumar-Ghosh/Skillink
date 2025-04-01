@@ -11,6 +11,11 @@ web-build/
 expo-env.d.ts
 
 
+
+
+# fibebase file
+firebaseConfig.jsx
+
 #env File 
 .env
 

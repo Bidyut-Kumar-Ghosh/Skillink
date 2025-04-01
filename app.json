@@ -8,7 +8,8 @@
     "userInterfaceStyle": "automatic",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#3366FF"
+      "backgroundColor": "#3366FF",
+      "image": "./assets/images/Google.png"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
