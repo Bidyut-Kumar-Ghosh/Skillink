@@ -367,9 +367,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await AsyncStorage.removeItem('user');
 
             // Sign out from Firebase
-            await signOut(auth);
+            try {
+                await signOut(auth);
+            } catch (signOutError: any) {
+                console.error('Firebase signOut error:', signOutError);
+                // If we're on web, continue with the logout process even if Firebase signOut fails
+                // This ensures users can still log out on web even if there's an auth token issue
+            }
 
-            // Clear local state
+            // Clear local state - this is crucial and should happen regardless of signOut success
             setUser(null);
 
             // Navigate to login
@@ -377,7 +383,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             showSuccess("Success", "You have been logged out successfully!");
         } catch (error: any) {
             logAuthError('Error signing out:', error);
-            throw error;
+            // Even on error, we should try to clear the user state to prevent being stuck
+            setUser(null);
+            router.replace('/authentication/login');
         } finally {
             setAuthLoading(false);
         }

@@ -636,6 +636,7 @@ function Profile() {
                     {
                       text: "Logout",
                       onPress: () => {
+                        // Start the animation
                         Animated.parallel([
                           Animated.timing(fadeAnim, {
                             toValue: 0,
@@ -647,7 +648,22 @@ function Profile() {
                             duration: 300,
                             useNativeDriver: true,
                           }),
-                        ]).start(() => {
+                        ]).start(async () => {
+                          // Force reset user state for web platform
+                          if (Platform.OS === "web") {
+                            try {
+                              await AsyncStorage.removeItem("user");
+                              setUser(null);
+                              router.replace("/authentication/login");
+                            } catch (error) {
+                              console.error(
+                                "Error during manual logout:",
+                                error
+                              );
+                            }
+                          }
+
+                          // Call the normal logout function
                           logOut();
                         });
                       },
