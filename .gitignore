@@ -5,10 +5,14 @@ node_modules/
 
 # Expo
 .expo/
-.env
+
 dist/
 web-build/
 expo-env.d.ts
+
+
+#env File 
+.env
 
 # Native
 *.orig.*
