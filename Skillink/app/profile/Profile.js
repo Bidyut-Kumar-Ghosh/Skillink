@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   ActivityIndicator,
   RefreshControl,
-  Image,
   StatusBar,
   Dimensions,
   Alert,
@@ -25,8 +24,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { useFonts } from "expo-font";
-import * as ImagePicker from "expo-image-picker";
-import { saveProfileImage, getProfileImage } from "@/utils/imageStorage";
 
 const { width, height } = Dimensions.get("window");
 
@@ -50,8 +47,6 @@ function Profile() {
   const [name, setName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
-  const [profileImage, setProfileImage] = useState(null);
 
   // Load custom fonts
   const [fontsLoaded] = useFonts({
@@ -123,57 +118,15 @@ function Profile() {
   useEffect(() => {
     if (user) {
       setName(user.name || "");
-      if (user.photoURL) {
-        setProfileImage(user.photoURL);
-      } else {
-        // Try to load profile image from local storage
-        const loadProfileImage = async () => {
-          try {
-            const imageUri = await getProfileImage();
-            if (imageUri) {
-              setProfileImage(imageUri);
-
-              // Update user object with the profile image URL
-              const updatedUser = {
-                ...user,
-                photoURL: imageUri,
-              };
-              setUser(updatedUser);
-              await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
-            }
-          } catch (error) {
-            console.error("Error loading profile image:", error);
-          }
-        };
-
-        loadProfileImage();
-      }
     }
   }, [user]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Refresh user data if needed
-    try {
-      // Try to load profile image from local storage
-      const imageUri = await getProfileImage();
-      if (imageUri && user) {
-        setProfileImage(imageUri);
-
-        // Update user object if needed
-        if (user.photoURL !== imageUri) {
-          const updatedUser = {
-            ...user,
-            photoURL: imageUri,
-          };
-          setUser(updatedUser);
-          await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
-        }
-      }
-    } catch (error) {
-      console.error("Error refreshing profile data:", error);
-    }
-    setRefreshing(false);
+    // Simple refresh with no image loading
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
   };
 
   const updateProfile = async () => {
@@ -218,96 +171,97 @@ function Profile() {
     }
   };
 
-  // Image picker function
-  const pickImage = async () => {
-    try {
-      // Request permission
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (permissionResult.granted === false) {
-        Alert.alert(
-          "Permission Required",
-          "You need to allow access to your photos to update your profile picture."
-        );
-        return;
-      }
-
-      // Launch image picker
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedImage = result.assets[0];
-        uploadImage(selectedImage.uri);
-      }
-    } catch (error) {
-      console.error("Error picking image:", error);
-      Alert.alert("Error", "Failed to select image. Please try again.");
+  // Get first letter of name or email for avatar
+  const getInitial = () => {
+    if (user?.name && user.name.length > 0) {
+      return user.name.charAt(0).toUpperCase();
+    } else if (user?.email && user.email.length > 0) {
+      return user.email.charAt(0).toUpperCase();
     }
+    return "U";
   };
 
-  // Upload image locally
-  const uploadImage = async (uri) => {
-    try {
-      setImageUploading(true);
+  // Remove image picker section and replace with static avatar display
+  const avatarSection = () => {
+    return (
+      <View style={styles.avatarSection}>
+        <View
+          style={[
+            styles.avatarWrapper,
+            {
+              borderColor: isDarkMode ? "#3D435C" : "#3366FF",
+              backgroundColor: isDarkMode ? "#242B42" : "#FFFFFF",
+            },
+          ]}
+        >
+          <View style={styles.profileAvatarPlaceholder}>
+            <Text style={styles.profileAvatarText}>{getInitial()}</Text>
+          </View>
+        </View>
 
-      if (!user || !user.id) {
-        Alert.alert("Error", "User not found");
-        setImageUploading(false);
-        return;
-      }
+        {isEditingName ? (
+          <View style={styles.nameEditContainer}>
+            <TextInput
+              style={styles.nameInput}
+              value={name}
+              onChangeText={setName}
+              autoFocus={true}
+              placeholder="Enter your name"
+              placeholderTextColor="#8F96AB"
+              onSubmitEditing={() => {
+                updateProfile();
+                setIsEditingName(false);
+              }}
+            />
+            <TouchableOpacity
+              style={styles.saveNameButton}
+              onPress={() => {
+                updateProfile();
+                setIsEditingName(false);
+              }}
+              disabled={isSubmitting}
+              activeOpacity={0.8}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.nameContainer}
+            onPress={() => setIsEditingName(true)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.profileName,
+                { color: isDarkMode ? "#FFFFFF" : "#333333" },
+              ]}
+            >
+              {user?.name || "User"}
+            </Text>
+            <Ionicons
+              name="create-outline"
+              size={18}
+              color="#3366FF"
+              style={styles.editIcon}
+            />
+          </TouchableOpacity>
+        )}
 
-      // Save the image locally
-      const localImageUri = await saveProfileImage(uri, user.id);
-
-      // Update user profile state
-      const updatedUser = {
-        ...user,
-        photoURL: localImageUri,
-      };
-
-      setUser(updatedUser);
-      setProfileImage(localImageUri);
-
-      // Update AsyncStorage user data
-      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
-
-      setImageUploading(false);
-      Alert.alert("Success", "Profile picture updated successfully!");
-    } catch (error) {
-      console.error("Error saving profile image:", error);
-      setImageUploading(false);
-      Alert.alert("Error", "Failed to save image. Please try again.");
-    }
-  };
-
-  // Function to get text style based on theme and font
-  const getTextStyle = (base, fontWeight = "regular") => {
-    let fontFamily;
-    switch (fontWeight) {
-      case "bold":
-        fontFamily = "Inter-Bold";
-        break;
-      case "medium":
-        fontFamily = "Inter-Medium";
-        break;
-      case "semibold":
-        fontFamily = "Inter-SemiBold";
-        break;
-      default:
-        fontFamily = "Inter-Regular";
-    }
-
-    return {
-      ...base,
-      fontFamily,
-      color: isDarkMode ? activeTheme.textLight : activeTheme.text,
-    };
+        <Text
+          style={[
+            styles.profileEmail,
+            { color: isDarkMode ? "#8F96AB" : "#666666" },
+          ]}
+        >
+          {user?.email}
+        </Text>
+      </View>
+    );
   };
 
   // Show loading while checking authentication or loading fonts
@@ -318,16 +272,6 @@ function Profile() {
       </View>
     );
   }
-
-  // Get first letter of name or email for avatar
-  const getInitial = () => {
-    if (user?.name && user.name.length > 0) {
-      return user.name.charAt(0).toUpperCase();
-    } else if (user?.email && user.email.length > 0) {
-      return user.email.charAt(0).toUpperCase();
-    }
-    return "U";
-  };
 
   return (
     <SafeAreaView
@@ -386,105 +330,7 @@ function Profile() {
               />
             }
           >
-            <View style={styles.avatarSection}>
-              <TouchableOpacity
-                style={[
-                  styles.avatarWrapper,
-                  {
-                    borderColor: isDarkMode ? "#3D435C" : "#3366FF",
-                    backgroundColor: isDarkMode ? "#242B42" : "#FFFFFF",
-                  },
-                ]}
-                onPress={pickImage}
-                disabled={imageUploading}
-                activeOpacity={0.8}
-              >
-                {imageUploading ? (
-                  <View style={styles.profileAvatarPlaceholder}>
-                    <ActivityIndicator size="large" color="#FFFFFF" />
-                  </View>
-                ) : profileImage ? (
-                  <View style={styles.avatarContainer}>
-                    <Image
-                      source={{ uri: profileImage }}
-                      style={styles.profileAvatar}
-                    />
-                    <View style={styles.editAvatarOverlay}>
-                      <Ionicons name="camera" size={22} color="#FFFFFF" />
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.profileAvatarPlaceholder}>
-                    <Text style={styles.profileAvatarText}>{getInitial()}</Text>
-                    <View style={styles.editAvatarOverlay}>
-                      <Ionicons name="camera" size={22} color="#FFFFFF" />
-                    </View>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {isEditingName ? (
-                <View style={styles.nameEditContainer}>
-                  <TextInput
-                    style={styles.nameInput}
-                    value={name}
-                    onChangeText={setName}
-                    autoFocus={true}
-                    placeholder="Enter your name"
-                    placeholderTextColor="#8F96AB"
-                    onSubmitEditing={() => {
-                      updateProfile();
-                      setIsEditingName(false);
-                    }}
-                  />
-                  <TouchableOpacity
-                    style={styles.saveNameButton}
-                    onPress={() => {
-                      updateProfile();
-                      setIsEditingName(false);
-                    }}
-                    disabled={isSubmitting}
-                    activeOpacity={0.8}
-                  >
-                    {isSubmitting ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                    )}
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.nameContainer}
-                  onPress={() => setIsEditingName(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.profileName,
-                      { color: isDarkMode ? "#FFFFFF" : "#333333" },
-                    ]}
-                  >
-                    {user?.name || "User"}
-                  </Text>
-                  <Ionicons
-                    name="create-outline"
-                    size={18}
-                    color="#3366FF"
-                    style={styles.editIcon}
-                  />
-                </TouchableOpacity>
-              )}
-
-              <Text
-                style={[
-                  styles.profileEmail,
-                  { color: isDarkMode ? "#8F96AB" : "#666666" },
-                ]}
-              >
-                {user?.email}
-              </Text>
-            </View>
+            {avatarSection()}
 
             <Animated.View
               style={[
@@ -766,17 +612,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  avatarContainer: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  profileAvatar: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
   profileAvatarPlaceholder: {
     width: "100%",
     height: "100%",
@@ -790,22 +625,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#FFFFFF",
     fontFamily: "Inter-SemiBold",
-  },
-  editAvatarOverlay: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#3366FF",
-    padding: 5,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   nameContainer: {
     flexDirection: "row",

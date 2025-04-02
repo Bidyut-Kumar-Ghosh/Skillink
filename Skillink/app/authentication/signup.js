@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   StyleSheet,
   TouchableOpacity,
@@ -12,40 +12,24 @@ import {
   Text,
   Image,
   Dimensions,
-  Alert,
+  Animated,
 } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { router, Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
-import { setDoc, doc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/config/firebase";
-import { hashPassword } from "@/utils/crypto";
-import { showError, showSuccess } from "@/app/components/NotificationHandler";
+import {
+  showError,
+  showSuccess,
+  getErrorCode,
+} from "@/app/components/NotificationHandler";
 
 const { width, height } = Dimensions.get("window");
 
-// Fallback theme for safety
-const fallbackTheme = {
-  background: "#f8f9fa",
-  primary: "#3366FF",
-  buttonText: "#ffffff",
-  text: "#333333",
-  textLight: "#8f9bb3",
-  textMuted: "#6c757d",
-  cardBackground: "#ffffff",
-  error: "#ff3d71",
-  border: "#e4e9f2",
-};
-
 export default function SignupScreen() {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const { signUp, authLoading } = useAuth();
-
-  // Use fallback theme if the real theme is not available
-  const activeTheme = theme || fallbackTheme;
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -57,133 +41,140 @@ export default function SignupScreen() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const logoAnim = useRef(new Animated.Value(0)).current;
+  const formAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const buttonAnim = useRef(new Animated.Value(0)).current;
+
+  // Button scale for press animation
+  const buttonScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Sequence of animations for a smooth entrance
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.timing(logoAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(formAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  // Animate button press
+  const animateButtonPress = () => {
+    Animated.sequence([
+      Animated.timing(buttonScale, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScale, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   // Debounce navigation to prevent multiple clicks
   const navigateToLogin = () => {
     if (isNavigating) return;
     setIsNavigating(true);
-    router.replace("/authentication/login");
-    // Reset after a delay to allow navigation to complete
-    setTimeout(() => setIsNavigating(false), 1000);
+
+    animateButtonPress();
+
+    // Fade out animation before navigation
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      router.replace("/authentication/login");
+      // Reset after a delay to allow navigation to complete
+      setTimeout(() => setIsNavigating(false), 1000);
+    });
   };
 
   const handleSignup = async () => {
-    setLoading(true);
+    // Clear previous errors
+    setError("");
+
+    // Validate the input fields
+    if (!name || !email || !password || !confirmPassword) {
+      setError("All fields are required");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    animateButtonPress();
 
     try {
-      // Validate all fields
-      if (!name) {
-        showError("auth/empty-name", "Please enter your full name");
-        setLoading(false);
-        return;
-      }
-
-      if (!email) {
-        showError("auth/empty-email", "Please enter your email address");
-        setLoading(false);
-        return;
-      }
-
-      if (!password) {
-        showError("auth/empty-password", "Please enter a password");
-        setLoading(false);
-        return;
-      }
-
-      if (!confirmPassword) {
-        showError("auth/empty-confirm", "Please confirm your password");
-        setLoading(false);
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        showError("auth/password-mismatch", "Passwords do not match");
-        setLoading(false);
-        return;
-      }
-
-      if (password.length < 6) {
-        showError(
-          "auth/weak-password",
-          "Password must be at least 6 characters"
-        );
-        setLoading(false);
-        return;
-      }
-
-      // Create user with Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      ).catch((error) => {
-        // Handle Firebase authentication errors
-        if (error.code === "auth/email-already-in-use") {
-          throw new Error(
-            "Email already in use. Please try a different email."
-          );
-        } else if (error.code === "auth/invalid-email") {
-          throw new Error("Invalid email address format.");
-        } else {
-          throw error;
-        }
-      });
-
-      const user = userCredential.user;
-
-      // Save additional user data to Firestore
-      await saveUserToFirestore(user, name);
-
-      // Sign out the user after registration
-      await signOut(auth);
-
-      // Show success notification
+      setLoading(true);
+      await signUp(email, password, name);
       showSuccess(
         "auth/register-success",
-        "Your account has been created successfully!"
+        "Registration successful! Please sign in."
       );
 
-      // Navigate to login page after successful signup
-      router.replace("/authentication/login");
+      // Navigate to login after successful signup
+      setTimeout(() => {
+        router.replace("/authentication/login");
+      }, 1000);
     } catch (error) {
-      // Show error notification
-      showError(
-        "auth/signup-error",
-        error.message || "Failed to create account. Please try again."
-      );
+      const errorCode = getErrorCode(error);
+      showError(errorCode, error.message || "Registration failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const saveUserToFirestore = async (user, fullName) => {
-    try {
-      // Hash the password before storing it
-      const hashedPassword = await hashPassword(password);
-
-      // Current timestamp for account creation
-      const timestamp = serverTimestamp();
-
-      await setDoc(doc(db, "users", user.uid), {
-        name: fullName,
-        email: user.email,
-        uid: user.uid,
-        password: hashedPassword, // Store hashed password instead of plain text
-        createdAt: timestamp,
-        role: user.email === "admin@skillink.com" ? "admin" : "user",
-      });
-    } catch (error) {
-      console.error("Error saving user data:", error);
-      throw error;
-    }
-  };
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-      <View style={styles.backgroundContainer}>
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        { backgroundColor: isDarkMode ? "#000000" : "#f8f9fa" },
+      ]}
+    >
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <Animated.View
+        style={[styles.backgroundContainer, { opacity: fadeAnim }]}
+      >
         <Image
           source={require("@/assets/images/landing.png")}
-          style={styles.backgroundImage}
+          style={[styles.backgroundImage, { opacity: isDarkMode ? 0.7 : 1 }]}
           resizeMode="cover"
         />
         <KeyboardAvoidingView
@@ -195,7 +186,15 @@ export default function SignupScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.overlay}>
-              <View style={styles.logoContainer}>
+              <Animated.View
+                style={[
+                  styles.logoContainer,
+                  {
+                    opacity: logoAnim,
+                    transform: [{ translateY: slideAnim }],
+                  },
+                ]}
+              >
                 <View style={styles.logoCircle}>
                   <Image
                     source={require("@/assets/images/logo.png")}
@@ -205,43 +204,82 @@ export default function SignupScreen() {
                 </View>
                 <Text style={styles.appName}>Skillink</Text>
                 <Text style={styles.tagline}>
-                  Join our community of skilled professionals
+                  Unlock Your Potential, Connect With Skills
                 </Text>
-              </View>
+              </Animated.View>
 
-              <View style={styles.formContainer}>
-                <Text style={styles.welcomeBack}>Create Account</Text>
-                <Text style={styles.loginPrompt}>
-                  Please fill in your details to register
+              <Animated.View
+                style={[
+                  styles.formContainer,
+                  {
+                    opacity: formAnim,
+                    transform: [
+                      { translateY: Animated.multiply(slideAnim, 0.5) },
+                    ],
+                    backgroundColor: isDarkMode ? "#121212" : "#FFFFFF",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.welcomeBack,
+                    { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                  ]}
+                >
+                  Create Account
+                </Text>
+                <Text
+                  style={[
+                    styles.loginPrompt,
+                    { color: isDarkMode ? "#AAAAAA" : "#666666" },
+                  ]}
+                >
+                  Sign up to get started!
                 </Text>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    { backgroundColor: isDarkMode ? "#1E1E1E" : "#F5F5F5" },
+                  ]}
+                >
                   <Ionicons
                     name="person-outline"
                     size={20}
-                    color={activeTheme.textLight}
+                    color={theme.textLight}
                     style={styles.inputIcon}
                   />
                   <TextInput
-                    style={styles.input}
+                    style={[
+                      styles.input,
+                      { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                    ]}
                     placeholder="Full Name"
-                    placeholderTextColor={activeTheme.textLight}
+                    placeholderTextColor={theme.textLight}
                     value={name}
                     onChangeText={setName}
                   />
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    { backgroundColor: isDarkMode ? "#1E1E1E" : "#F5F5F5" },
+                  ]}
+                >
                   <Ionicons
                     name="mail-outline"
                     size={20}
-                    color={activeTheme.textLight}
+                    color={theme.textLight}
                     style={styles.inputIcon}
                   />
                   <TextInput
-                    style={styles.input}
+                    style={[
+                      styles.input,
+                      { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                    ]}
                     placeholder="Email"
-                    placeholderTextColor={activeTheme.textLight}
+                    placeholderTextColor={theme.textLight}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -249,17 +287,25 @@ export default function SignupScreen() {
                   />
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    { backgroundColor: isDarkMode ? "#1E1E1E" : "#F5F5F5" },
+                  ]}
+                >
                   <Ionicons
                     name="lock-closed-outline"
                     size={20}
-                    color={activeTheme.textLight}
+                    color={theme.textLight}
                     style={styles.inputIcon}
                   />
                   <TextInput
-                    style={styles.input}
+                    style={[
+                      styles.input,
+                      { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                    ]}
                     placeholder="Password"
-                    placeholderTextColor={activeTheme.textLight}
+                    placeholderTextColor={theme.textLight}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -271,22 +317,30 @@ export default function SignupScreen() {
                     <Ionicons
                       name={showPassword ? "eye-off-outline" : "eye-outline"}
                       size={20}
-                      color={activeTheme.textLight}
+                      color={theme.textLight}
                     />
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    { backgroundColor: isDarkMode ? "#1E1E1E" : "#F5F5F5" },
+                  ]}
+                >
                   <Ionicons
                     name="lock-closed-outline"
                     size={20}
-                    color={activeTheme.textLight}
+                    color={theme.textLight}
                     style={styles.inputIcon}
                   />
                   <TextInput
-                    style={styles.input}
+                    style={[
+                      styles.input,
+                      { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                    ]}
                     placeholder="Confirm Password"
-                    placeholderTextColor={activeTheme.textLight}
+                    placeholderTextColor={theme.textLight}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     secureTextEntry={!showConfirmPassword}
@@ -300,41 +354,53 @@ export default function SignupScreen() {
                         showConfirmPassword ? "eye-off-outline" : "eye-outline"
                       }
                       size={20}
-                      color={activeTheme.textLight}
+                      color={theme.textLight}
                     />
                   </TouchableOpacity>
                 </View>
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-                <TouchableOpacity
-                  style={styles.signupButton}
-                  onPress={handleSignup}
-                  disabled={loading}
+                <Animated.View
+                  style={{
+                    transform: [{ scale: buttonScale }],
+                    opacity: buttonAnim,
+                  }}
                 >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.signupButtonText}>SIGN UP</Text>
-                  )}
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.signupButton}
+                    onPress={handleSignup}
+                    disabled={loading || authLoading}
+                  >
+                    {loading || authLoading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.signupButtonText}>SIGN UP</Text>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
 
-                <View style={styles.footer}>
-                  <Text style={styles.footerText}>
+                <Animated.View style={[styles.footer, { opacity: buttonAnim }]}>
+                  <Text
+                    style={[
+                      styles.footerText,
+                      { color: isDarkMode ? "#AAAAAA" : "#666666" },
+                    ]}
+                  >
                     Already have an account?
                   </Text>
                   <TouchableOpacity
                     onPress={navigateToLogin}
                     disabled={isNavigating}
                   >
-                    <Text style={styles.loginLink}>Login</Text>
+                    <Text style={styles.loginLink}>Sign in</Text>
                   </TouchableOpacity>
-                </View>
-              </View>
+                </Animated.View>
+              </Animated.View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -454,6 +520,7 @@ const styles = StyleSheet.create({
     height: 50,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 5,
     marginBottom: 20,
   },
   signupButtonText: {

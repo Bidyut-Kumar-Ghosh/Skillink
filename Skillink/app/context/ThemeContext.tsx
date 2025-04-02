@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform, Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define theme type
@@ -55,6 +55,8 @@ type ThemeContextType = {
     theme: ThemeType;
     isDarkMode: boolean;
     toggleTheme: () => void;
+    followDeviceTheme: boolean;
+    setFollowDeviceTheme: (follow: boolean) => void;
 };
 
 // Create context for theme
@@ -62,6 +64,8 @@ const ThemeContext = createContext<ThemeContextType>({
     theme: lightTheme,
     isDarkMode: false,
     toggleTheme: () => { },
+    followDeviceTheme: true,
+    setFollowDeviceTheme: () => { }
 });
 
 // Create hook for easy theme usage
@@ -76,26 +80,93 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps) {
     const colorScheme = useColorScheme();
     const [isDarkMode, setIsDarkMode] = useState(false);
+    const [followDeviceTheme, setFollowDeviceTheme] = useState(true);
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    // Function to get current device theme
+    const getDeviceTheme = () => {
+        // Use Appearance API as fallback for web
+        if (Platform.OS === 'web') {
+            return Appearance.getColorScheme() === 'dark';
+        }
+        return colorScheme === 'dark';
+    };
 
     // Load theme preference from storage
     useEffect(() => {
+        const loadThemePreference = async () => {
+            try {
+                // Load follow device preference first
+                const followDevice = await AsyncStorage.getItem('followDeviceTheme');
+                const shouldFollowDevice = followDevice === null ? true : JSON.parse(followDevice);
+                setFollowDeviceTheme(shouldFollowDevice);
+
+                // Then load manual theme preference
+                const savedTheme = await AsyncStorage.getItem('isDarkMode');
+
+                if (shouldFollowDevice) {
+                    // If following device theme, use system preference
+                    setIsDarkMode(getDeviceTheme());
+                } else if (savedTheme !== null) {
+                    // Otherwise use saved preference
+                    setIsDarkMode(JSON.parse(savedTheme));
+                } else {
+                    // Default to device theme if no preference is saved
+                    setIsDarkMode(getDeviceTheme());
+                }
+
+                setIsInitialized(true);
+            } catch (error) {
+                console.error('Error loading theme preference:', error);
+                // Default to device theme if there's an error
+                setIsDarkMode(getDeviceTheme());
+                setIsInitialized(true);
+            }
+        };
+
         loadThemePreference();
     }, []);
 
-    // Set initial theme based on device preference if no stored preference
+    // Listen for device theme changes when following device theme
     useEffect(() => {
-        if (colorScheme) {
-            setIsDarkMode(colorScheme === 'dark');
+        if (!isInitialized) return;
+
+        if (followDeviceTheme) {
+            const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+                setIsDarkMode(colorScheme === 'dark');
+            });
+
+            return () => {
+                subscription.remove();
+            };
         }
-    }, [colorScheme]);
+    }, [followDeviceTheme, isInitialized]);
 
     // Toggle between dark and light theme
     const toggleTheme = () => {
         setIsDarkMode(prevMode => {
             const newMode = !prevMode;
             saveThemePreference(newMode);
+
+            // When manually toggling, stop following device theme
+            if (followDeviceTheme) {
+                setFollowDeviceTheme(false);
+                saveFollowDevicePreference(false);
+            }
+
             return newMode;
         });
+    };
+
+    // Set whether to follow device theme
+    const handleSetFollowDeviceTheme = (follow: boolean) => {
+        setFollowDeviceTheme(follow);
+        saveFollowDevicePreference(follow);
+
+        if (follow) {
+            // Update to match device immediately when enabling follow device
+            setIsDarkMode(getDeviceTheme());
+        }
     };
 
     // Save theme preference to AsyncStorage
@@ -107,15 +178,12 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         }
     };
 
-    // Load theme preference from AsyncStorage
-    const loadThemePreference = async () => {
+    // Save follow device preference to AsyncStorage
+    const saveFollowDevicePreference = async (follow: boolean) => {
         try {
-            const savedTheme = await AsyncStorage.getItem('isDarkMode');
-            if (savedTheme !== null) {
-                setIsDarkMode(JSON.parse(savedTheme));
-            }
+            await AsyncStorage.setItem('followDeviceTheme', JSON.stringify(follow));
         } catch (error) {
-            console.error('Error loading theme preference:', error);
+            console.error('Error saving follow device preference:', error);
         }
     };
 
@@ -124,6 +192,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         theme: isDarkMode ? darkTheme : lightTheme,
         isDarkMode,
         toggleTheme,
+        followDeviceTheme,
+        setFollowDeviceTheme: handleSetFollowDeviceTheme
     };
 
     return (

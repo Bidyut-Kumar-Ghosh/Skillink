@@ -1,12 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Animated } from "react-native";
 import { useAuth } from "@/context/AuthContext";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function ProtectedRoute({ children }) {
-  const { user, loading, setUser, isLoggedIn } = useAuth();
+  const { user, loading, setUser } = useAuth();
+  const { theme } = useTheme();
   const [checkedStorage, setCheckedStorage] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const pathname = usePathname();
+
+  // Animation for content
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Check if there's stored user information in AsyncStorage
@@ -21,6 +28,13 @@ export default function ProtectedRoute({ children }) {
           }
         }
         setCheckedStorage(true);
+
+        // Fade in animation when ready
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
       } catch (error) {
         console.error("Error reading stored user:", error);
         setCheckedStorage(true);
@@ -31,41 +45,35 @@ export default function ProtectedRoute({ children }) {
   }, []);
 
   useEffect(() => {
-    // Save user info to AsyncStorage when it changes
-    const saveUser = async () => {
-      try {
-        if (user) {
-          await AsyncStorage.setItem("user", JSON.stringify(user));
-        }
-      } catch (error) {
-        console.error("Error saving user to storage:", error);
-      }
-    };
-
-    if (user) {
-      saveUser();
-    }
-  }, [user]);
-
-  useEffect(() => {
     // Only redirect if we've checked storage and user is definitely not logged in
-    if (!loading && checkedStorage && !user) {
-      // Redirect to login if user is not authenticated
-      router.replace("/authentication/login");
+    // and we're not already redirecting
+    if (!loading && checkedStorage && !user && !redirecting) {
+      // Set redirecting flag to prevent multiple redirects
+      setRedirecting(true);
+
+      // Use setTimeout to prevent potential race conditions
+      setTimeout(() => {
+        // Redirect to login if user is not authenticated
+        router.replace("/authentication/login");
+      }, 100);
     }
-  }, [user, loading, checkedStorage]);
+  }, [user, loading, checkedStorage, redirecting]);
 
   if (loading || !checkedStorage) {
     // Show loading spinner while checking authentication
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#3366FF" />
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   // Only render children if user is authenticated
-  return user ? children : null;
+  return user ? (
+    <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+      {children}
+    </Animated.View>
+  ) : null;
 }
 
 const styles = StyleSheet.create({

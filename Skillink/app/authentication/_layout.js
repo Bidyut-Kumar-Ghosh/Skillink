@@ -1,14 +1,14 @@
-import React from "react";
 import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { View } from "react-native";
 
-export default function AuthLayout() {
+function AuthLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: "transparent" },
-        animation: "fade",
-      }}
-    />
+    <View style={{ flex: 1 }}>
+      <StatusBar style="auto" />
+      <Stack screenOptions={{ headerShown: false }} />
+    </View>
   );
 }
+
+export default AuthLayout;

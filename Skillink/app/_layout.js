@@ -1,56 +1,78 @@
-import React, { useEffect, useState } from "react";
-import { Stack, router, usePathname } from "expo-router";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useTheme } from "@/context/ThemeContext";
+import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { usePathname, router } from "expo-router";
+import { useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import {
+  View,
+  Text,
+  Appearance,
+  Platform,
+  UIManager,
+  LogBox,
+} from "react-native";
+import { NotificationHandler } from "./components/NotificationHandler";
 import { useFonts } from "expo-font";
-import { ThemeProvider, useTheme } from "@/context/ThemeContext";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { StatusBar } from "react-native";
-import SplashScreen from "./components/SplashScreen";
-import NotificationHandler from "./components/NotificationHandler";
-import * as SplashScreenExpo from "expo-splash-screen";
+import { enableScreens } from "react-native-screens";
+import * as SplashScreen from "expo-splash-screen";
 
-// Keep the splash screen visible while we fetch resources
-SplashScreenExpo.preventAutoHideAsync();
-
-// Layout component that will include the dynamic StatusBar
-function RootLayoutNav() {
-  const { isDarkMode } = useTheme();
-  const { user, loading } = useAuth();
-  const currentPath = usePathname();
-
-  // List of paths that should be protected (require authentication)
-  const protectedPaths = ["/", "/settings", "/profile", "/help"];
-
-  // Check if the current path requires authentication
-  const isProtectedRoute = protectedPaths.some(
-    (path) => currentPath === path || currentPath.startsWith(`${path}/`)
-  );
-
-  // Redirect to login if user is not authenticated and trying to access a protected route
-  useEffect(() => {
-    if (!loading && !user && isProtectedRoute) {
-      router.replace("/authentication/login");
-    }
-  }, [user, loading, currentPath, isProtectedRoute]);
-
-  return (
-    <>
-      <StatusBar
-        barStyle={isDarkMode ? "light-content" : "dark-content"}
-        backgroundColor={isDarkMode ? "#000000" : "#ffffff"}
-      />
-      <NotificationHandler />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "transparent" },
-        }}
-      />
-    </>
-  );
+// Disable yellow box warnings and console errors/warnings in production
+if (!__DEV__) {
+  // Disable all console output in production
+  console.log = () => {};
+  console.info = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+  console.debug = () => {};
 }
 
-// Wrap layout with required providers
-function LayoutWithProviders() {
+// Also ignore specific warnings in development
+LogBox.ignoreLogs([
+  "Require cycle:",
+  "AsyncStorage has been extracted from react-native",
+  "[auth/invalid-credential]",
+  "Login error handled by AuthContext",
+  "Error signing in:",
+  "Firebase signOut error:",
+]);
+
+// Enable LayoutAnimation for Android
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// Enable optimized native screens container
+enableScreens();
+
+// Keep the splash screen visible until resources are loaded
+SplashScreen.preventAutoHideAsync();
+
+export default function RootLayout() {
+  // Load custom fonts
+  const [fontsLoaded] = useFonts({
+    "Inter-Regular": require("../assets/fonts/Inter-Regular.ttf"),
+    "Inter-Medium": require("../assets/fonts/Inter-Medium.ttf"),
+    "Inter-Bold": require("../assets/fonts/Inter-Bold.ttf"),
+    "Inter-SemiBold": require("../assets/fonts/Inter-SemiBold.ttf"),
+  });
+
+  // Hide splash screen once fonts are loaded
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <ThemeProvider>
       <AuthProvider>
@@ -60,28 +82,47 @@ function LayoutWithProviders() {
   );
 }
 
-export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    "Inter-Regular": require("@/assets/fonts/Inter-Regular.ttf"),
-    "Inter-Medium": require("@/assets/fonts/Inter-Medium.ttf"),
-    "Inter-SemiBold": require("@/assets/fonts/Inter-SemiBold.ttf"),
-    "Inter-Bold": require("@/assets/fonts/Inter-Bold.ttf"),
-  });
-  const [appIsReady, setAppIsReady] = useState(false);
+// Layout component that will include the dynamic StatusBar
+function RootLayoutNav() {
+  const { isDarkMode } = useTheme();
+  const { user, loading } = useAuth();
+  const currentPath = usePathname();
 
-  const onSplashFinish = () => {
-    setAppIsReady(true);
-    SplashScreenExpo.hideAsync();
-  };
+  // List of protected paths that require authentication
+  const publicPaths = [
+    "/authentication/login",
+    "/authentication/signup",
+    "/authentication/forgot-password",
+  ];
 
-  if (!fontsLoaded) {
-    return null; // Return a loading indicator if you prefer
-  }
+  // Check if the current path is public (doesn't require authentication)
+  const isPublicRoute = publicPaths.some(
+    (path) => currentPath === path || currentPath.startsWith(`${path}/`)
+  );
 
-  // Show splash screen until fonts are loaded
-  if (!appIsReady) {
-    return <SplashScreen onFinish={onSplashFinish} />;
-  }
+  // Prevent authenticated users from accessing login/signup pages
+  useEffect(() => {
+    if (!loading && user && isPublicRoute) {
+      // Redirect to home if user is already logged in and trying to access auth pages
+      router.replace("/");
+    }
+  }, [user, loading, currentPath, isPublicRoute]);
 
-  return <LayoutWithProviders />;
+  return (
+    <>
+      <StatusBar
+        style={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor={isDarkMode ? "#000000" : "#ffffff"}
+      />
+      <NotificationHandler />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "transparent" },
+          animation: "fade_from_bottom",
+          animationDuration: 200,
+        }}
+      />
+    </>
+  );
 }

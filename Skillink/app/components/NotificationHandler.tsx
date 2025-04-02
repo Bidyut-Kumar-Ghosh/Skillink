@@ -21,7 +21,6 @@ const messages = {
     'password/update-success': 'Password changed successfully!',
 
     // Firebase auth errors
-    'auth/invalid-credential': 'Invalid email or password. Please try again.',
     'auth/user-not-found': 'Account not found. Need to sign up?',
     'auth/wrong-password': 'Incorrect password. Try again or reset your password.',
     'auth/email-already-in-use': 'Email already in use. Try signing in instead.',
@@ -128,7 +127,7 @@ const getIconForNotification = (code: string, type: 'success' | 'error'): string
 };
 
 // Main NotificationHandler component
-const NotificationHandler: React.FC = () => {
+export const NotificationHandler: React.FC = () => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const { isDarkMode } = useTheme();
     const fadeAnim = useState(new Animated.Value(0))[0];

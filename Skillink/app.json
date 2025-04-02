@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow Skillink to access your photos to update your profile picture.",
-        "NSCameraUsageDescription": "Allow Skillink to access your camera to take profile pictures."
+        "NSCameraUsageDescription": "Allow Skillink to access your camera to take profile pictures.",
+        "CADisableMinimumFrameDurationOnPhone": true
       }
     },
     "android": {
@@ -57,6 +58,9 @@
         "family": "Inter-SemiBold"
       }
     ],
-    "newArchEnabled": true
+    "newArchEnabled": true,
+    "experiments": {
+      "tsconfigPaths": true
+    }
   }
 }

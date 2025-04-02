@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from './ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,19 +7,29 @@ import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    UserCredential,
+    User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, FieldValue } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { hashPassword, verifyPassword } from '@/utils/crypto';
 import { showError, showSuccess, getErrorCode } from '@/app/components/NotificationHandler';
 
 // Function to get user data from Firestore
-const getUserData = async (uid: string) => {
+const getUserData = async (uid: string): Promise<User | null> => {
     try {
         const userDoc = await getDoc(doc(db, "users", uid));
         if (userDoc.exists()) {
-            return userDoc.data();
+            const data = userDoc.data() as FirestoreUser;
+            return {
+                id: uid,
+                email: data.email || '',
+                name: data.name || '',
+                role: data.role || 'user',
+                photoURL: data.photoURL,
+                createdAt: data.createdAt,
+            };
         }
         return null;
     } catch (error) {
@@ -29,14 +39,24 @@ const getUserData = async (uid: string) => {
 };
 
 // Function to get user by email
-const getUserByEmail = async (email: string) => {
+const getUserByEmail = async (email: string): Promise<FirestoreUser | null> => {
     try {
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", email));
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
-            return querySnapshot.docs[0].data();
+            const data = querySnapshot.docs[0].data() as FirestoreUser;
+            return {
+                id: querySnapshot.docs[0].id,
+                email: data.email || '',
+                name: data.name || '',
+                role: data.role || 'user',
+                photoURL: data.photoURL,
+                createdAt: data.createdAt,
+                password: data.password,
+                uid: data.uid,
+            };
         }
         return null;
     } catch (error) {
@@ -58,7 +78,14 @@ interface User {
     name: string;
     role: string;
     photoURL?: string;
-    createdAt?: Date;
+    createdAt?: Date | FieldValue;
+    password?: string;
+    uid?: string;
+}
+
+interface FirestoreUser extends User {
+    uid: string;
+    password: string;
 }
 
 interface AuthContextType {
@@ -111,47 +138,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             // If no persisted user, check Firebase auth state
-            const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-                try {
-                    if (firebaseUser) {
-                        // Get user data from Firestore
-                        const userData = await getUserData(firebaseUser.uid);
-                        if (userData) {
-                            const userObj = {
-                                id: firebaseUser.uid,
-                                email: firebaseUser.email || '',
-                                name: userData.name || '',
-                                role: userData.role || 'user',
-                                photoURL: userData.photoURL,
-                                createdAt: userData.createdAt,
-                            };
+            try {
+                const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+                    try {
+                        if (firebaseUser) {
+                            // Get user data from Firestore
+                            const userData = await getUserData(firebaseUser.uid);
+                            if (userData) {
+                                const userObj: User = {
+                                    id: firebaseUser.uid,
+                                    email: firebaseUser.email || '',
+                                    name: userData.name || '',
+                                    role: userData.role || 'user',
+                                    photoURL: userData.photoURL,
+                                    createdAt: userData.createdAt,
+                                };
 
-                            setUser(userObj);
+                                setUser(userObj);
 
-                            // Store user in AsyncStorage for persistence
+                                // Store user in AsyncStorage for persistence
+                                try {
+                                    await AsyncStorage.setItem('user', JSON.stringify(userObj));
+                                } catch (storageError) {
+                                    console.error('Error saving user to storage:', storageError);
+                                }
+                            }
+                        } else {
+                            setUser(null);
+                            // Clear AsyncStorage if no user
                             try {
-                                await AsyncStorage.setItem('user', JSON.stringify(userObj));
+                                await AsyncStorage.removeItem('user');
                             } catch (storageError) {
-                                console.error('Error saving user to storage:', storageError);
+                                console.error('Error removing user from storage:', storageError);
                             }
                         }
-                    } else {
-                        setUser(null);
-                        // Clear AsyncStorage if no user
-                        try {
-                            await AsyncStorage.removeItem('user');
-                        } catch (storageError) {
-                            console.error('Error removing user from storage:', storageError);
-                        }
+                    } catch (error) {
+                        console.error('Error checking user session:', error);
+                    } finally {
+                        setLoading(false);
                     }
-                } catch (error) {
-                    console.error('Error checking user session:', error);
-                } finally {
-                    setLoading(false);
-                }
-            });
+                });
 
-            return () => unsubscribe();
+                return () => unsubscribe();
+            } catch (authError) {
+                console.error('Auth state subscription error:', authError);
+                setLoading(false);
+            }
         };
 
         checkPersistedUser();
@@ -171,11 +203,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const timestamp = serverTimestamp();
 
             // Save additional user data to Firestore
-            const userData = {
+            const userData: FirestoreUser = {
+                id: firebaseUser.uid,
                 name: name || '',
                 email: email,
                 uid: firebaseUser.uid,
-                password: hashedPassword, // Store hashed password
+                password: hashedPassword,
                 role: email === "admin@skillink.com" ? "admin" : "user",
                 createdAt: timestamp,
             };
@@ -225,7 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     await setDoc(doc(db, "users", firebaseUser.uid), newUserData);
 
                     // Create user object
-                    const userObj = {
+                    const userObj: User = {
                         id: firebaseUser.uid,
                         email: email,
                         name: '',
@@ -237,14 +270,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setUser(userObj);
 
                     // Store in AsyncStorage for persistence
-                    await AsyncStorage.setItem('user', JSON.stringify(userObj));
+                    await AsyncStorage.setItem("user", JSON.stringify(userObj));
 
                     router.replace('/');
                     return;
                 }
 
                 // Create user object with all necessary info
-                const userObj = {
+                const userObj: User = {
                     id: firebaseUser.uid,
                     email: email,
                     name: userData.name || '',
@@ -257,23 +290,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(userObj);
 
                 // Store in AsyncStorage for persistence
-                await AsyncStorage.setItem('user', JSON.stringify(userObj));
+                await AsyncStorage.setItem("user", JSON.stringify(userObj));
 
                 router.replace('/');
                 return;
             } catch (firebaseError: any) {
-                // Don't log to console, only use our error handler for UI display
-                // Instead of console.error, use reportError
-                const errorCode = getErrorCode(firebaseError);
-                showError(errorCode, firebaseError.message || 'Authentication failed');
+                // Handle Firebase auth errors with a single notification
+                if (firebaseError.code === 'auth/wrong-password' ||
+                    firebaseError.code === 'auth/user-not-found' ||
+                    firebaseError.code === 'auth/invalid-credential') {
+                    showError('auth/login-error', 'Invalid email or password. Please try again.');
+                    setAuthLoading(false);
+                    // Use a plain object instead of Error to avoid stack traces in console
+                    // This will prevent the error from showing in the console
+                    return Promise.reject({
+                        silent: true,
+                        message: 'Invalid credentials'
+                    });
+                } else {
+                    // Only show user-friendly error messages, no need to expose technical details
+                    showError('auth/login-error', 'There was a problem signing in. Please try again.');
+                }
 
                 // If Firebase auth fails, try to find user in Firestore by email
                 const firestoreUser = await getUserByEmail(email);
 
                 if (!firestoreUser) {
                     setAuthLoading(false);
-                    // User doesn't exist at all
-                    return Promise.reject(new Error('Invalid email or password'));
+                    // User doesn't exist at all - silent rejection
+                    return Promise.reject({
+                        silent: true,
+                        message: 'Invalid email or password'
+                    });
                 }
 
                 // Verify password against stored hash
@@ -281,7 +329,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (!passwordMatches) {
                     setAuthLoading(false);
-                    return Promise.reject(new Error('Invalid email or password'));
+                    // Password doesn't match - silent rejection
+                    return Promise.reject({
+                        silent: true,
+                        message: 'Invalid email or password'
+                    });
                 }
 
                 // Password matches in Firestore, but Firebase Auth failed
@@ -322,14 +374,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     router.replace('/');
                     return;
                 } catch (createError: any) {
-                    // Don't log to console
-                    const createErrorCode = getErrorCode(createError);
-                    showError(createErrorCode, createError.message || 'Error creating user');
-
+                    // Silent handling - no console logs
                     // If we can't create/signin with Firebase Auth, 
                     // but we verified credentials in Firestore, still allow login
-                    console.error('Error creating Firebase Auth user:', createError);
-
                     const userObj = {
                         id: firestoreUser.uid,
                         email: email,
@@ -350,8 +397,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
             }
         } catch (error: any) {
-            // This could be either an expected or unexpected error
-            logAuthError('Error signing in:', error);
+            // Only show internal errors that aren't already handled
+            if (!error.silent) {
+                // Use a user-friendly message instead of technical details
+                showError('auth/login-error', 'There was a problem signing in. Please try again.');
+            }
             setAuthLoading(false);
             return Promise.reject(error);
         } finally {
@@ -370,9 +420,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
                 await signOut(auth);
             } catch (signOutError: any) {
-                console.error('Firebase signOut error:', signOutError);
-                // If we're on web, continue with the logout process even if Firebase signOut fails
-                // This ensures users can still log out on web even if there's an auth token issue
+                // Silent error handling - no console logs for web or any platform
             }
 
             // Clear local state - this is crucial and should happen regardless of signOut success
@@ -382,7 +430,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             router.replace('/authentication/login');
             showSuccess("Success", "You have been logged out successfully!");
         } catch (error: any) {
-            logAuthError('Error signing out:', error);
+            // Silent error handling - no console logs
             // Even on error, we should try to clear the user state to prevent being stuck
             setUser(null);
             router.replace('/authentication/login');
@@ -390,9 +438,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setAuthLoading(false);
         }
     };
-
-    // Admin check
-    const isAdmin = user?.role === 'admin';
 
     // Return context provider with authentication state and functions
     return (
@@ -402,7 +447,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 loading,
                 authLoading,
                 isLoggedIn: !!user,
-                isAdmin,
+                isAdmin: user?.role === 'admin',
                 signUp,
                 signIn,
                 logOut,
