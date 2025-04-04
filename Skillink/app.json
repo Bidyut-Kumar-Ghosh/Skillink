@@ -9,7 +9,7 @@
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#3366FF",
-      "image": "./assets/images/splash.png"
+      "image": "./assets/images/ChatGPT Image Apr 4, 2025, 01_32_28 PM.png"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {

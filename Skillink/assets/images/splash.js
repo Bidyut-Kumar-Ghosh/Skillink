@@ -16,7 +16,9 @@ async function generateSplashScreen() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Load and draw logo
-  const logo = await loadImage(path.join(__dirname, "logo.png"));
+  const logo = await loadImage(
+    path.join(__dirname, "ChatGPT Image Apr 4, 2025, 01_32_28 PM.png")
+  );
 
   // Center the logo
   const logoWidth = 400;

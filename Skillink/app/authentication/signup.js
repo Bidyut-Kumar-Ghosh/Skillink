@@ -197,7 +197,7 @@ export default function SignupScreen() {
               >
                 <View style={styles.logoCircle}>
                   <Image
-                    source={require("@/assets/images/logo.png")}
+                    source={require("@/assets/images/ChatGPT Image Apr 4, 2025, 01_32_28 PM.png")}
                     style={styles.logoImage}
                     resizeMode="contain"
                   />
@@ -393,7 +393,7 @@ export default function SignupScreen() {
                     onPress={navigateToLogin}
                     disabled={isNavigating}
                   >
-                    <Text style={styles.loginLink}>Sign in</Text>
+                    <Text style={styles.loginLink}>Log in</Text>
                   </TouchableOpacity>
                 </Animated.View>
               </Animated.View>
@@ -439,24 +439,34 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#FFFFFF",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#000033",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 15,
+    shadowColor: "#00FFFF",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.8,
+    shadowRadius: 16,
+    elevation: 15,
+    borderWidth: 3,
+    borderColor: "#00BFFF",
     overflow: "hidden",
   },
   logoImage: {
-    width: 70,
-    height: 70,
+    width: 85,
+    height: 85,
   },
   appName: {
-    fontSize: 32,
+    fontSize: 38,
     fontWeight: "bold",
-    color: "#FFFFFF",
+    color: "#00BFFF",
     marginBottom: 5,
+    textShadowColor: "rgba(0, 191, 255, 0.8)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
   },
   tagline: {
     fontSize: 16,

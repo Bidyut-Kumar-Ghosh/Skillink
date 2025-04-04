@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   StyleSheet,
   TouchableOpacity,
@@ -13,13 +13,16 @@ import {
   Image,
   Dimensions,
   Alert,
+  Animated,
 } from "react-native";
 import { useTheme } from "@/context/ThemeContext";
 import { router, Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/config/firebase";
+import { auth, db } from "@/config/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { showError, showSuccess } from "@/app/components/NotificationHandler";
 
 const { width, height } = Dimensions.get("window");
 
@@ -37,7 +40,7 @@ const fallbackTheme = {
 };
 
 export default function ForgotPasswordScreen() {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
 
   // Use fallback theme if the real theme is not available
   const activeTheme = theme || fallbackTheme;
@@ -48,13 +51,97 @@ export default function ForgotPasswordScreen() {
   const [resetSent, setResetSent] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const logoAnim = useRef(new Animated.Value(0)).current;
+  const formAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const buttonAnim = useRef(new Animated.Value(0)).current;
+
+  // Button scale for press animation
+  const buttonScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Sequence of animations for a smooth entrance
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.timing(logoAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(formAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  // Animate button press
+  const animateButtonPress = () => {
+    Animated.sequence([
+      Animated.timing(buttonScale, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScale, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   // Debounce navigation to prevent multiple clicks
   const navigateToLogin = () => {
     if (isNavigating) return;
     setIsNavigating(true);
-    router.replace("/authentication/login");
-    // Reset after a delay to allow navigation to complete
-    setTimeout(() => setIsNavigating(false), 1000);
+
+    animateButtonPress();
+
+    // Fade out animation before navigation
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      router.replace("/authentication/login");
+      // Reset after a delay to allow navigation to complete
+      setTimeout(() => setIsNavigating(false), 1000);
+    });
+  };
+
+  // Function to check if user email exists in Firebase
+  const checkUserExists = async (email) => {
+    try {
+      // Query Firestore to check if user with email exists
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error("Error checking user existence:", error);
+      return false;
+    }
   };
 
   // Function for password reset using Firebase
@@ -72,7 +159,18 @@ export default function ForgotPasswordScreen() {
       // Email validation regex
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        setError("Please enter a valid email address");
+        showError("auth/invalid-email", "Please enter a valid email address");
+        setLoading(false);
+        return;
+      }
+
+      // Check if user exists in Firebase
+      const userExists = await checkUserExists(email);
+      if (!userExists) {
+        showError(
+          "auth/user-not-found",
+          "No account associated with this email. Please sign up first."
+        );
         setLoading(false);
         return;
       }
@@ -82,9 +180,9 @@ export default function ForgotPasswordScreen() {
 
       setLoading(false);
       setResetSent(true);
-      Alert.alert(
-        "Password Reset Email Sent",
-        "Check your email for instructions to reset your password."
+      showSuccess(
+        "auth/reset-email-sent",
+        "Password reset email sent. Check your inbox for instructions."
       );
     } catch (error) {
       setLoading(false);
@@ -99,18 +197,25 @@ export default function ForgotPasswordScreen() {
         errorMessage = "Too many requests. Please try again later.";
       }
 
-      setError(errorMessage);
+      showError(error.code || "auth/unknown", errorMessage);
       console.error("Reset password error:", error);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-      <View style={styles.backgroundContainer}>
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        { backgroundColor: isDarkMode ? "#000000" : "#f8f9fa" },
+      ]}
+    >
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <Animated.View
+        style={[styles.backgroundContainer, { opacity: fadeAnim }]}
+      >
         <Image
           source={require("@/assets/images/landing.png")}
-          style={styles.backgroundImage}
+          style={[styles.backgroundImage, { opacity: isDarkMode ? 0.7 : 1 }]}
           resizeMode="cover"
         />
         <KeyboardAvoidingView
@@ -122,26 +227,66 @@ export default function ForgotPasswordScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.overlay}>
-              <View style={styles.logoContainer}>
+              <Animated.View
+                style={[
+                  styles.logoContainer,
+                  {
+                    opacity: logoAnim,
+                    transform: [{ translateY: slideAnim }],
+                  },
+                ]}
+              >
                 <View style={styles.logoCircle}>
                   <Image
-                    source={require("@/assets/images/logo.png")}
+                    source={require("@/assets/images/ChatGPT Image Apr 4, 2025, 01_32_28 PM.png")}
                     style={styles.logoImage}
                     resizeMode="contain"
                   />
                 </View>
                 <Text style={styles.appName}>Skillink</Text>
                 <Text style={styles.tagline}>Password Recovery</Text>
-              </View>
+              </Animated.View>
 
-              <View style={styles.formContainer}>
-                <Text style={styles.welcomeBack}>Forgot Password?</Text>
-                <Text style={styles.loginPrompt}>
+              <Animated.View
+                style={[
+                  styles.formContainer,
+                  {
+                    opacity: formAnim,
+                    transform: [
+                      { translateY: Animated.multiply(slideAnim, 0.5) },
+                    ],
+                    backgroundColor: isDarkMode ? "#121212" : "#FFFFFF",
+                    shadowColor: isDarkMode ? "#000000" : "#000000",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.welcomeBack,
+                    { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                  ]}
+                >
+                  Forgot Password?
+                </Text>
+                <Text
+                  style={[
+                    styles.loginPrompt,
+                    { color: isDarkMode ? "#AAAAAA" : "#666666" },
+                  ]}
+                >
                   Enter your email address and we'll send you instructions to
                   reset your password
                 </Text>
 
-                <View style={styles.inputContainer}>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      backgroundColor: isDarkMode ? "#1E1E1E" : "#F5F5F5",
+                      borderColor: isDarkMode ? "#333333" : "#E0E0E0",
+                    },
+                  ]}
+                >
                   <Ionicons
                     name="mail-outline"
                     size={20}
@@ -149,9 +294,12 @@ export default function ForgotPasswordScreen() {
                     style={styles.inputIcon}
                   />
                   <TextInput
-                    style={styles.input}
+                    style={[
+                      styles.input,
+                      { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                    ]}
                     placeholder="Email"
-                    placeholderTextColor={activeTheme.textLight}
+                    placeholderTextColor={isDarkMode ? "#888888" : "#AAAAAA"}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -160,34 +308,73 @@ export default function ForgotPasswordScreen() {
                   />
                 </View>
 
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                {error ? (
+                  <Text
+                    style={[
+                      styles.errorText,
+                      { color: isDarkMode ? "#FF6B6B" : "#FF3D71" },
+                    ]}
+                  >
+                    {error}
+                  </Text>
+                ) : null}
 
                 {resetSent ? (
-                  <View style={styles.sentContainer}>
+                  <Animated.View
+                    style={[
+                      styles.sentContainer,
+                      {
+                        backgroundColor: isDarkMode ? "#1E1E1E" : "#F5F5F5",
+                        borderColor: isDarkMode ? "#333333" : "#E0E0E0",
+                      },
+                    ]}
+                  >
                     <Ionicons
                       name="checkmark-circle"
                       size={60}
-                      color="#4CAF50"
+                      color={isDarkMode ? "#4CAF50" : "#4CAF50"}
                     />
-                    <Text style={styles.sentText}>
+                    <Text
+                      style={[
+                        styles.sentText,
+                        { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                      ]}
+                    >
                       Password reset email sent!
                     </Text>
-                    <Text style={styles.sentSubText}>
+                    <Text
+                      style={[
+                        styles.sentSubText,
+                        { color: isDarkMode ? "#AAAAAA" : "#666666" },
+                      ]}
+                    >
                       Check your inbox for further instructions
                     </Text>
-                  </View>
+                  </Animated.View>
                 ) : (
-                  <TouchableOpacity
-                    style={styles.resetButton}
-                    onPress={handleResetPassword}
-                    disabled={loading}
+                  <Animated.View
+                    style={{
+                      transform: [{ scale: buttonScale }],
+                      opacity: buttonAnim,
+                    }}
                   >
-                    {loading ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.resetButtonText}>RESET PASSWORD</Text>
-                    )}
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.resetButton,
+                        { backgroundColor: activeTheme.primary },
+                      ]}
+                      onPress={handleResetPassword}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.resetButtonText}>
+                          RESET PASSWORD
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </Animated.View>
                 )}
 
                 <View style={styles.footer}>
@@ -201,14 +388,18 @@ export default function ForgotPasswordScreen() {
                       size={20}
                       color={activeTheme.primary}
                     />
-                    <Text style={styles.backText}>Back to Login</Text>
+                    <Text
+                      style={[styles.backText, { color: activeTheme.primary }]}
+                    >
+                      Back to Login
+                    </Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </Animated.View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -244,105 +435,107 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 30,
   },
   logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#FFFFFF",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#000033",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
-    overflow: "hidden",
+    shadowColor: "#00FFFF",
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.8,
+    shadowRadius: 16,
+    elevation: 15,
+    borderWidth: 3,
+    borderColor: "#00BFFF",
   },
   logoImage: {
-    width: 70,
-    height: 70,
+    width: 85,
+    height: 85,
   },
   appName: {
-    fontSize: 32,
+    fontSize: 38,
     fontWeight: "bold",
-    color: "#FFFFFF",
-    marginBottom: 8,
+    color: "#00BFFF",
+    marginTop: 16,
+    textShadowColor: "rgba(0, 191, 255, 0.8)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
   },
   tagline: {
-    fontSize: 14,
-    color: "#E0E0E0",
+    fontSize: 16,
+    color: "#FFFFFF",
+    marginTop: 8,
     textAlign: "center",
-    opacity: 0.9,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   formContainer: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 16,
+    padding: 24,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 6,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10,
   },
   welcomeBack: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#333333",
-    marginBottom: 5,
+    marginBottom: 8,
   },
   loginPrompt: {
-    fontSize: 16,
-    color: "#666666",
-    marginBottom: 30,
-    textAlign: "center",
+    fontSize: 14,
+    marginBottom: 24,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 10,
-    marginBottom: 15,
-    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    height: 50,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    height: 50,
     fontSize: 16,
-    color: "#333333",
+    height: 50,
   },
   errorText: {
+    fontSize: 14,
+    marginBottom: 16,
     color: "#FF3D71",
-    fontSize: 14,
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  sentContainer: {
-    alignItems: "center",
-    padding: 20,
-  },
-  sentText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#4CAF50",
-    marginTop: 15,
-    marginBottom: 5,
-  },
-  sentSubText: {
-    fontSize: 14,
-    color: "#666666",
-    textAlign: "center",
   },
   resetButton: {
     backgroundColor: "#3366FF",
+    borderRadius: 8,
     height: 50,
-    borderRadius: 10,
-    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    justifyContent: "center",
+    marginTop: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 6,
   },
   resetButtonText: {
     color: "#FFFFFF",
@@ -350,17 +543,37 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   footer: {
+    marginTop: 24,
     alignItems: "center",
-    marginTop: 20,
   },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
+    padding: 8,
   },
   backText: {
-    color: "#3366FF",
+    marginLeft: 8,
     fontSize: 16,
-    marginLeft: 5,
+    fontWeight: "500",
+  },
+  sentContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  sentText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  sentSubText: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: "center",
   },
 });

@@ -105,7 +105,7 @@ const SplashScreen = ({ onFinish }) => {
       animateParticle();
     });
 
-    // Then show the logo with rotation and bounce
+    // Enhance logo rotation for better effect
     Animated.sequence([
       Animated.delay(400),
       Animated.parallel([
@@ -116,13 +116,13 @@ const SplashScreen = ({ onFinish }) => {
         }),
         Animated.timing(rotateAnim, {
           toValue: 1,
-          duration: 1200,
+          duration: 1500,
           easing: Easing.elastic(2),
           useNativeDriver: true,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
-          friction: 7,
+          friction: 5,
           tension: 40,
           useNativeDriver: true,
         }),
@@ -239,8 +239,9 @@ const SplashScreen = ({ onFinish }) => {
                 isDarkMode ? styles.logoWrapperDark : styles.logoWrapperLight,
               ]}
             >
+              <View style={styles.innerGlow} />
               <Image
-                source={require("@/assets/images/logo.png")}
+                source={require("@/assets/images/ChatGPT Image Apr 4, 2025, 01_32_28 PM.png")}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -345,42 +346,55 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   logoWrapper: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 25,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowColor: "#00FFFF",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 20,
+    borderWidth: 3,
+    borderColor: "#00BFFF",
+    backgroundColor: "#000033",
+    position: "relative",
+  },
+  innerGlow: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    borderRadius: 90,
+    backgroundColor: "transparent",
+    borderWidth: 15,
+    borderColor: "rgba(0, 191, 255, 0.15)",
   },
   logoWrapperLight: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#000033",
   },
   logoWrapperDark: {
-    backgroundColor: "#121212",
+    backgroundColor: "#000033",
   },
   logo: {
-    width: 110,
-    height: 110,
+    width: 140,
+    height: 140,
   },
   appName: {
-    fontSize: 42,
+    fontSize: 46,
     fontFamily: "Inter-Bold",
     marginBottom: 12,
-    letterSpacing: 1,
-    textShadowColor: "rgba(0, 0, 0, 0.2)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 4,
+    letterSpacing: 2,
+    textShadowColor: "rgba(0, 191, 255, 0.8)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
   },
   lightText: {
-    color: "#3366FF",
+    color: "#00BFFF",
   },
   darkText: {
-    color: "#5C7CFA",
+    color: "#00BFFF",
   },
   tagline: {
     fontSize: 16,
