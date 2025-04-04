@@ -147,8 +147,7 @@ export default function LoginScreen() {
     try {
       // Proceed with login
       await signIn(email, password);
-      // Show success message on successful login
-      showSuccess("auth/login-success");
+      // Success notification is already shown in AuthContext
       // If successful, we won't reach here because router.replace will be called
     } catch (error) {
       // Silent error handling - errors are already shown by AuthContext

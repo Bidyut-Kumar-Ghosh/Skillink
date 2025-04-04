@@ -28,6 +28,7 @@ const getUserData = async (uid: string): Promise<User | null> => {
                 name: data.name || '',
                 role: data.role || 'user',
                 createdAt: data.createdAt,
+                status: data.status,
             };
         }
         return null;
@@ -54,6 +55,7 @@ const getUserByEmail = async (email: string): Promise<FirestoreUser | null> => {
                 createdAt: data.createdAt,
                 password: data.password,
                 uid: data.uid,
+                status: data.status,
             };
         }
         return null;
@@ -79,11 +81,13 @@ interface User {
     createdAt?: Date | FieldValue;
     password?: string;
     uid?: string;
+    status?: string;
 }
 
 interface FirestoreUser extends User {
     uid: string;
     password: string;
+    status: string;
 }
 
 interface AuthContextType {
@@ -149,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                                     name: userData.name || '',
                                     role: userData.role || 'user',
                                     createdAt: userData.createdAt,
+                                    status: userData.status,
                                 };
 
                                 setUser(userObj);
@@ -208,6 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 password: hashedPassword,
                 role: email === "admin@skillink.com" ? "admin" : "user",
                 createdAt: timestamp,
+                status: 'active',
             };
 
             await setDoc(doc(db, "users", firebaseUser.uid), userData);
@@ -250,155 +256,123 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         password: hashedPassword,
                         role: 'user',
                         createdAt: timestamp,
+                        status: 'active'
                     };
 
                     await setDoc(doc(db, "users", firebaseUser.uid), newUserData);
 
-                    // Create user object
+                    // Set the user state
                     const userObj: User = {
                         id: firebaseUser.uid,
                         email: email,
                         name: '',
                         role: 'user',
                         createdAt: timestamp,
+                        status: 'active',
                     };
 
-                    // Update local user state
                     setUser(userObj);
 
-                    // Store in AsyncStorage for persistence
-                    await AsyncStorage.setItem("user", JSON.stringify(userObj));
+                    // Store in AsyncStorage
+                    await AsyncStorage.setItem('user', JSON.stringify(userObj));
 
+                    // Navigate to home
                     router.replace('/');
                     return;
                 }
 
-                // Create user object with all necessary info
+                // Check if user is suspended
+                if (userData && userData.status === 'suspended') {
+                    // Sign out the user since they're suspended
+                    await signOut(auth);
+
+                    // Clear any stored user data
+                    await AsyncStorage.removeItem('user');
+                    setUser(null);
+
+                    // Show suspended account message
+                    showError(
+                        'auth/account-suspended',
+                        'Your account has been suspended. Please contact Skillink Support for assistance.'
+                    );
+                    setAuthLoading(false);
+                    return;
+                }
+
+                // User exists and is active, set user state
                 const userObj: User = {
                     id: firebaseUser.uid,
                     email: email,
                     name: userData.name || '',
                     role: userData.role || 'user',
+                    photoURL: firebaseUser.photoURL || undefined,
                     createdAt: userData.createdAt,
+                    status: userData.status,
                 };
 
-                // Update local user state
                 setUser(userObj);
 
-                // Store in AsyncStorage for persistence
-                await AsyncStorage.setItem("user", JSON.stringify(userObj));
+                // Store in AsyncStorage
+                await AsyncStorage.setItem('user', JSON.stringify(userObj));
 
+                // Show welcome back message
+                showSuccess('auth/login-welcome-back', `Welcome back, ${userData.name || 'User'}!`);
+
+                // Navigate to home
                 router.replace('/');
-                return;
-            } catch (firebaseError: any) {
-                // Handle Firebase auth errors with a single notification
-                if (firebaseError.code === 'auth/wrong-password' ||
-                    firebaseError.code === 'auth/user-not-found' ||
-                    firebaseError.code === 'auth/invalid-credential') {
-                    showError('auth/login-error', 'Invalid email or password. Please try again.');
-                    setAuthLoading(false);
-                    // Use a plain object instead of Error to avoid stack traces in console
-                    // This will prevent the error from showing in the console
-                    return Promise.reject({
-                        silent: true,
-                        message: 'Invalid credentials'
-                    });
-                } else {
-                    // Only show user-friendly error messages, no need to expose technical details
-                    showError('auth/login-error', 'There was a problem signing in. Please try again.');
+
+            } catch (firebaseAuthError: any) {
+                // Firebase Auth failed, try to find if user exists in Firestore
+                const userByEmail = await getUserByEmail(email);
+
+                if (!userByEmail) {
+                    logAuthError('User not found in Firestore database:', { message: 'No user found with this email.' });
+                    throw new Error('No user found with this email address');
                 }
 
-                // If Firebase auth fails, try to find user in Firestore by email
-                const firestoreUser = await getUserByEmail(email);
-
-                if (!firestoreUser) {
+                // Check if user is suspended
+                if (userByEmail.status === 'suspended') {
+                    showError(
+                        'auth/account-suspended',
+                        'Your account has been suspended. Please contact Skillink Support for assistance.'
+                    );
                     setAuthLoading(false);
-                    // User doesn't exist at all - silent rejection
-                    return Promise.reject({
-                        silent: true,
-                        message: 'Invalid email or password'
-                    });
+                    return;
                 }
 
-                // Verify password against stored hash
-                const passwordMatches = await verifyPassword(password, firestoreUser.password);
+                // Verify password match
+                const passwordMatches = await verifyPassword(password, userByEmail.password);
 
                 if (!passwordMatches) {
-                    setAuthLoading(false);
-                    // Password doesn't match - silent rejection
-                    return Promise.reject({
-                        silent: true,
-                        message: 'Invalid email or password'
-                    });
+                    logAuthError('Invalid login credentials:', { message: 'Incorrect email or password' });
+                    throw new Error('Incorrect email or password');
                 }
 
-                // Password matches in Firestore, but Firebase Auth failed
-                // This could happen if Firebase Auth is reset but Firestore records remain
-                // In this case, create a new Firebase Auth account
-                try {
-                    // Try to create the user in Firebase Auth
-                    await createUserWithEmailAndPassword(auth, email, password);
+                // Password matches
+                const userObj: User = {
+                    id: userByEmail.id,
+                    email: userByEmail.email,
+                    name: userByEmail.name || '',
+                    role: userByEmail.role || 'user',
+                    createdAt: userByEmail.createdAt,
+                    status: userByEmail.status,
+                };
 
-                    // Then sign in again
-                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                    const firebaseUser = userCredential.user;
+                setUser(userObj);
 
-                    // Update Firestore record to match new UID if needed
-                    if (firestoreUser.uid !== firebaseUser.uid) {
-                        await setDoc(doc(db, "users", firebaseUser.uid), {
-                            ...firestoreUser,
-                            uid: firebaseUser.uid
-                        });
-                    }
+                // Store in AsyncStorage
+                await AsyncStorage.setItem('user', JSON.stringify(userObj));
 
-                    // Create user object
-                    const userObj = {
-                        id: firebaseUser.uid,
-                        email: email,
-                        name: firestoreUser.name || '',
-                        role: firestoreUser.role || 'user',
-                        photoURL: firestoreUser.photoURL,
-                        createdAt: firestoreUser.createdAt,
-                    };
+                // Show welcome back message
+                showSuccess('auth/login-welcome-back', `Welcome back, ${userByEmail.name || 'User'}!`);
 
-                    // Update local user state
-                    setUser(userObj);
-
-                    // Store in AsyncStorage for persistence
-                    await AsyncStorage.setItem('user', JSON.stringify(userObj));
-
-                    router.replace('/');
-                    return;
-                } catch (createError: any) {
-                    // Silent handling - no console logs
-                    // If we can't create/signin with Firebase Auth, 
-                    // but we verified credentials in Firestore, still allow login
-                    const userObj = {
-                        id: firestoreUser.uid,
-                        email: email,
-                        name: firestoreUser.name || '',
-                        role: firestoreUser.role || 'user',
-                        createdAt: firestoreUser.createdAt,
-                    };
-
-                    // Update local user state
-                    setUser(userObj);
-
-                    // Store in AsyncStorage for persistence
-                    await AsyncStorage.setItem('user', JSON.stringify(userObj));
-
-                    router.replace('/');
-                    return;
-                }
+                // Navigate to home
+                router.replace('/');
             }
         } catch (error: any) {
-            // Only show internal errors that aren't already handled
-            if (!error.silent) {
-                // Use a user-friendly message instead of technical details
-                showError('auth/login-error', 'There was a problem signing in. Please try again.');
-            }
-            setAuthLoading(false);
-            return Promise.reject(error);
+            // This catches any errors from the outer try/catch
+            logAuthError('Error signing in:', error);
+            throw error;
         } finally {
             setAuthLoading(false);
         }

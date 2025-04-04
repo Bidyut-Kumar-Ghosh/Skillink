@@ -7,15 +7,19 @@ import {
     Animated,
     Easing,
     Dimensions,
-    Vibration
+    Vibration,
+    Alert,
+    Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
+import Toast from 'react-native-toast-message';
 
 // Message mapping for user-friendly messages
 const messages = {
     // Success notifications
     'auth/login-success': 'Welcome back! Login successful.',
+    'auth/login-welcome-back': 'Welcome back!',
     'auth/register-success': 'Welcome! Account created successfully.',
     'profile/update-success': 'Profile updated successfully!',
     'password/update-success': 'Password changed successfully!',
@@ -31,6 +35,7 @@ const messages = {
     'auth/api-key-not-valid': 'App configuration error. Please restart the app.',
     'auth/empty-email': 'Please enter your email address.',
     'auth/empty-password': 'Please enter your password.',
+    'auth/account-suspended': 'Your account has been suspended. Please contact Skillink Support for assistance.',
 
     // Firebase storage errors
     'storage/unauthorized': 'You don\'t have permission to access this file.',
@@ -40,10 +45,12 @@ const messages = {
     // Generic error messages
     'network-error': 'Network connection lost. Please check your internet.',
     'server-error': 'Something went wrong on our servers. Try again later.',
+    'default-error': 'An error occurred. Please try again.',
 };
 
 // Notification interface for handling notifications
 export interface Notification {
+    id: string;  // Unique identifier for the notification
     code: string;
     message: string;
     timestamp: number;
@@ -54,12 +61,32 @@ export interface Notification {
 // Global notification handler
 let globalNotificationCallback: ((notification: Notification) => void) | null = null;
 
+// Function to generate unique ID
+const generateUniqueId = (): string => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
 // Function to show a success notification
 export const showSuccess = (code: string, message?: string) => {
+    const finalMessage = message || messages[code as keyof typeof messages] || 'Operation successful';
+
+    // Use Toast Message
+    Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: finalMessage,
+        position: 'top',
+        visibilityTime: 3000,
+        autoHide: true,
+        topOffset: 50,
+    });
+
+    // Also use component notification if callback exists
     if (globalNotificationCallback) {
         globalNotificationCallback({
+            id: generateUniqueId(),
             code,
-            message: message || messages[code as keyof typeof messages] || 'Operation successful',
+            message: finalMessage,
             timestamp: Date.now(),
             type: 'success'
         });
@@ -67,11 +94,26 @@ export const showSuccess = (code: string, message?: string) => {
 };
 
 // Function to show an error notification
-export const showError = (code: string, message: string) => {
+export const showError = (code: string, message?: string) => {
+    const finalMessage = message || messages[code as keyof typeof messages] || messages['default-error'];
+
+    // Use Toast Message
+    Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: finalMessage,
+        position: 'top',
+        visibilityTime: 4000,
+        autoHide: true,
+        topOffset: 50,
+    });
+
+    // Also use component notification if callback exists
     if (globalNotificationCallback) {
         globalNotificationCallback({
+            id: generateUniqueId(),
             code,
-            message,
+            message: finalMessage,
             timestamp: Date.now(),
             type: 'error'
         });
@@ -262,7 +304,7 @@ export const NotificationHandler: React.FC = () => {
 
                 return (
                     <Animated.View
-                        key={notification.timestamp}
+                        key={notification.id}
                         style={[
                             styles.notificationContainer,
                             {
@@ -349,4 +391,5 @@ const styles = StyleSheet.create({
     },
 });
 
+// Add default export to fix the conflict with NotificationHandler.js
 export default NotificationHandler; 

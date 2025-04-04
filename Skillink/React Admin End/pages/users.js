@@ -32,10 +32,33 @@ export default function Users() {
 
       const userList = [];
       snapshot.forEach((doc) => {
+        const userData = doc.data();
+
+        // Handle different name fields that might exist in the user document
+        let displayName =
+          userData.displayName ||
+          userData.fullName ||
+          userData.name ||
+          (userData.firstName && userData.lastName
+            ? `${userData.firstName} ${userData.lastName}`
+            : null);
+
+        // If no name found but has email, create a name from the email
+        if (!displayName && userData.email) {
+          displayName = userData.email.split("@")[0];
+          // Convert to title case (capitalize first letter of each word)
+          displayName = displayName
+            .replace(/[._-]/g, " ") // Replace dots, underscores, and hyphens with spaces
+            .split(" ")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+        }
+
         userList.push({
           id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+          ...userData,
+          displayName: displayName || "Unnamed User",
+          createdAt: userData.createdAt?.toDate?.() || new Date(),
         });
       });
 
@@ -50,17 +73,33 @@ export default function Users() {
   const handleUpdateUser = async (userId, status) => {
     try {
       const userRef = doc(db, "users", userId);
-      await updateDoc(userRef, { status });
+
+      // Update the status in Firestore
+      await updateDoc(userRef, {
+        status: status,
+        lastUpdated: new Date(),
+      });
 
       // Update local state
       setUsers(
         users.map((user) => (user.id === userId ? { ...user, status } : user))
       );
 
-      alert("User status updated successfully");
+      alert(
+        `User ${status === "active" ? "activated" : "suspended"} successfully`
+      );
+
+      // If we have the modal open with this user, update the selected user data too
+      if (selectedUser && selectedUser.id === userId) {
+        setSelectedUser({ ...selectedUser, status: status });
+      }
     } catch (error) {
-      console.error("Error updating user:", error);
-      alert("Failed to update user");
+      console.error("Error updating user status:", error);
+      alert(
+        `Failed to ${status === "active" ? "activate" : "suspend"} user: ${
+          error.message
+        }`
+      );
     }
   };
 

@@ -1,27 +1,32 @@
 /* Global styles */
 :root {
+  /* Color Variables */
   --primary-color: #5468ff;
-  --primary-hover: #3f51f6;
+  --primary-hover: #4559ee;
   --secondary-color: #6c63ff;
   --success-color: #00c896;
-  --success-hover: #00a47a;
+  --success-hover: #00b486;
   --warning-color: #ff8f0c;
   --danger-color: #ff3860;
   --danger-hover: #e8254b;
-  --text-dark: #151c2d;
-  --text-light: #6b7897;
-  --text-muted: #8e9cb2;
-  --border-color: #e6eaf0;
-  --bg-light: #f8f9fc;
+  
+  /* UI Colors */
+  --bg-light: #f8f9fa;
   --bg-dark: #151c2d;
   --bg-panel: #ffffff;
-  --shadow-sm: 0 2px 8px rgba(20, 32, 77, 0.05);
-  --shadow-md: 0 6px 16px rgba(20, 32, 77, 0.08);
-  --shadow-lg: 0 16px 32px rgba(20, 32, 77, 0.12);
+  --text-dark: #333647;
+  --text-light: #606580;
+  --text-muted: #9ea0b4;
+  --border-color: #e6e8f0;
+  
+  /* UI Variables */
   --border-radius-sm: 6px;
   --border-radius-md: 10px;
   --border-radius-lg: 16px;
-  --animation-speed: 0.3s;
+  --shadow-sm: 0 2px 8px rgba(20, 32, 77, 0.07);
+  --shadow-md: 0 4px 16px rgba(20, 32, 77, 0.1);
+  --shadow-lg: 0 8px 24px rgba(20, 32, 77, 0.12);
+  --animation-speed: 0.25s ease;
 }
 
 html,
@@ -60,7 +65,7 @@ a {
 
 @keyframes slideUp {
   from {
-    transform: translateY(30px);
+    transform: translateY(20px);
     opacity: 0;
   }
   to {
@@ -70,19 +75,25 @@ a {
 }
 
 @keyframes spin {
-  to {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
     transform: rotate(360deg);
   }
 }
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(0, 200, 150, 0.7);
+    opacity: 1;
+    transform: scale(1);
   }
-  70% {
-    box-shadow: 0 0 0 8px rgba(0, 200, 150, 0);
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(0, 200, 150, 0);
+    opacity: 1;
+    transform: scale(1);
   }
 }
