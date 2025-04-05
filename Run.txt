@@ -1,4 +1,0 @@
-expo start = for start the project
-expo start -c = for clear cache and restrat
-npm install -g expo-cli = for install global expo for run the project
-new add

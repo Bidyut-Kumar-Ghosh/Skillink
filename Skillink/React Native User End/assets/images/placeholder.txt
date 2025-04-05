@@ -1,0 +1,13 @@
+Required image files for this project:
+
+1. logo.png - A circular blue logo with an 'S' inside it
+2. background.jpg - A gradient dark blue to purple background for the login page
+3. dashboard-bg.jpg - A subtle light pattern or gradient for the dashboard background
+4. google-icon.png - Google's "G" logo for sign-in buttons
+
+Please create these images and place them in this folder for the app to work correctly.
+
+You can use free resources from sites like:
+- unsplash.com for background photos
+- flaticon.com for icons
+- or create your own using design tools 

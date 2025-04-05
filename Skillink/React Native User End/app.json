@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Skillink",
+    "slug": "skillink",
+    "scheme": "skillink",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#3366FF",
+      "image": "./assets/images/ChatGPT Image Apr 4, 2025, 01_32_28 PM.png"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow Skillink to access your photos to update your profile picture.",
+        "NSCameraUsageDescription": "Allow Skillink to access your camera to take profile pictures.",
+        "CADisableMinimumFrameDurationOnPhone": true
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Skillink to access your photos to update your profile picture.",
+          "cameraPermission": "Allow Skillink to access your camera to take profile pictures."
+        }
+      ]
+    ],
+    "fonts": [
+      {
+        "asset": "./assets/fonts/Inter-Regular.ttf",
+        "family": "Inter-Regular"
+      },
+      {
+        "asset": "./assets/fonts/Inter-Bold.ttf",
+        "family": "Inter-Bold"
+      },
+      {
+        "asset": "./assets/fonts/Inter-Medium.ttf",
+        "family": "Inter-Medium"
+      },
+      {
+        "asset": "./assets/fonts/Inter-SemiBold.ttf",
+        "family": "Inter-SemiBold"
+      }
+    ],
+    "newArchEnabled": true,
+    "experiments": {
+      "tsconfigPaths": true
+    }
+  }
+}
