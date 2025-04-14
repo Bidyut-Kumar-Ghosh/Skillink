@@ -49,16 +49,22 @@ export default function Courses() {
 
       const coursesList = [];
       snapshot.forEach((doc) => {
+        const data = doc.data();
         coursesList.push({
           id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+          ...data,
+          price: data.price || 0,
+          createdAt: data.createdAt?.toDate?.() || new Date(),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(),
         });
       });
 
+      // Sort courses by creation date (newest first)
+      coursesList.sort((a, b) => b.createdAt - a.createdAt);
       setCourses(coursesList);
     } catch (error) {
       console.error("Error fetching courses:", error);
+      alert("Error loading courses: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -119,6 +125,12 @@ export default function Courses() {
     e.preventDefault();
 
     try {
+      // Convert price to a valid number format
+      const formattedData = {
+        ...formData,
+        price: formData.price ? parseFloat(formData.price) : 0,
+      };
+
       let imageUrl = formData.imageUrl;
 
       // Upload image if there's a new one
@@ -132,10 +144,13 @@ export default function Courses() {
       }
 
       const courseData = {
-        ...formData,
+        ...formattedData,
         imageUrl,
         updatedAt: serverTimestamp(),
       };
+
+      // Remove any fields that shouldn't be stored in Firestore
+      delete courseData.id; // Remove id if it exists in the formData
 
       if (isEditMode) {
         // Update existing course
@@ -145,7 +160,7 @@ export default function Courses() {
         setCourses(
           courses.map((course) =>
             course.id === formData.id
-              ? { ...course, ...courseData, imageUrl }
+              ? { ...course, ...courseData, imageUrl, id: formData.id }
               : course
           )
         );
@@ -164,7 +179,7 @@ export default function Courses() {
       resetForm();
     } catch (error) {
       console.error("Error saving course:", error);
-      alert("Failed to save course. Please try again.");
+      alert("Failed to save course. Error: " + error.message);
     }
   };
 
@@ -256,7 +271,10 @@ export default function Courses() {
                         <span className="level">{course.level}</span>
                         <span className="duration">{course.duration}</span>
                         <span className="price">
-                          ${parseFloat(course.price).toFixed(2)}
+                          $
+                          {typeof course.price === "number"
+                            ? course.price.toFixed(2)
+                            : "0.00"}
                         </span>
                       </div>
                       <div className="card-actions">
