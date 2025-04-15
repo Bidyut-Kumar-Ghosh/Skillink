@@ -18,43 +18,43 @@ import {
   deleteObject,
 } from "firebase/storage";
 
-export default function Courses() {
-  const [courses, setCourses] = useState([]);
+export default function Books() {
+  const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [courseImage, setCourseImage] = useState(null);
+  const [bookImage, setBookImage] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
+    author: "",
     description: "",
-    instructor: "",
     category: "",
-    duration: "",
+    isbn: "",
     price: "",
-    level: "beginner",
-    status: "active",
-    imageUrl: null,
+    publishYear: "",
+    publisher: "",
+    status: "available",
   });
 
   useEffect(() => {
-    fetchCourses();
+    fetchBooks();
   }, []);
 
-  const fetchCourses = async () => {
+  const fetchBooks = async () => {
     setLoading(true);
     setError(null);
     try {
-      const coursesCollection = collection(db, "courses");
-      const snapshot = await getDocs(coursesCollection);
+      const booksCollection = collection(db, "books");
+      const snapshot = await getDocs(booksCollection);
 
-      const coursesList = [];
+      const booksList = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
-        coursesList.push({
+        booksList.push({
           id: doc.id,
           ...data,
           price: data.price || 0,
@@ -63,25 +63,27 @@ export default function Courses() {
         });
       });
 
-      // Sort courses by creation date (newest first)
-      coursesList.sort((a, b) => b.createdAt - a.createdAt);
-      setCourses(coursesList);
+      // Sort books by creation date (newest first)
+      booksList.sort((a, b) => b.createdAt - a.createdAt);
+      setBooks(booksList);
     } catch (error) {
-      console.error("Error fetching courses:", error);
-      setError("Error loading courses: " + error.message);
+      console.error("Error fetching books:", error);
+      setError("Error loading books: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const validateForm = () => {
-    if (!formData.title.trim()) return "Course title is required";
-    if (!formData.description.trim()) return "Course description is required";
-    if (!formData.instructor.trim()) return "Instructor name is required";
+    if (!formData.title.trim()) return "Book title is required";
+    if (!formData.author.trim()) return "Author name is required";
+    if (!formData.description.trim()) return "Description is required";
     if (!formData.category.trim()) return "Category is required";
-    if (!formData.duration.trim()) return "Duration is required";
+    if (!formData.isbn.trim()) return "ISBN is required";
     if (formData.price === "" || formData.price < 0)
       return "Valid price is required";
+    if (!formData.publishYear.trim()) return "Publication year is required";
+    if (!formData.publisher.trim()) return "Publisher is required";
     return null;
   };
 
@@ -100,7 +102,7 @@ export default function Courses() {
         return;
       }
 
-      setCourseImage(file);
+      setBookImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
@@ -123,29 +125,30 @@ export default function Courses() {
   const resetForm = () => {
     setFormData({
       title: "",
+      author: "",
       description: "",
-      instructor: "",
       category: "",
-      duration: "",
+      isbn: "",
       price: "",
-      level: "beginner",
-      status: "active",
+      publishYear: "",
+      publisher: "",
+      status: "available",
       imageUrl: null,
     });
-    setCourseImage(null);
+    setBookImage(null);
     setImagePreview("");
     setIsEditMode(false);
     setError(null);
   };
 
-  const openModal = (course = null) => {
-    if (course) {
+  const openModal = (book = null) => {
+    if (book) {
       setFormData({
-        ...course,
-        price: course.price?.toString() || "",
-        imageUrl: course.imageUrl || null,
+        ...book,
+        price: book.price?.toString() || "",
+        imageUrl: book.imageUrl || null,
       });
-      setImagePreview(course.imageUrl || "");
+      setImagePreview(book.imageUrl || "");
       setIsEditMode(true);
     } else {
       resetForm();
@@ -161,7 +164,7 @@ export default function Courses() {
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(2, 15);
       const fileExtension = file.name.split(".").pop().toLowerCase();
-      const fileName = `courses/${timestamp}_${randomString}.${fileExtension}`;
+      const fileName = `books/${timestamp}_${randomString}.${fileExtension}`;
 
       // Create a reference to the file location
       const storageRef = ref(storage, fileName);
@@ -205,9 +208,9 @@ export default function Courses() {
       let imageUrl = formData.imageUrl || null;
 
       // Upload image if there's a new one
-      if (courseImage) {
+      if (bookImage) {
         try {
-          imageUrl = await uploadImage(courseImage);
+          imageUrl = await uploadImage(bookImage);
         } catch (uploadError) {
           console.error("Error uploading image:", uploadError);
           setError("Failed to upload image. Please try again.");
@@ -216,59 +219,59 @@ export default function Courses() {
         }
       }
 
-      const courseData = {
+      const bookData = {
         ...formattedData,
         imageUrl: imageUrl || null, // Ensure imageUrl is never undefined
         updatedAt: serverTimestamp(),
       };
 
       // Remove any fields that shouldn't be stored in Firestore
-      delete courseData.id;
+      delete bookData.id;
 
       if (isEditMode) {
-        // Update existing course
-        const courseRef = doc(db, "courses", formData.id);
-        await updateDoc(courseRef, courseData);
+        // Update existing book
+        const bookRef = doc(db, "books", formData.id);
+        await updateDoc(bookRef, bookData);
 
-        setCourses(
-          courses.map((course) =>
-            course.id === formData.id
-              ? { ...course, ...courseData, imageUrl, id: formData.id }
-              : course
+        setBooks(
+          books.map((book) =>
+            book.id === formData.id
+              ? { ...book, ...bookData, imageUrl, id: formData.id }
+              : book
           )
         );
       } else {
-        // Add new course
-        courseData.createdAt = serverTimestamp();
-        const docRef = await addDoc(collection(db, "courses"), courseData);
+        // Add new book
+        bookData.createdAt = serverTimestamp();
+        const docRef = await addDoc(collection(db, "books"), bookData);
 
-        setCourses([
-          ...courses,
-          { id: docRef.id, ...courseData, createdAt: new Date() },
+        setBooks([
+          ...books,
+          { id: docRef.id, ...bookData, createdAt: new Date() },
         ]);
       }
 
       setIsModalOpen(false);
       resetForm();
     } catch (error) {
-      console.error("Error saving course:", error);
-      setError("Failed to save course: " + error.message);
+      console.error("Error saving book:", error);
+      setError("Failed to save book: " + error.message);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteCourse = async (courseId, imageUrl) => {
+  const handleDeleteBook = async (bookId, imageUrl) => {
     if (
       window.confirm(
-        "Are you sure you want to delete this course? This action cannot be undone."
+        "Are you sure you want to delete this book? This action cannot be undone."
       )
     ) {
       try {
-        // Delete course document
-        await deleteDoc(doc(db, "courses", courseId));
+        // Delete book document
+        await deleteDoc(doc(db, "books", bookId));
 
-        // Delete course image if it exists
+        // Delete book image if it exists
         if (imageUrl) {
           try {
             // Extract the path from the URL
@@ -281,46 +284,47 @@ export default function Courses() {
             }
           } catch (imageError) {
             console.error("Error deleting image:", imageError);
-            // Continue with course deletion even if image deletion fails
+            // Continue with book deletion even if image deletion fails
           }
         }
 
         // Update state
-        setCourses(courses.filter((course) => course.id !== courseId));
+        setBooks(books.filter((book) => book.id !== bookId));
       } catch (error) {
-        console.error("Error deleting course:", error);
-        setError("Failed to delete course: " + error.message);
+        console.error("Error deleting book:", error);
+        setError("Failed to delete book: " + error.message);
       }
     }
   };
 
-  const filteredCourses = courses.filter(
-    (course) =>
-      course.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.instructor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.category?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredBooks = books.filter(
+    (book) =>
+      book.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.author?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.isbn?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <Layout>
       <Head>
-        <title>Course Management - Admin Panel</title>
+        <title>Book Management - Admin Panel</title>
       </Head>
 
-      <div className="courses-container">
+      <div className="books-container">
         <div className="header">
-          <h1>Course Management</h1>
+          <h1>Book Management</h1>
           <div className="actions">
             <div className="search-bar">
               <input
                 type="text"
-                placeholder="Search courses..."
+                placeholder="Search books..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <button className="add-button" onClick={() => openModal()}>
-              Add New Course
+              Add New Book
             </button>
           </div>
         </div>
@@ -328,50 +332,49 @@ export default function Courses() {
         {error && <div className="error-message">{error}</div>}
 
         {loading ? (
-          <div className="loading">Loading courses...</div>
+          <div className="loading">Loading books...</div>
         ) : (
           <>
-            {filteredCourses.length > 0 ? (
-              <div className="courses-grid">
-                {filteredCourses.map((course) => (
-                  <div className="course-card" key={course.id}>
-                    <div className="course-image">
-                      {course.imageUrl ? (
-                        <img src={course.imageUrl} alt={course.title} />
+            {filteredBooks.length > 0 ? (
+              <div className="books-grid">
+                {filteredBooks.map((book) => (
+                  <div className="book-card" key={book.id}>
+                    <div className="book-image">
+                      {book.imageUrl ? (
+                        <img src={book.imageUrl} alt={book.title} />
                       ) : (
                         <div className="image-placeholder">No Image</div>
                       )}
-                      <span className={`status ${course.status}`}>
-                        {course.status}
+                      <span className={`status ${book.status}`}>
+                        {book.status}
                       </span>
                     </div>
-                    <div className="course-details">
-                      <h3>{course.title}</h3>
-                      <p className="instructor">
-                        by {course.instructor || "Unknown"}
-                      </p>
-                      <p className="category">{course.category}</p>
-                      <div className="course-meta">
-                        <span className="level">{course.level}</span>
-                        <span className="duration">{course.duration}</span>
+                    <div className="book-details">
+                      <h3>{book.title}</h3>
+                      <p className="author">by {book.author || "Unknown"}</p>
+                      <p className="isbn">ISBN: {book.isbn}</p>
+                      <p className="category">{book.category}</p>
+                      <div className="book-meta">
+                        <span className="publisher">{book.publisher}</span>
+                        <span className="year">{book.publishYear}</span>
                         <span className="price">
                           $
-                          {typeof course.price === "number"
-                            ? course.price.toFixed(2)
+                          {typeof book.price === "number"
+                            ? book.price.toFixed(2)
                             : "0.00"}
                         </span>
                       </div>
                       <div className="card-actions">
                         <button
                           className="edit-btn"
-                          onClick={() => openModal(course)}
+                          onClick={() => openModal(book)}
                         >
                           Edit
                         </button>
                         <button
                           className="delete-btn"
                           onClick={() =>
-                            handleDeleteCourse(course.id, course.imageUrl)
+                            handleDeleteBook(book.id, book.imageUrl)
                           }
                         >
                           Delete
@@ -382,7 +385,7 @@ export default function Courses() {
                 ))}
               </div>
             ) : (
-              <div className="no-results">No courses found</div>
+              <div className="no-results">No books found</div>
             )}
           </>
         )}
@@ -394,11 +397,11 @@ export default function Courses() {
             <span className="close" onClick={() => setIsModalOpen(false)}>
               &times;
             </span>
-            <h2>{isEditMode ? "Edit Course" : "Add New Course"}</h2>
+            <h2>{isEditMode ? "Edit Book" : "Add New Book"}</h2>
 
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label htmlFor="title">Course Title *</label>
+                <label htmlFor="title">Book Title *</label>
                 <input
                   type="text"
                   id="title"
@@ -411,24 +414,24 @@ export default function Courses() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="instructor">Instructor *</label>
+                  <label htmlFor="author">Author *</label>
                   <input
                     type="text"
-                    id="instructor"
-                    name="instructor"
-                    value={formData.instructor}
+                    id="author"
+                    name="author"
+                    value={formData.author}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="category">Category *</label>
+                  <label htmlFor="isbn">ISBN *</label>
                   <input
                     type="text"
-                    id="category"
-                    name="category"
-                    value={formData.category}
+                    id="isbn"
+                    name="isbn"
+                    value={formData.isbn}
                     onChange={handleInputChange}
                     required
                   />
@@ -449,14 +452,40 @@ export default function Courses() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="duration">Duration *</label>
+                  <label htmlFor="category">Category *</label>
                   <input
                     type="text"
-                    id="duration"
-                    name="duration"
-                    value={formData.duration}
+                    id="category"
+                    name="category"
+                    value={formData.category}
                     onChange={handleInputChange}
-                    placeholder="e.g. 8 weeks"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="publisher">Publisher *</label>
+                  <input
+                    type="text"
+                    id="publisher"
+                    name="publisher"
+                    value={formData.publisher}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="publishYear">Publication Year *</label>
+                  <input
+                    type="text"
+                    id="publishYear"
+                    name="publishYear"
+                    value={formData.publishYear}
+                    onChange={handleInputChange}
+                    placeholder="e.g. 2023"
                     required
                   />
                 </div>
@@ -476,44 +505,26 @@ export default function Courses() {
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="level">Level *</label>
-                  <select
-                    id="level"
-                    name="level"
-                    value={formData.level}
-                    onChange={handleInputChange}
-                    required
-                  >
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                    <option value="all-levels">All Levels</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="status">Status *</label>
-                  <select
-                    id="status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    required
-                  >
-                    <option value="active">Active</option>
-                    <option value="draft">Draft</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
+              <div className="form-group">
+                <label htmlFor="status">Status *</label>
+                <select
+                  id="status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="available">Available</option>
+                  <option value="borrowed">Borrowed</option>
+                  <option value="maintenance">Maintenance</option>
+                </select>
               </div>
 
               <div className="form-group">
-                <label htmlFor="courseImage">Course Image</label>
+                <label htmlFor="bookImage">Book Cover Image</label>
                 <input
                   type="file"
-                  id="courseImage"
+                  id="bookImage"
                   accept="image/*"
                   onChange={handleImageChange}
                 />
@@ -544,8 +555,8 @@ export default function Courses() {
                   {submitting
                     ? "Saving..."
                     : isEditMode
-                    ? "Update Course"
-                    : "Save Course"}
+                    ? "Update Book"
+                    : "Save Book"}
                 </button>
               </div>
             </form>
@@ -554,7 +565,7 @@ export default function Courses() {
       )}
 
       <style jsx>{`
-        .courses-container {
+        .books-container {
           padding: 20px;
         }
 
@@ -599,13 +610,13 @@ export default function Courses() {
           margin-bottom: 20px;
         }
 
-        .courses-grid {
+        .books-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
           gap: 20px;
         }
 
-        .course-card {
+        .book-card {
           background: white;
           border-radius: 8px;
           overflow: hidden;
@@ -613,18 +624,18 @@ export default function Courses() {
           transition: transform 0.2s;
         }
 
-        .course-card:hover {
+        .book-card:hover {
           transform: translateY(-5px);
           box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
 
-        .course-image {
+        .book-image {
           height: 180px;
           position: relative;
           background-color: #f5f5f5;
         }
 
-        .course-image img {
+        .book-image img {
           width: 100%;
           height: 100%;
           object-fit: cover;
@@ -650,34 +661,40 @@ export default function Courses() {
           font-weight: bold;
         }
 
-        .status.active {
+        .status.available {
           background-color: #e8f5e9;
           color: #2e7d32;
         }
 
-        .status.draft {
+        .status.borrowed {
           background-color: #e3f2fd;
           color: #1565c0;
         }
 
-        .status.archived {
+        .status.maintenance {
           background-color: #ffebee;
           color: #c62828;
         }
 
-        .course-details {
+        .book-details {
           padding: 15px;
         }
 
-        .course-details h3 {
+        .book-details h3 {
           margin: 0 0 8px 0;
           font-size: 1.2rem;
           color: #2c3e50;
         }
 
-        .instructor {
+        .author {
           color: #7f8c8d;
           font-size: 0.9rem;
+          margin-bottom: 4px;
+        }
+
+        .isbn {
+          color: #7f8c8d;
+          font-size: 0.8rem;
           margin-bottom: 8px;
         }
 
@@ -691,15 +708,15 @@ export default function Courses() {
           margin-bottom: 10px;
         }
 
-        .course-meta {
+        .book-meta {
           display: flex;
           justify-content: space-between;
           margin-bottom: 15px;
           font-size: 0.85rem;
         }
 
-        .level,
-        .duration {
+        .publisher,
+        .year {
           color: #7f8c8d;
         }
 

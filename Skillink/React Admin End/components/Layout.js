@@ -79,6 +79,14 @@ export default function Layout({ children }) {
               </Link>
             </li>
             <li
+              className={router.pathname === "/books" ? "active" : ""}
+              onClick={() => handleNavigation("/books")}
+            >
+              <Link href="/books" legacyBehavior>
+                <a>Books</a>
+              </Link>
+            </li>
+            <li
               className={router.pathname === "/enrollments" ? "active" : ""}
               onClick={() => handleNavigation("/enrollments")}
             >
