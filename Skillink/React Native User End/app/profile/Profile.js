@@ -24,6 +24,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { useFonts } from "expo-font";
+import LogoutDialog from "@/app/components/LogoutDialog";
 
 const { width, height } = Dimensions.get("window");
 
@@ -42,6 +43,7 @@ function Profile() {
   const { user, isLoggedIn, logOut, loading, authLoading, setUser } = useAuth();
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   // Form fields
   const [name, setName] = useState("");
@@ -264,6 +266,36 @@ function Profile() {
     );
   };
 
+  const handleLogout = async () => {
+    // Start the animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 30,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(async () => {
+      // Force reset user state for web platform
+      if (Platform.OS === "web") {
+        try {
+          await AsyncStorage.removeItem("user");
+          setUser(null);
+          router.replace("/authentication/login");
+        } catch (error) {
+          console.error("Error during manual logout:", error);
+        }
+      }
+
+      // Call the normal logout function
+      logOut();
+    });
+  };
+
   // Show loading while checking authentication or loading fonts
   if (loading || !fontsLoaded) {
     return (
@@ -474,48 +506,21 @@ function Profile() {
                 activeOpacity={0.7}
                 onPress={() => {
                   animateButtonPress();
-                  Alert.alert("Logout", "Are you sure you want to logout?", [
-                    {
-                      text: "Cancel",
-                      style: "cancel",
-                    },
-                    {
-                      text: "Logout",
-                      onPress: () => {
-                        // Start the animation
-                        Animated.parallel([
-                          Animated.timing(fadeAnim, {
-                            toValue: 0,
-                            duration: 300,
-                            useNativeDriver: true,
-                          }),
-                          Animated.timing(slideAnim, {
-                            toValue: 30,
-                            duration: 300,
-                            useNativeDriver: true,
-                          }),
-                        ]).start(async () => {
-                          // Force reset user state for web platform
-                          if (Platform.OS === "web") {
-                            try {
-                              await AsyncStorage.removeItem("user");
-                              setUser(null);
-                              router.replace("/authentication/login");
-                            } catch (error) {
-                              console.error(
-                                "Error during manual logout:",
-                                error
-                              );
-                            }
-                          }
-
-                          // Call the normal logout function
-                          logOut();
-                        });
+                  if (Platform.OS === "web") {
+                    setShowLogoutDialog(true);
+                  } else {
+                    Alert.alert("Logout", "Are you sure you want to logout?", [
+                      {
+                        text: "Cancel",
+                        style: "cancel",
                       },
-                      style: "destructive",
-                    },
-                  ]);
+                      {
+                        text: "Logout",
+                        onPress: handleLogout,
+                        style: "destructive",
+                      },
+                    ]);
+                  }
                 }}
               >
                 <View
@@ -539,6 +544,12 @@ function Profile() {
           </Animated.ScrollView>
         </View>
       </KeyboardAvoidingView>
+
+      <LogoutDialog
+        visible={showLogoutDialog}
+        onClose={() => setShowLogoutDialog(false)}
+        onConfirm={handleLogout}
+      />
     </SafeAreaView>
   );
 }
