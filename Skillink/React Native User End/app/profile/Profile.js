@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  Image,
 } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -25,6 +26,8 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { useFonts } from "expo-font";
 import LogoutDialog from "@/app/components/LogoutDialog";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 
 const { width, height } = Dimensions.get("window");
 
@@ -49,6 +52,8 @@ function Profile() {
   const [name, setName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
 
   // Load custom fonts
   const [fontsLoaded] = useFonts({
@@ -120,6 +125,9 @@ function Profile() {
   useEffect(() => {
     if (user) {
       setName(user.name || "");
+      if (user.photoURL) {
+        setProfileImage(user.photoURL);
+      }
     }
   }, [user]);
 
@@ -131,7 +139,53 @@ function Profile() {
     }, 1000);
   };
 
-  const updateProfile = async () => {
+  const pickImage = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "We need camera roll permissions to upload a profile picture."
+        );
+        return;
+      }
+
+      setImageLoading(true);
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImageUri = result.assets[0].uri;
+
+        // Convert image to base64
+        const base64Image = await FileSystem.readAsStringAsync(
+          selectedImageUri,
+          {
+            encoding: FileSystem.EncodingType.Base64,
+          }
+        );
+
+        // Set the profile image and update profile
+        setProfileImage("data:image/jpeg;base64," + base64Image);
+        await updateProfile(base64Image);
+      }
+
+      setImageLoading(false);
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image");
+      setImageLoading(false);
+    }
+  };
+
+  const updateProfile = async (imageBase64 = null) => {
     try {
       setIsSubmitting(true);
 
@@ -148,17 +202,31 @@ function Profile() {
         return;
       }
 
-      // Update user's name in Firestore
-      const userRef = doc(db, "users", user.id);
-      await updateDoc(userRef, {
+      // Prepare update data
+      const updateData = {
         name: name,
-      });
+      };
 
-      // Update local user state with the new name
+      // Add profile image if available
+      if (imageBase64) {
+        updateData.photoURL = "data:image/jpeg;base64," + imageBase64;
+      }
+
+      // Update user's data in Firestore
+      const userRef = doc(db, "users", user.id);
+      await updateDoc(userRef, updateData);
+
+      // Update local user state with the new data
       const updatedUser = {
         ...user,
         name: name,
       };
+
+      // Add photoURL to updated user if available
+      if (imageBase64) {
+        updatedUser.photoURL = "data:image/jpeg;base64," + imageBase64;
+      }
+
       setUser(updatedUser);
 
       // Update AsyncStorage
@@ -183,11 +251,11 @@ function Profile() {
     return "U";
   };
 
-  // Remove image picker section and replace with static avatar display
+  // Avatar section with image upload functionality
   const avatarSection = () => {
     return (
       <View style={styles.avatarSection}>
-        <View
+        <TouchableOpacity
           style={[
             styles.avatarWrapper,
             {
@@ -195,11 +263,34 @@ function Profile() {
               backgroundColor: isDarkMode ? "#242B42" : "#FFFFFF",
             },
           ]}
+          onPress={pickImage}
+          disabled={imageLoading}
         >
-          <View style={styles.profileAvatarPlaceholder}>
-            <Text style={styles.profileAvatarText}>{getInitial()}</Text>
+          {imageLoading ? (
+            <View style={styles.profileAvatarPlaceholder}>
+              <ActivityIndicator size="large" color="#3366FF" />
+            </View>
+          ) : profileImage ? (
+            <Image
+              source={{ uri: profileImage }}
+              style={styles.profileAvatar}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.profileAvatarPlaceholder}>
+              <Text style={styles.profileAvatarText}>{getInitial()}</Text>
+            </View>
+          )}
+
+          <View
+            style={[
+              styles.cameraIconContainer,
+              { borderColor: isDarkMode ? "#242B42" : "#FFFFFF" },
+            ]}
+          >
+            <Ionicons name="camera" size={16} color="#FFFFFF" />
           </View>
-        </View>
+        </TouchableOpacity>
 
         {isEditingName ? (
           <View style={styles.nameEditContainer}>
@@ -211,14 +302,14 @@ function Profile() {
               placeholder="Enter your name"
               placeholderTextColor="#8F96AB"
               onSubmitEditing={() => {
-                updateProfile();
+                updateProfile(null);
                 setIsEditingName(false);
               }}
             />
             <TouchableOpacity
               style={styles.saveNameButton}
               onPress={() => {
-                updateProfile();
+                updateProfile(null);
                 setIsEditingName(false);
               }}
               disabled={isSubmitting}
@@ -883,6 +974,24 @@ const styles = StyleSheet.create({
   securityOptionDescription: {
     fontSize: 12,
     fontFamily: "Inter-Regular",
+  },
+  profileAvatar: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 50,
+  },
+  cameraIconContainer: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#3366FF",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
 });
 

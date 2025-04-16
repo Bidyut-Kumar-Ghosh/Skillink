@@ -84,12 +84,6 @@ export default function Books() {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setError("Image size should be less than 5MB");
-        return;
-      }
-
       // Validate file type
       if (!file.type.startsWith("image/")) {
         setError("Please upload an image file");
@@ -97,16 +91,52 @@ export default function Books() {
       }
 
       setBookImage(file);
+
+      // Create a FileReader to read the file
       const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result;
-        setImagePreview(base64String);
-        // Store the base64 string to be saved to Firebase
-        setFormData({
-          ...formData,
-          imageUrl: base64String,
-        });
+
+      reader.onload = (e) => {
+        // Create an image element to use for compression
+        const img = new Image();
+        img.src = e.target.result;
+
+        img.onload = () => {
+          // Create a canvas element
+          const canvas = document.createElement("canvas");
+
+          // Calculate new dimensions (max 800px width/height while maintaining aspect ratio)
+          let width = img.width;
+          let height = img.height;
+          const maxSize = 800;
+
+          if (width > height && width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+
+          // Set canvas dimensions
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw and compress the image on canvas
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Get compressed image as base64 string (0.7 quality)
+          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7);
+
+          // Set preview and update form data
+          setImagePreview(compressedBase64);
+          setFormData({
+            ...formData,
+            imageUrl: compressedBase64,
+          });
+        };
       };
+
       reader.readAsDataURL(file);
       setError(null);
     }
@@ -220,32 +250,15 @@ export default function Books() {
     }
   };
 
-  const handleDeleteBook = async (bookId, imageUrl) => {
+  const handleDeleteBook = async (bookId) => {
     if (
       window.confirm(
         "Are you sure you want to delete this book? This action cannot be undone."
       )
     ) {
       try {
-        // Delete book document
+        // Delete book document from Firestore
         await deleteDoc(doc(db, "books", bookId));
-
-        // Delete book image if it exists
-        if (imageUrl) {
-          try {
-            // Extract the path from the URL
-            const imagePath = imageUrl.split("/o/")[1]?.split("?")[0];
-            if (imagePath) {
-              const decodedPath = decodeURIComponent(imagePath);
-              const imageRef = ref(storage, decodedPath);
-              await deleteObject(imageRef);
-              console.log("Image deleted successfully");
-            }
-          } catch (imageError) {
-            console.error("Error deleting image:", imageError);
-            // Continue with book deletion even if image deletion fails
-          }
-        }
 
         // Update state
         setBooks(books.filter((book) => book.id !== bookId));
@@ -332,9 +345,7 @@ export default function Books() {
                         </button>
                         <button
                           className="delete-btn"
-                          onClick={() =>
-                            handleDeleteBook(book.id, book.imageUrl)
-                          }
+                          onClick={() => handleDeleteBook(book.id)}
                         >
                           Delete
                         </button>

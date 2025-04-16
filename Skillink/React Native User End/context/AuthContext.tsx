@@ -27,6 +27,7 @@ const getUserData = async (uid: string): Promise<User | null> => {
                 email: data.email || '',
                 name: data.name || '',
                 role: data.role || 'user',
+                photoURL: data.photoURL || '',
                 createdAt: data.createdAt,
                 status: data.status,
             };
@@ -152,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                                     email: firebaseUser.email || '',
                                     name: userData.name || '',
                                     role: userData.role || 'user',
+                                    photoURL: userData.photoURL || '',
                                     createdAt: userData.createdAt,
                                     status: userData.status,
                                 };
@@ -261,23 +263,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                     await setDoc(doc(db, "users", firebaseUser.uid), newUserData);
 
-                    // Set the user state
+                    // Create a user object to set the state
                     const userObj: User = {
                         id: firebaseUser.uid,
                         email: email,
                         name: '',
                         role: 'user',
+                        photoURL: '',
                         createdAt: timestamp,
                         status: 'active',
                     };
 
                     setUser(userObj);
 
-                    // Store in AsyncStorage
+                    // Store in AsyncStorage for persistence
                     await AsyncStorage.setItem('user', JSON.stringify(userObj));
+
+                    // Show success notification
+                    showSuccess('auth/login-success');
 
                     // Navigate to home
                     router.replace('/');
+                    setAuthLoading(false);
                     return;
                 }
 
@@ -299,13 +306,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     return;
                 }
 
-                // User exists and is active, set user state
+                // User exists in Firestore, proceed with sign in
+                // Create a user object with Firebase and Firestore data
                 const userObj: User = {
                     id: firebaseUser.uid,
-                    email: email,
+                    email: firebaseUser.email || '',
                     name: userData.name || '',
                     role: userData.role || 'user',
-                    photoURL: firebaseUser.photoURL || undefined,
+                    photoURL: userData.photoURL || '',
                     createdAt: userData.createdAt,
                     status: userData.status,
                 };
