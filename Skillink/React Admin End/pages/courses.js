@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import Layout from "../components/Layout";
-import { db, storage } from "../firebase/config";
+import { db } from "../firebase/config";
 import {
   collection,
   getDocs,
@@ -11,12 +11,6 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
 
 export default function Courses() {
   const [courses, setCourses] = useState([]);
@@ -103,7 +97,13 @@ export default function Courses() {
       setCourseImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result);
+        const base64String = reader.result;
+        setImagePreview(base64String);
+        // Store the base64 string to be saved to Firebase
+        setFormData({
+          ...formData,
+          imageUrl: base64String,
+        });
       };
       reader.readAsDataURL(file);
       setError(null);
@@ -153,35 +153,6 @@ export default function Courses() {
     setIsModalOpen(true);
   };
 
-  const uploadImage = async (file) => {
-    if (!file) return null;
-
-    try {
-      // Create a unique filename with timestamp and random string
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const fileExtension = file.name.split(".").pop().toLowerCase();
-      const fileName = `courses/${timestamp}_${randomString}.${fileExtension}`;
-
-      // Create a reference to the file location
-      const storageRef = ref(storage, fileName);
-
-      // Upload the file
-      console.log("Starting image upload...");
-      const uploadResult = await uploadBytes(storageRef, file);
-      console.log("Image uploaded successfully, getting download URL...");
-
-      // Get the download URL
-      const downloadURL = await getDownloadURL(uploadResult.ref);
-      console.log("Download URL obtained:", downloadURL);
-
-      return downloadURL;
-    } catch (error) {
-      console.error("Error in uploadImage function:", error);
-      throw new Error(`Failed to upload image: ${error.message}`);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -202,23 +173,11 @@ export default function Courses() {
         price: formData.price ? parseFloat(formData.price) : 0,
       };
 
-      let imageUrl = formData.imageUrl || null;
-
-      // Upload image if there's a new one
-      if (courseImage) {
-        try {
-          imageUrl = await uploadImage(courseImage);
-        } catch (uploadError) {
-          console.error("Error uploading image:", uploadError);
-          setError("Failed to upload image. Please try again.");
-          setSubmitting(false);
-          return;
-        }
-      }
+      // The image is already stored in formData.imageUrl as a base64 string
+      // No need to upload to Firebase Storage
 
       const courseData = {
         ...formattedData,
-        imageUrl: imageUrl || null, // Ensure imageUrl is never undefined
         updatedAt: serverTimestamp(),
       };
 
@@ -233,7 +192,7 @@ export default function Courses() {
         setCourses(
           courses.map((course) =>
             course.id === formData.id
-              ? { ...course, ...courseData, imageUrl, id: formData.id }
+              ? { ...course, ...courseData, id: formData.id }
               : course
           )
         );
