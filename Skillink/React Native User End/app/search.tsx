@@ -48,6 +48,25 @@ interface SearchItem {
     type: 'book' | 'course';
 }
 
+// Add a utility function to format duration
+const formatDuration = (duration: string | undefined): string => {
+    if (!duration) return '';
+
+    // If it's just a number, assume it's weeks
+    if (/^\d+$/.test(duration)) {
+        const weeks = parseInt(duration, 10);
+        return `${weeks} ${weeks === 1 ? 'week' : 'weeks'}`;
+    }
+
+    // If it already includes time units (weeks, hours, months), return as is
+    if (/week|hour|month|day|min/i.test(duration)) {
+        return duration;
+    }
+
+    // Default case, just add "weeks" suffix
+    return `${duration} weeks`;
+};
+
 export default function SearchScreen() {
     const { isDarkMode } = useTheme();
     const { user } = useAuth();
@@ -514,7 +533,9 @@ export default function SearchScreen() {
                                 {item.duration && (
                                     <View style={styles.durationContainer}>
                                         <Ionicons name="time-outline" size={10} color="#888888" />
-                                        <Text style={styles.courseInfoText}>{item.duration}</Text>
+                                        <Text style={styles.courseInfoText}>
+                                            {formatDuration(item.duration)}
+                                        </Text>
                                     </View>
                                 )}
                             </View>
