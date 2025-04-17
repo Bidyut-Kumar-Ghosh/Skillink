@@ -70,7 +70,14 @@ const getUserByEmail = async (email: string): Promise<FirestoreUser | null> => {
 const logAuthError = (message: string, error: any) => {
     // Report the error to our notification handler
     const errorCode = getErrorCode(error);
-    showError(errorCode, error.message || message);
+
+    // For Firebase auth errors, the error code will be in the format 'auth/error-type'
+    // For custom errors, we'll use the error message directly
+    if (!errorCode || errorCode === 'unknown-error') {
+        showError('auth/error', error.message || message);
+    } else {
+        showError(errorCode, error.message || message);
+    }
 };
 
 interface User {
@@ -334,7 +341,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const userByEmail = await getUserByEmail(email);
 
                 if (!userByEmail) {
-                    logAuthError('User not found in Firestore database:', { message: 'No user found with this email.' });
+                    // Don't log error here, will be caught by outer catch
                     throw new Error('No user found with this email address');
                 }
 
@@ -352,7 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const passwordMatches = await verifyPassword(password, userByEmail.password);
 
                 if (!passwordMatches) {
-                    logAuthError('Invalid login credentials:', { message: 'Incorrect email or password' });
+                    // Don't log error here, will be caught by outer catch
                     throw new Error('Incorrect email or password');
                 }
 
@@ -380,7 +387,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (error: any) {
             // This catches any errors from the outer try/catch
             logAuthError('Error signing in:', error);
-            throw error;
+
+            // No need to rethrow the error as it's already been handled by logAuthError
+            setAuthLoading(false);
         } finally {
             setAuthLoading(false);
         }

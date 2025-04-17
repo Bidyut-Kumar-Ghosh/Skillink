@@ -46,6 +46,8 @@ const messages = {
     'network-error': 'Network connection lost. Please check your internet.',
     'server-error': 'Something went wrong on our servers. Try again later.',
     'default-error': 'An error occurred. Please try again.',
+    'unknown-error': 'An error occurred. Please try again.',
+    'auth/error': 'Authentication error. Please try again.',
 };
 
 // Notification interface for handling notifications
@@ -130,12 +132,24 @@ export const getErrorCode = (error: any): string => {
         return error.code;
     }
 
-    if (error?.message?.includes('auth/')) {
-        const match = error.message.match(/auth\/[\w-]+/);
-        if (match) return match[0];
+    // Check for specific error messages that should be mapped to specific codes
+    if (error?.message) {
+        // Common custom error messages
+        if (error.message.includes('No user found with this email')) {
+            return 'auth/user-not-found';
+        }
+        if (error.message.includes('Incorrect email or password')) {
+            return 'auth/wrong-password';
+        }
+
+        // Firebase error messages in the format 'auth/error-type'
+        if (error.message.includes('auth/')) {
+            const match = error.message.match(/auth\/[\w-]+/);
+            if (match) return match[0];
+        }
     }
 
-    return 'network-error';
+    return 'unknown-error';
 };
 
 // Get user-friendly message

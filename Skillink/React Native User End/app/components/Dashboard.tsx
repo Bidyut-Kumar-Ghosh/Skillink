@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     StyleSheet,
     View,
@@ -10,6 +10,11 @@ import {
     Image,
     StatusBar,
     Dimensions,
+    FlatList,
+    Animated,
+    NativeSyntheticEvent,
+    NativeScrollEvent,
+    Easing,
 } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -18,12 +23,173 @@ import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 
+// Define slide item type
+interface SlideItem {
+    id: string;
+    title: string;
+    subtitle: string;
+    icon: string;
+    color: string;
+    gradientColors: string[];
+}
+
+// Slider data
+const sliderData: SlideItem[] = [
+    {
+        id: '1',
+        title: 'Learning that fits',
+        subtitle: 'Skills for your present (and future)',
+        icon: 'school',
+        color: 'linear-gradient(135deg, #6e8efb, #a777e3)',
+        gradientColors: ['#6e8efb', '#a777e3'],
+    },
+    {
+        id: '2',
+        title: 'Learn on your schedule',
+        subtitle: 'Access courses anytime, anywhere',
+        icon: 'time',
+        color: 'linear-gradient(135deg, #4facfe, #00f2fe)',
+        gradientColors: ['#4facfe', '#00f2fe'],
+    },
+    {
+        id: '3',
+        title: 'Expert instructors',
+        subtitle: 'Learn from industry professionals',
+        icon: 'people',
+        color: 'linear-gradient(135deg, #43e97b, #38f9d7)',
+        gradientColors: ['#43e97b', '#38f9d7'],
+    },
+    {
+        id: '4',
+        title: 'Interactive Learning',
+        subtitle: 'Engage with hands-on projects & exercises',
+        icon: 'construct',
+        color: 'linear-gradient(135deg, #ff9a9e, #fad0c4)',
+        gradientColors: ['#ff9a9e', '#fad0c4'],
+    },
+    {
+        id: '5',
+        title: 'Certification Ready',
+        subtitle: 'Prepare for industry-recognized credentials',
+        icon: 'ribbon',
+        color: 'linear-gradient(135deg, #f6d365, #fda085)',
+        gradientColors: ['#f6d365', '#fda085'],
+    },
+    {
+        id: '6',
+        title: 'Community Support',
+        subtitle: 'Connect with peers and mentors',
+        icon: 'people-circle',
+        color: 'linear-gradient(135deg, #5ee7df, #b490ca)',
+        gradientColors: ['#5ee7df', '#b490ca'],
+    },
+];
+
 function Dashboard() {
     const { user, isLoggedIn, loading } = useAuth();
     const { theme, isDarkMode } = useTheme();
     const [storageUsed, setStorageUsed] = useState('2.8');
     const [totalStorage, setTotalStorage] = useState('10');
     const [firstName, setFirstName] = useState('');
+    const [activeSlide, setActiveSlide] = useState(0);
+    const [isManualScrolling, setIsManualScrolling] = useState(false);
+
+    // Refs for slider
+    const sliderRef = useRef<FlatList<SlideItem>>(null);
+    const scrollX = useRef(new Animated.Value(0)).current;
+    const autoScrollTimer = useRef<NodeJS.Timeout | null>(null);
+
+    // Animation values for rotate effect
+    const rotateAnim = useRef(new Animated.Value(0)).current;
+
+    // Calculated dimensions for centering
+    const sliderItemWidth = width - 60; // Slightly narrower for better centering
+    const sliderItemMargin = 10;
+
+    // Start rotate animation
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(rotateAnim, {
+                    toValue: 1,
+                    duration: 8000,
+                    useNativeDriver: true,
+                    easing: Easing.linear
+                }),
+                Animated.timing(rotateAnim, {
+                    toValue: 0,
+                    duration: 0,
+                    useNativeDriver: true
+                })
+            ])
+        ).start();
+    }, []);
+
+    // Auto-scroll function with improved looping
+    const startAutoScroll = useCallback(() => {
+        // Don't start auto-scroll if user is manually scrolling
+        if (isManualScrolling) return;
+
+        // Clear any existing auto-scroll timer
+        if (autoScrollTimer.current) {
+            clearTimeout(autoScrollTimer.current);
+        }
+
+        // Set a new interval for auto-scrolling
+        autoScrollTimer.current = setTimeout(() => {
+            // Don't auto-scroll if user is manually scrolling
+            if (isManualScrolling) return;
+
+            const nextSlide = (activeSlide + 1) % sliderData.length;
+
+            if (sliderRef.current) {
+                // If moving from last slide to first, use scrollToOffset
+                if (nextSlide === 0) {
+                    sliderRef.current.scrollToOffset({
+                        offset: 0,
+                        animated: true
+                    });
+                } else {
+                    // For all other transitions, use scrollToIndex
+                    sliderRef.current.scrollToIndex({
+                        index: nextSlide,
+                        animated: true,
+                        viewPosition: 0.5
+                    });
+                }
+            }
+
+            setActiveSlide(nextSlide);
+        }, 2500);
+    }, [activeSlide, isManualScrolling, sliderData.length]);
+
+    // Start auto-scroll for slider
+    useEffect(() => {
+        startAutoScroll();
+        return () => {
+            if (autoScrollTimer.current) {
+                clearTimeout(autoScrollTimer.current);
+            }
+        };
+    }, [startAutoScroll]); // No dependencies to prevent re-triggering
+
+    // Handler for when user starts dragging
+    const handleScrollBegin = () => {
+        setIsManualScrolling(true);
+
+        // Clear auto-scroll when user starts manual scrolling
+        if (autoScrollTimer.current) {
+            clearTimeout(autoScrollTimer.current);
+        }
+    };
+
+    // Helper function to reset auto-scroll timer
+    const resetAutoScroll = () => {
+        if (autoScrollTimer.current) {
+            clearTimeout(autoScrollTimer.current);
+        }
+        startAutoScroll();
+    };
 
     // Fetch user details
     useEffect(() => {
@@ -52,6 +218,179 @@ function Dashboard() {
 
     const navigateToProfile = () => {
         router.push('/profile');
+    };
+
+    // Render slider item with improved styling
+    const renderSliderItem = ({ item, index }: { item: SlideItem; index: number }) => {
+        // Calculate the scale based on the active slide
+        const inputRange = [
+            (index - 1) * (sliderItemWidth + (sliderItemMargin * 2)),
+            index * (sliderItemWidth + (sliderItemMargin * 2)),
+            (index + 1) * (sliderItemWidth + (sliderItemMargin * 2)),
+        ];
+
+        const scale = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.85, 1, 0.85],
+            extrapolate: 'clamp',
+        });
+
+        const opacity = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.5, 1, 0.5],
+            extrapolate: 'clamp',
+        });
+
+        const translateY = scrollX.interpolate({
+            inputRange,
+            outputRange: [20, 0, 20],
+            extrapolate: 'clamp',
+        });
+
+        // Rotate animation for icon
+        const rotate = rotateAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: ['0deg', '360deg']
+        });
+
+        // Background bubble animations
+        const bubble1Scale = rotateAnim.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0.8, 1.2, 0.8]
+        });
+
+        const bubble2Scale = rotateAnim.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [1.2, 0.8, 1.2]
+        });
+
+        // Create linear gradient background
+        const startColor = item.gradientColors[0];
+        const endColor = item.gradientColors[1];
+
+        return (
+            <Animated.View
+                style={[
+                    styles.sliderItemContainer,
+                    {
+                        transform: [
+                            { scale },
+                            { translateY }
+                        ],
+                        opacity,
+                    }
+                ]}
+            >
+                <View
+                    style={[
+                        styles.sliderItem,
+                        {
+                            backgroundColor: startColor,
+                            shadowColor: startColor,
+                        }
+                    ]}
+                >
+                    {/* Static colored circles in background */}
+                    <View
+                        style={[
+                            styles.backgroundBubble,
+                            {
+                                backgroundColor: endColor,
+                                left: -20,
+                                top: -20,
+                            }
+                        ]}
+                    />
+                    <View
+                        style={[
+                            styles.backgroundBubble,
+                            {
+                                backgroundColor: startColor,
+                                right: -40,
+                                bottom: -30,
+                            }
+                        ]}
+                    />
+
+                    {/* Animated overlay for pulse effect */}
+                    <Animated.View
+                        style={[
+                            styles.pulseOverlay,
+                            {
+                                transform: [{ scale: bubble1Scale }],
+                                opacity: 0.3,
+                            }
+                        ]}
+                    />
+
+                    <View style={styles.sliderGradientOverlay} />
+                    <View style={styles.sliderContent}>
+                        <Animated.View
+                            style={[
+                                styles.sliderIconContainer,
+                                {
+                                    transform: [{ rotate }]
+                                }
+                            ]}
+                        >
+                            <Ionicons name={item.icon as any} size={34} color="#FFFFFF" />
+                        </Animated.View>
+                        <View style={styles.sliderTextContainer}>
+                            <Text style={styles.sliderTitle}>{item.title}</Text>
+                            <Text style={styles.sliderSubtitle}>{item.subtitle}</Text>
+                        </View>
+                    </View>
+                </View>
+            </Animated.View>
+        );
+    };
+
+    // Handler for when scrolling ends
+    const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        // Calculate current slide index based on scroll position
+        const contentOffsetX = event.nativeEvent.contentOffset.x;
+        const slideWidth = event.nativeEvent.layoutMeasurement.width;
+        const newIndex = Math.round(contentOffsetX / slideWidth);
+
+        // Handle bounds checking
+        if (newIndex < 0 || newIndex >= sliderData.length) {
+            // If out of bounds, reset to first slide
+            if (sliderRef.current) {
+                sliderRef.current.scrollToOffset({
+                    offset: 0,
+                    animated: false
+                });
+            }
+            setActiveSlide(0);
+        } else {
+            setActiveSlide(newIndex);
+
+            // If we've reached the last slide, wait a moment then loop back to first
+            if (newIndex === sliderData.length - 1) {
+                if (autoScrollTimer.current) {
+                    clearTimeout(autoScrollTimer.current);
+                }
+
+                // Use a shorter timeout for better UX
+                autoScrollTimer.current = setTimeout(() => {
+                    if (sliderRef.current && !isManualScrolling) {
+                        // Use a smoother transition to the first slide
+                        sliderRef.current.scrollToOffset({
+                            offset: 0,
+                            animated: true
+                        });
+                        setActiveSlide(0);
+                    }
+                }, 2000);
+                return; // Skip the normal auto-scroll restart
+            }
+        }
+
+        // Reset manual scrolling flag
+        setIsManualScrolling(false);
+
+        // Restart auto-scroll
+        startAutoScroll();
     };
 
     return (
@@ -90,10 +429,39 @@ function Dashboard() {
             </View>
 
             <ScrollView style={styles.content}>
-                <View style={styles.learningBanner}>
-                    <View style={styles.bannerTextContainer}>
-                        <Text style={styles.bannerTitle}>Learning that fits</Text>
-                        <Text style={styles.bannerSubtitle}>Skills for your present (and future)</Text>
+                {/* Slider Section with centered wrapper */}
+                <View style={styles.sliderOuterContainer}>
+                    <View style={styles.sliderContainer}>
+                        <Animated.FlatList
+                            ref={sliderRef}
+                            data={sliderData}
+                            renderItem={renderSliderItem}
+                            keyExtractor={item => item.id}
+                            horizontal
+                            pagingEnabled
+                            showsHorizontalScrollIndicator={false}
+                            snapToInterval={sliderItemWidth + (sliderItemMargin * 2)}
+                            decelerationRate="fast"
+                            contentContainerStyle={styles.sliderContentContainer}
+                            onScroll={Animated.event(
+                                [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                                { useNativeDriver: true }
+                            )}
+                            onScrollBeginDrag={handleScrollBegin}
+                            onMomentumScrollBegin={handleScrollBegin}
+                            onMomentumScrollEnd={handleScrollEnd}
+                            getItemLayout={(data, index) => ({
+                                length: sliderItemWidth + (sliderItemMargin * 2),
+                                offset: (sliderItemWidth + (sliderItemMargin * 2)) * index,
+                                index,
+                            })}
+                            initialScrollIndex={0}
+                            maxToRenderPerBatch={3}
+                            windowSize={5}
+                            removeClippedSubviews={false}
+                            contentInsetAdjustmentBehavior="automatic"
+                            style={styles.flatListStyle}
+                        />
                     </View>
                 </View>
 
@@ -281,26 +649,99 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
     },
-    learningBanner: {
-        height: 180,
-        backgroundColor: '#3366FF',
-        marginBottom: 20,
+    sliderOuterContainer: {
+        width: '100%',
+        alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 20,
+        marginVertical: 15,
     },
-    bannerTextContainer: {
-        width: '70%',
+    sliderContainer: {
+        height: 230,
+        width: width,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    bannerTitle: {
-        fontSize: 28,
+    sliderContentContainer: {
+        paddingHorizontal: width * 0.05, // 5% of screen width for better centering
+        paddingVertical: 15,
+        alignItems: 'center',
+    },
+    sliderItemContainer: {
+        width: width - 60, // Slightly narrower than before
+        height: 200,
+        marginHorizontal: 10,
+        paddingVertical: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sliderItem: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 20,
+        overflow: 'hidden',
+        padding: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 15,
+        elevation: 10,
+        position: 'relative',
+    },
+    sliderGradientOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        backfaceVisibility: 'hidden',
+    },
+    sliderContent: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        zIndex: 2,
+    },
+    sliderIconContainer: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    sliderTextContainer: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    sliderTitle: {
+        fontSize: 26,
         fontWeight: 'bold',
         color: '#FFFFFF',
-        marginBottom: 10,
+        marginBottom: 8,
+        textShadowColor: 'rgba(0, 0, 0, 0.2)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
     },
-    bannerSubtitle: {
+    sliderSubtitle: {
         fontSize: 16,
         color: '#FFFFFF',
         opacity: 0.9,
+        textShadowColor: 'rgba(0, 0, 0, 0.2)',
+        textShadowOffset: { width: 0.5, height: 0.5 },
+        textShadowRadius: 1,
     },
     notificationBanner: {
         flexDirection: 'row',
@@ -444,6 +885,28 @@ const styles = StyleSheet.create({
         marginTop: 4,
         color: '#3366FF',
         fontWeight: '500',
+    },
+    backgroundBubble: {
+        position: 'absolute',
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        opacity: 0.6,
+        zIndex: 1,
+    },
+    pulseOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        backfaceVisibility: 'hidden',
+    },
+    flatListStyle: {
+        width: '100%',
+        alignSelf: 'center',
     },
 });
 
