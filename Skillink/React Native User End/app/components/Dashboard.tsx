@@ -15,11 +15,25 @@ import {
     NativeSyntheticEvent,
     NativeScrollEvent,
     Easing,
+    ActivityIndicator,
+    Modal,
 } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import {
+    collection,
+    getDocs,
+    limit,
+    orderBy,
+    startAt,
+    endAt,
+    where,
+    query as firestoreQuery,
+    DocumentData
+} from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -31,6 +45,17 @@ interface SlideItem {
     icon: string;
     color: string;
     gradientColors: string[];
+}
+
+// Define course/book item type
+interface CourseItem {
+    id: string;
+    title: string;
+    author: string;
+    rating: number;
+    imageUrl?: string;
+    category: string;
+    type: 'course' | 'book';
 }
 
 // Slider data
@@ -93,6 +118,13 @@ function Dashboard() {
     const [firstName, setFirstName] = useState('');
     const [activeSlide, setActiveSlide] = useState(0);
     const [isManualScrolling, setIsManualScrolling] = useState(false);
+
+    // Search functionality
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<CourseItem[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showSearchResults, setShowSearchResults] = useState(false);
+    const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
     // Refs for slider
     const sliderRef = useRef<FlatList<SlideItem>>(null);
@@ -181,6 +213,17 @@ function Dashboard() {
         if (autoScrollTimer.current) {
             clearTimeout(autoScrollTimer.current);
         }
+    };
+
+    // Handler for when touch ends on slider (separate from momentum scrolling)
+    const handleTouchEnd = () => {
+        // Add a slight delay before re-enabling auto-scroll
+        // This allows other handlers to complete first
+        setTimeout(() => {
+            if (!isManualScrolling) return;
+            setIsManualScrolling(false);
+            startAutoScroll();
+        }, 50);
     };
 
     // Helper function to reset auto-scroll timer
@@ -382,15 +425,200 @@ function Dashboard() {
                         setActiveSlide(0);
                     }
                 }, 2000);
-                return; // Skip the normal auto-scroll restart
             }
         }
 
-        // Reset manual scrolling flag
+        // Always reset manual scrolling flag and restart auto-scroll
         setIsManualScrolling(false);
-
-        // Restart auto-scroll
         startAutoScroll();
+    };
+
+    // Function to search Firebase for courses and books
+    const searchCoursesAndBooks = async (searchText: string) => {
+        if (!searchText.trim()) {
+            return [];
+        }
+
+        try {
+            // Search in courses collection
+            const courseRef = collection(db, 'courses');
+            const searchLower = searchText.toLowerCase();
+
+            // Create a query against the collection
+            const q = firestoreQuery(
+                courseRef,
+                where('titleLowerCase', '>=', searchLower),
+                where('titleLowerCase', '<=', searchLower + '\uf8ff'),
+                limit(10)
+            );
+
+            const querySnapshot = await getDocs(q);
+            const coursesResults: CourseItem[] = [];
+
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                coursesResults.push({
+                    id: doc.id,
+                    title: data.title || '',
+                    author: data.author || 'Unknown Author',
+                    rating: data.rating || 4.5,
+                    imageUrl: data.imageUrl,
+                    category: data.category || 'Course',
+                    type: 'course'
+                });
+            });
+
+            // Also search in books collection
+            const booksRef = collection(db, 'books');
+            const booksQ = firestoreQuery(
+                booksRef,
+                where('titleLowerCase', '>=', searchLower),
+                where('titleLowerCase', '<=', searchLower + '\uf8ff'),
+                limit(10)
+            );
+
+            const booksSnapshot = await getDocs(booksQ);
+            const booksResults: CourseItem[] = [];
+
+            booksSnapshot.forEach((doc) => {
+                const data = doc.data();
+                booksResults.push({
+                    id: doc.id,
+                    title: data.title || '',
+                    author: data.author || 'Unknown Author',
+                    rating: data.rating || 4.3,
+                    imageUrl: data.imageUrl,
+                    category: data.category || 'Books',
+                    type: 'book'
+                });
+            });
+
+            // Combine and sort results
+            return [...coursesResults, ...booksResults];
+        } catch (error) {
+            console.error("Error searching courses and books: ", error);
+            return [];
+        }
+    };
+
+    // Function to handle search 
+    const handleSearch = useCallback(async (text: string) => {
+        if (!text.trim()) {
+            setSearchResults([]);
+            setShowSearchResults(false);
+            return;
+        }
+
+        setIsSearching(true);
+        setShowSearchResults(true);
+
+        try {
+            const results = await searchCoursesAndBooks(text);
+            setSearchResults(results);
+
+            // Add to recent searches if we got results
+            if (results.length > 0 && !recentSearches.includes(text)) {
+                setRecentSearches(prev => [text, ...prev.slice(0, 4)]);
+            }
+        } catch (error) {
+            console.error("Error in search:", error);
+        } finally {
+            setIsSearching(false);
+        }
+    }, [recentSearches]);
+
+    // Debounce search to avoid too many requests
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            if (searchQuery) {
+                handleSearch(searchQuery);
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [searchQuery, handleSearch]);
+
+    // Function to clear search
+    const clearSearch = () => {
+        setSearchQuery('');
+        setShowSearchResults(false);
+    };
+
+    // Function to handle search item selection
+    const handleSearchItemSelect = (item: CourseItem) => {
+        // Navigate to course or book detail
+        if (item.type === 'course') {
+            router.push(`/course/${item.id}`);
+        } else {
+            router.push(`/book/${item.id}`);
+        }
+        clearSearch();
+    };
+
+    // Render search result item
+    const renderSearchResultItem = ({ item }: { item: CourseItem }) => (
+        <TouchableOpacity
+            style={styles.searchResultItem}
+            onPress={() => handleSearchItemSelect(item)}
+        >
+            <View style={styles.searchResultImageContainer}>
+                {item.imageUrl ? (
+                    <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.searchResultImage}
+                    />
+                ) : (
+                    <View style={[
+                        styles.searchResultImagePlaceholder,
+                        { backgroundColor: item.type === 'course' ? '#3366FF20' : '#FF336620' }
+                    ]}>
+                        <Ionicons
+                            name={item.type === 'course' ? 'school' : 'book'}
+                            size={24}
+                            color={item.type === 'course' ? "#3366FF" : "#FF3366"}
+                        />
+                    </View>
+                )}
+            </View>
+            <View style={styles.searchResultContent}>
+                <Text
+                    style={[styles.searchResultTitle, isDarkMode && styles.darkText]}
+                    numberOfLines={1}
+                >
+                    {item.title}
+                </Text>
+                <Text
+                    style={styles.searchResultAuthor}
+                    numberOfLines={1}
+                >
+                    {item.author}
+                </Text>
+                <View style={styles.searchResultMeta}>
+                    <View style={styles.searchResultRating}>
+                        <Ionicons name="star" size={12} color="#FFD700" />
+                        <Text style={styles.searchResultRatingText}>{item.rating.toFixed(1)}</Text>
+                    </View>
+                    <View style={[
+                        styles.searchResultType,
+                        { backgroundColor: item.type === 'course' ? '#3366FF20' : '#FF336620' }
+                    ]}>
+                        <Text style={[
+                            styles.searchResultTypeText,
+                            { color: item.type === 'course' ? '#3366FF' : '#FF3366' }
+                        ]}>
+                            {item.type === 'course' ? 'Course' : 'Book'}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+        </TouchableOpacity>
+    );
+
+    // Navigate to search page
+    const navigateToSearch = () => {
+        router.push('/search');
     };
 
     return (
@@ -417,16 +645,18 @@ function Dashboard() {
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.searchContainer}>
+            <TouchableOpacity
+                style={[styles.searchContainer, isDarkMode && styles.darkSearchContainer]}
+                onPress={navigateToSearch}
+                activeOpacity={0.7}
+            >
                 <View style={[styles.searchInputContainer, isDarkMode && styles.darkSearchInputContainer]}>
                     <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
-                    <TextInput
-                        style={[styles.searchInput, isDarkMode && styles.darkSearchInput]}
-                        placeholder="Search courses..."
-                        placeholderTextColor="#888"
-                    />
+                    <Text style={[styles.searchPlaceholder, isDarkMode && styles.darkSearchPlaceholder]}>
+                        Search courses and books...
+                    </Text>
                 </View>
-            </View>
+            </TouchableOpacity>
 
             <ScrollView style={styles.content}>
                 {/* Slider Section with centered wrapper */}
@@ -448,7 +678,7 @@ function Dashboard() {
                                 { useNativeDriver: true }
                             )}
                             onScrollBeginDrag={handleScrollBegin}
-                            onMomentumScrollBegin={handleScrollBegin}
+                            onScrollEndDrag={handleTouchEnd}
                             onMomentumScrollEnd={handleScrollEnd}
                             getItemLayout={(data, index) => ({
                                 length: sliderItemWidth + (sliderItemMargin * 2),
@@ -535,7 +765,7 @@ function Dashboard() {
                     <Text style={styles.navTextActive}>Home</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.navItem}>
+                <TouchableOpacity style={styles.navItem} onPress={navigateToSearch}>
                     <Ionicons name="search" size={24} color={isDarkMode ? "#AAAAAA" : "#888"} />
                     <Text style={[styles.navText, isDarkMode && styles.darkNavText]}>Search</Text>
                 </TouchableOpacity>
@@ -619,13 +849,17 @@ const styles = StyleSheet.create({
         marginTop: 10,
         marginBottom: 15,
     },
+    darkSearchContainer: {
+        backgroundColor: 'transparent',
+    },
     searchInputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#FFFFFF',
-        borderRadius: 10,
-        paddingHorizontal: 15,
-        height: 48,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        height: 52,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
@@ -633,18 +867,20 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     darkSearchInputContainer: {
-        backgroundColor: '#121212',
+        backgroundColor: '#1A1A1A',
+        borderColor: '#333',
     },
     searchIcon: {
         marginRight: 10,
     },
-    searchInput: {
+    searchPlaceholder: {
         flex: 1,
         fontSize: 16,
-        color: '#333',
+        color: '#888',
+        height: '100%',
     },
-    darkSearchInput: {
-        color: '#FFFFFF',
+    darkSearchPlaceholder: {
+        color: '#AAAAAA',
     },
     content: {
         flex: 1,
@@ -907,6 +1143,181 @@ const styles = StyleSheet.create({
     flatListStyle: {
         width: '100%',
         alignSelf: 'center',
+    },
+    searchResultsContainer: {
+        position: 'absolute',
+        top: 80,
+        left: 20,
+        right: 20,
+        bottom: 120,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: 16,
+        overflow: 'hidden',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        zIndex: 1000,
+    },
+    darkSearchResultsContainer: {
+        backgroundColor: 'rgba(18, 18, 18, 0.95)',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    loadingText: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#333',
+        marginLeft: 10,
+    },
+    searchResultsList: {
+        padding: 16,
+    },
+    searchResultItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        marginBottom: 8,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    searchResultImageContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 8,
+        marginRight: 12,
+        overflow: 'hidden',
+    },
+    searchResultImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 8,
+    },
+    searchResultImagePlaceholder: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    searchResultContent: {
+        flex: 1,
+        justifyContent: 'space-between',
+    },
+    searchResultTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 4,
+    },
+    searchResultAuthor: {
+        fontSize: 12,
+        color: '#777777',
+        marginBottom: 6,
+    },
+    searchResultMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    searchResultRating: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 215, 0, 0.1)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    searchResultRatingText: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: '#777777',
+        marginLeft: 2,
+    },
+    searchResultType: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    searchResultTypeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    noResultsContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    noResultsText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+        marginTop: 16,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    noResultsSubtext: {
+        fontSize: 14,
+        color: '#888',
+        textAlign: 'center',
+        maxWidth: 250,
+    },
+    recentSearchesContainer: {
+        padding: 20,
+        flex: 1,
+    },
+    recentSearchesTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 16,
+    },
+    recentSearchItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        marginBottom: 8,
+        backgroundColor: '#F5F5F5',
+        borderRadius: 8,
+    },
+    recentSearchText: {
+        fontSize: 14,
+        color: '#333',
+        marginLeft: 8,
+    },
+    noRecentSearchesText: {
+        fontSize: 14,
+        color: '#888',
+        textAlign: 'center',
+        marginTop: 20,
+    },
+    closeSearchButton: {
+        marginVertical: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        backgroundColor: '#3366FF',
+        borderRadius: 8,
+        alignSelf: 'center',
+        shadowColor: '#3366FF',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    closeSearchText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
     },
 });
 
