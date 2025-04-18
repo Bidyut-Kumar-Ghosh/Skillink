@@ -1,6 +1,5 @@
 ## Project Name: SkillLink\*
 
-- **Creators**: Bidyut, Sourav, Basira
 - **Type**: College Final Year Project
 - **Technology Stack**: React Native, Expo, Firebase, Strapi, MySQL
 
@@ -121,12 +120,6 @@ Contributions are welcome! To contribute:
 3. Commit changes (`git commit -m 'Add new feature'`).
 4. Push to the branch (`git push origin feature-name`).
 5. Create a pull request.
-
----
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
