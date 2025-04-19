@@ -72,7 +72,7 @@ interface CategoryCourses {
 // Define the type for the Ionicons name prop
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-function Dashboard() {
+const Dashboard = () => {
     const { user, isLoggedIn, loading } = useAuth();
     const { theme, isDarkMode } = useTheme();
     const [storageUsed, setStorageUsed] = useState('2.8');
@@ -81,6 +81,12 @@ function Dashboard() {
     const [activeSlide, setActiveSlide] = useState(0);
     const [isManualScrolling, setIsManualScrolling] = useState(false);
     const [showNotificationBanner, setShowNotificationBanner] = useState(true);
+
+    // Notification states
+    const [notifications, setNotifications] = useState<CourseItem[]>([]);
+    const [hasNewNotifications, setHasNewNotifications] = useState(false);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [lastCheckTime, setLastCheckTime] = useState<Date | null>(null);
 
     // State for slider data from Firebase
     const [sliderData, setSliderData] = useState<SlideItem[]>([]);
@@ -800,6 +806,84 @@ function Dashboard() {
         });
     };
 
+    // Add function to check for new courses
+    useEffect(() => {
+        const checkForNewCourses = async () => {
+            try {
+                // Get last check time from storage or use current time if not available
+                const now = new Date();
+                let checkTime = lastCheckTime;
+
+                if (!checkTime) {
+                    // If first time, use current time minus 7 days
+                    checkTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    setLastCheckTime(now);
+                }
+
+                // Query for courses created after the last check time
+                const coursesRef = collection(db, "courses");
+                const newCoursesQuery = firestoreQuery(
+                    coursesRef,
+                    where("createdAt", ">", checkTime),
+                    orderBy("createdAt", "desc"),
+                    limit(10)
+                );
+
+                const snapshot = await getDocs(newCoursesQuery);
+                const newCourses: CourseItem[] = [];
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    newCourses.push({
+                        id: doc.id,
+                        title: data.title || '',
+                        author: data.author || data.instructor || 'Course Instructor',
+                        rating: data.rating || 4.5,
+                        imageUrl: data.imageUrl,
+                        category: data.category || 'Course',
+                        type: 'course',
+                        level: data.level || 'All Levels',
+                        duration: data.duration || 'Self-paced'
+                    });
+                });
+
+                if (newCourses.length > 0) {
+                    setNotifications(newCourses);
+                    setHasNewNotifications(true);
+                }
+
+                // Update the last check time to now
+                setLastCheckTime(now);
+
+            } catch (error) {
+                console.error("Error checking for new courses:", error);
+            }
+        };
+
+        checkForNewCourses();
+
+        // Check for new courses every 30 minutes
+        const intervalId = setInterval(checkForNewCourses, 30 * 60 * 1000);
+
+        return () => clearInterval(intervalId);
+    }, []);
+
+    // Function to handle notification icon press
+    const toggleNotifications = () => {
+        setShowNotifications(!showNotifications);
+
+        // If opening notifications, mark as read
+        if (!showNotifications) {
+            setHasNewNotifications(false);
+        }
+    };
+
+    // Function to navigate to a course from notification
+    const navigateToCourse = (courseId: string) => {
+        setShowNotifications(false);
+        router.push(`/course/${courseId}`);
+    };
+
     return (
         <SafeAreaView style={[styles.container, isDarkMode && styles.darkBackground]}>
             <View style={styles.header}>
@@ -813,16 +897,153 @@ function Dashboard() {
                         )}
                     </Text>
                 </View>
-                <TouchableOpacity onPress={navigateToProfile}>
-                    {user?.photoURL ? (
-                        <Image source={{ uri: user.photoURL }} style={styles.avatar} />
-                    ) : (
-                        <View style={[styles.avatarPlaceholder, isDarkMode && styles.darkAvatarPlaceholder]}>
-                            <Text style={styles.avatarText}>{getInitial()}</Text>
+                <View style={styles.headerRightSection}>
+                    <TouchableOpacity
+                        style={styles.notificationIconContainer}
+                        onPress={toggleNotifications}
+                    >
+                        <View style={styles.notificationIconWrapper}>
+                            <Ionicons
+                                name="notifications-outline"
+                                size={24}
+                                color={isDarkMode ? "#f0f0f0" : "#333"}
+                            />
+                            {hasNewNotifications && (
+                                <View style={[
+                                    styles.notificationBadge,
+                                    isDarkMode && { borderColor: '#121212' }
+                                ]}>
+                                    <Text style={styles.notificationBadgeText}>
+                                        {notifications.length > 9 ? '9+' : notifications.length}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
-                    )}
-                </TouchableOpacity>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={navigateToProfile}>
+                        {user?.photoURL ? (
+                            <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+                        ) : (
+                            <View style={[styles.avatarPlaceholder, isDarkMode && styles.darkAvatarPlaceholder]}>
+                                <Text style={styles.avatarText}>{getInitial()}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                </View>
             </View>
+
+            {/* Notifications dropdown */}
+            {showNotifications && (
+                <View style={[styles.notificationsDropdown, isDarkMode && styles.darkNotificationsDropdown]}>
+                    <View style={styles.notificationsHeader}>
+                        <View style={styles.notificationsHeaderLeft}>
+                            <Ionicons
+                                name="notifications"
+                                size={18}
+                                color={isDarkMode ? "#5C7CFA" : "#3366FF"}
+                                style={styles.notificationsHeaderIcon}
+                            />
+                            <Text style={[styles.notificationsTitle, isDarkMode && styles.darkText]}>
+                                Notifications
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.closeNotificationButton}
+                            onPress={() => setShowNotifications(false)}
+                        >
+                            <Ionicons
+                                name="close"
+                                size={20}
+                                color={isDarkMode ? "#f0f0f0" : "#333"}
+                            />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView style={styles.notificationsList}>
+                        {notifications.length > 0 ? (
+                            notifications.map((course) => (
+                                <TouchableOpacity
+                                    key={course.id}
+                                    style={[styles.notificationItem, isDarkMode && styles.darkNotificationItem]}
+                                    onPress={() => navigateToCourse(course.id)}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.notificationImageContainer}>
+                                        {course.imageUrl ? (
+                                            <Image
+                                                source={{ uri: course.imageUrl }}
+                                                style={styles.notificationImage}
+                                            />
+                                        ) : (
+                                            <View style={[
+                                                styles.notificationImagePlaceholder,
+                                                isDarkMode && styles.darkNotificationImagePlaceholder
+                                            ]}>
+                                                <Ionicons
+                                                    name={getCategoryIcon(course.category)}
+                                                    size={22}
+                                                    color={isDarkMode ? "#5C7CFA" : "#3366FF"}
+                                                />
+                                            </View>
+                                        )}
+                                    </View>
+                                    <View style={styles.notificationContent}>
+                                        <Text
+                                            style={[styles.notificationTitle, isDarkMode && styles.darkText]}
+                                            numberOfLines={2}
+                                        >
+                                            {course.title}
+                                        </Text>
+                                        <View style={styles.notificationMetaRow}>
+                                            <View style={[
+                                                styles.notificationTag,
+                                                isDarkMode ? { backgroundColor: '#252836' } : { backgroundColor: '#f0f4ff' }
+                                            ]}>
+                                                <Text style={[
+                                                    styles.notificationTagText,
+                                                    { color: isDarkMode ? "#5C7CFA" : "#3366FF" }
+                                                ]}>NEW</Text>
+                                            </View>
+                                            <Text style={[
+                                                styles.notificationMeta,
+                                                isDarkMode && styles.darkNotificationMeta
+                                            ]}>
+                                                {capitalizeFirstLetter(course.category)}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <Ionicons
+                                        name="chevron-forward"
+                                        size={16}
+                                        color={isDarkMode ? "#5C7CFA" : "#3366FF"}
+                                        style={styles.notificationArrow}
+                                    />
+                                </TouchableOpacity>
+                            ))
+                        ) : (
+                            <View style={styles.emptyNotifications}>
+                                <Ionicons
+                                    name="checkmark-circle-outline"
+                                    size={48}
+                                    color={isDarkMode ? "#5C7CFA" : "#3366FF"}
+                                />
+                                <Text style={[
+                                    styles.emptyNotificationsText,
+                                    isDarkMode && styles.darkText
+                                ]}>
+                                    All caught up!
+                                </Text>
+                                <Text style={[
+                                    styles.emptyNotificationsSubtext,
+                                    isDarkMode && styles.darkNotificationMeta
+                                ]}>
+                                    We'll notify you when new courses arrive
+                                </Text>
+                            </View>
+                        )}
+                    </ScrollView>
+                </View>
+            )}
 
             <TouchableOpacity
                 style={[styles.searchContainer, isDarkMode && styles.darkSearchContainer]}
@@ -1086,9 +1307,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 20,
         paddingBottom: 10,
+        zIndex: 10,
     },
     headerLeftSection: {
         flex: 1,
+    },
+    headerRightSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        minWidth: 80,
     },
     welcomeMessage: {
         fontSize: 18,
@@ -1738,6 +1966,166 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#666',
         textAlign: 'center',
+    },
+    notificationIconContainer: {
+        marginRight: 15,
+        position: 'relative',
+        padding: 5,
+    },
+    notificationIconWrapper: {
+        position: 'relative',
+        width: 24,
+        height: 24,
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: -5,
+        right: -5,
+        backgroundColor: '#FF3B30',
+        borderRadius: 10,
+        minWidth: 20,
+        height: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 1.5,
+        borderColor: '#FFFFFF',
+    },
+    notificationBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    notificationsDropdown: {
+        position: 'absolute',
+        top: 75,
+        right: 20,
+        width: 330,
+        maxHeight: 450,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
+        zIndex: 1000,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+    },
+    darkNotificationsDropdown: {
+        backgroundColor: '#1A1A1A',
+        borderColor: '#333',
+    },
+    notificationsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#EEEEEE',
+    },
+    notificationsHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    notificationsHeaderIcon: {
+        marginRight: 8,
+    },
+    notificationsTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    notificationsList: {
+        maxHeight: 370,
+    },
+    notificationItem: {
+        flexDirection: 'row',
+        padding: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+        alignItems: 'center',
+    },
+    darkNotificationItem: {
+        borderBottomColor: '#2A2A2A',
+    },
+    notificationImageContainer: {
+        width: 54,
+        height: 54,
+        borderRadius: 10,
+        overflow: 'hidden',
+        marginRight: 12,
+    },
+    notificationImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 10,
+    },
+    notificationImagePlaceholder: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#E0E0FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 10,
+    },
+    darkNotificationImagePlaceholder: {
+        backgroundColor: '#252836',
+    },
+    notificationContent: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    notificationTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 4,
+    },
+    notificationMetaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    notificationTag: {
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginRight: 8,
+    },
+    notificationTagText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    notificationMeta: {
+        fontSize: 12,
+        color: '#777777',
+    },
+    darkNotificationMeta: {
+        color: '#AAAAAA',
+    },
+    notificationArrow: {
+        marginLeft: 8,
+    },
+    emptyNotifications: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 30,
+    },
+    emptyNotificationsText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        marginTop: 12,
+        marginBottom: 4,
+    },
+    emptyNotificationsSubtext: {
+        fontSize: 14,
+        color: '#777777',
+        textAlign: 'center',
+    },
+    closeNotificationButton: {
+        padding: 5,
     },
 });
 
