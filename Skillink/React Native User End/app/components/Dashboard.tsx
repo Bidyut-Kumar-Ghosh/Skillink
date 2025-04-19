@@ -22,6 +22,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
 import {
     collection,
     getDocs,
@@ -34,10 +35,11 @@ import {
     DocumentData
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
-// Define slide item type
+// Define slide item type - remove offer properties
 interface SlideItem {
     id: string;
     title: string;
@@ -45,7 +47,7 @@ interface SlideItem {
     icon: string;
     color: string;
     gradientColors: string[];
-    imageUrl?: string; // Added for Firebase banner images
+    imageUrl?: string;
 }
 
 // Define course/book item type
@@ -57,7 +59,18 @@ interface CourseItem {
     imageUrl?: string;
     category: string;
     type: 'course' | 'book';
+    level?: string;
+    duration?: string;
 }
+
+// Create a type for category data
+interface CategoryCourses {
+    name: string;
+    courses: CourseItem[];
+}
+
+// Define the type for the Ionicons name prop
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 function Dashboard() {
     const { user, isLoggedIn, loading } = useAuth();
@@ -67,6 +80,7 @@ function Dashboard() {
     const [firstName, setFirstName] = useState('');
     const [activeSlide, setActiveSlide] = useState(0);
     const [isManualScrolling, setIsManualScrolling] = useState(false);
+    const [showNotificationBanner, setShowNotificationBanner] = useState(true);
 
     // State for slider data from Firebase
     const [sliderData, setSliderData] = useState<SlideItem[]>([]);
@@ -91,6 +105,23 @@ function Dashboard() {
     const sliderItemWidth = width - 60; // Slightly narrower for better centering
     const sliderItemMargin = 10;
 
+    // Add state for editing courses
+    const [editingCourses, setEditingCourses] = useState<CourseItem[]>([]);
+    const [loadingCourses, setLoadingCourses] = useState(true);
+
+    // Replace the single category state with a dynamic categories state
+    const [categoryData, setCategoryData] = useState<CategoryCourses[]>([]);
+    const [loadingCategories, setLoadingCategories] = useState(true);
+
+    // Add code to fetch categories for the horizontal category buttons
+    const [categories, setCategories] = useState<string[]>([]);
+
+    // Add state for selected categories
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+    // Add state for original unfiltered category data
+    const [originalCategoryData, setOriginalCategoryData] = useState<CategoryCourses[]>([]);
+
     // Fetch banners from Firebase
     useEffect(() => {
         const fetchBanners = async () => {
@@ -105,7 +136,7 @@ function Dashboard() {
 
                     snapshot.forEach((doc) => {
                         const data = doc.data();
-                        // Map Firebase banner data to SlideItem format
+
                         bannersList.push({
                             id: doc.id,
                             title: data.title || 'Banner',
@@ -118,11 +149,16 @@ function Dashboard() {
                         });
                     });
 
-                    // Replace the default slider data with Firebase data
+                    // Replace the slider data with Firebase data
                     setSliderData(bannersList);
+                    console.log(`Loaded ${bannersList.length} banners from Firebase`);
+                } else {
+                    console.log("No banners found in Firebase");
+                    setSliderData([]);
                 }
             } catch (error) {
                 console.error("Error fetching banners:", error);
+                setSliderData([]);
             } finally {
                 setIsBannerLoading(false);
             }
@@ -256,7 +292,7 @@ function Dashboard() {
         router.push('/profile');
     };
 
-    // Update the renderSliderItem function to handle Firebase banners
+    // Update the renderSliderItem function
     const renderSliderItem = ({ item, index }: { item: SlideItem; index: number }) => {
         // Calculate animation values for current item
         const inputRange = [
@@ -288,12 +324,21 @@ function Dashboard() {
             >
                 <View style={[styles.sliderItem]}>
                     {useImageBackground ? (
-                        // Display banner image from Firebase
-                        <Image
-                            source={{ uri: item.imageUrl }}
-                            style={StyleSheet.absoluteFillObject}
-                            resizeMode="cover"
-                        />
+                        // Enhanced image display with better quality settings
+                        <View style={styles.imageContainer}>
+                            <Image
+                                source={{ uri: item.imageUrl }}
+                                style={styles.bannerImage}
+                                resizeMode="cover"
+                            />
+                            {/* Gradient overlay for better text visibility over image */}
+                            <LinearGradient
+                                colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.6)']}
+                                style={styles.gradientOverlay}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 0, y: 1 }}
+                            />
+                        </View>
                     ) : (
                         // Use gradient background for default slides
                         <View style={[
@@ -302,8 +347,8 @@ function Dashboard() {
                         ]} />
                     )}
 
-                    {/* Semi-transparent overlay for better text readability */}
-                    <View style={styles.sliderGradientOverlay} />
+                    {/* Semi-transparent overlay for better text readability (for non-image backgrounds) */}
+                    {!useImageBackground && <View style={styles.sliderGradientOverlay} />}
 
                     <View style={styles.sliderContent}>
                         {!useImageBackground && (
@@ -314,7 +359,10 @@ function Dashboard() {
                                 <Ionicons name={item.icon as any} size={38} color="#FFFFFF" />
                             </Animated.View>
                         )}
-                        <View style={styles.sliderTextContainer}>
+                        <View style={[
+                            styles.sliderTextContainer,
+                            useImageBackground && styles.imageTextContainer
+                        ]}>
                             <Text style={styles.sliderTitle}>{item.title}</Text>
                             <Text style={styles.sliderSubtitle}>{item.subtitle}</Text>
                         </View>
@@ -396,11 +444,13 @@ function Dashboard() {
                 coursesResults.push({
                     id: doc.id,
                     title: data.title || '',
-                    author: data.author || 'Unknown Author',
+                    author: data.author || data.instructor || 'Course Instructor',
                     rating: data.rating || 4.5,
                     imageUrl: data.imageUrl,
                     category: data.category || 'Course',
-                    type: 'course'
+                    type: 'course',
+                    level: data.level || 'All Levels',
+                    duration: data.duration || 'Self-paced'
                 });
             });
 
@@ -421,11 +471,13 @@ function Dashboard() {
                 booksResults.push({
                     id: doc.id,
                     title: data.title || '',
-                    author: data.author || 'Unknown Author',
+                    author: data.author || 'Course Instructor',
                     rating: data.rating || 4.3,
                     imageUrl: data.imageUrl,
                     category: data.category || 'Books',
-                    type: 'book'
+                    type: 'book',
+                    level: data.level || 'All Levels',
+                    duration: data.duration || 'Self-paced'
                 });
             });
 
@@ -557,6 +609,197 @@ function Dashboard() {
         router.push('/search');
     };
 
+    // Add a function to fetch top editing courses from Firebase
+    useEffect(() => {
+        const fetchEditingCourses = async () => {
+            setLoadingCourses(true);
+            try {
+                const coursesRef = collection(db, "courses");
+                const editingCoursesQuery = firestoreQuery(
+                    coursesRef,
+                    where("category", "==", "Editing")
+                );
+
+                const snapshot = await getDocs(editingCoursesQuery);
+                let coursesList: CourseItem[] = [];
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    coursesList.push({
+                        id: doc.id,
+                        title: data.title || '',
+                        author: data.author || data.instructor || 'Course Instructor',
+                        rating: data.rating || 4.5,
+                        imageUrl: data.imageUrl,
+                        category: data.category || 'Editing',
+                        type: 'course',
+                        level: data.level || 'All Levels',
+                        duration: data.duration || 'Self-paced'
+                    });
+                });
+
+                // Sort by rating manually in memory (to avoid need for index)
+                coursesList = coursesList
+                    .sort((a, b) => b.rating - a.rating)
+                    .slice(0, 5);
+
+                setEditingCourses(coursesList);
+                console.log(`Loaded ${coursesList.length} editing courses`);
+            } catch (error) {
+                console.error("Error fetching editing courses:", error);
+            } finally {
+                setLoadingCourses(false);
+            }
+        };
+
+        fetchEditingCourses();
+    }, []);
+
+    // Update the fetchCategoriesAndCourses function to store original data
+    useEffect(() => {
+        const fetchCategoriesAndCourses = async () => {
+            setLoadingCategories(true);
+            try {
+                // First, get all unique categories from courses
+                const coursesRef = collection(db, "courses");
+                const coursesSnapshot = await getDocs(coursesRef);
+
+                // Create a map to store categories and their courses
+                const categoriesMap = new Map<string, CourseItem[]>();
+
+                // Process all courses and group them by category
+                coursesSnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const category = data.category || 'Uncategorized';
+
+                    const courseItem: CourseItem = {
+                        id: doc.id,
+                        title: data.title || '',
+                        author: data.author || data.instructor || 'Course Instructor',
+                        rating: data.rating || 4.5,
+                        imageUrl: data.imageUrl,
+                        category: category,
+                        type: 'course',
+                        level: data.level || 'All Levels',
+                        duration: data.duration || 'Self-paced'
+                    };
+
+                    // Add course to its category in the map
+                    if (!categoriesMap.has(category)) {
+                        categoriesMap.set(category, []);
+                    }
+                    categoriesMap.get(category)?.push(courseItem);
+                });
+
+                // Convert map to array and sort courses by rating
+                const categoriesArray: CategoryCourses[] = [];
+                categoriesMap.forEach((courses, name) => {
+                    // Sort courses by rating (highest first) - doing this in memory to avoid index issues
+                    const sortedCourses = courses.sort((a, b) => b.rating - a.rating).slice(0, 5);
+                    categoriesArray.push({
+                        name,
+                        courses: sortedCourses
+                    });
+                });
+
+                // Sort categories alphabetically
+                categoriesArray.sort((a, b) => a.name.localeCompare(b.name));
+
+                // Store the original data
+                setOriginalCategoryData(categoriesArray);
+                setCategoryData(categoriesArray);
+                console.log(`Loaded ${categoriesArray.length} categories`);
+            } catch (error) {
+                console.error("Error fetching categories and courses:", error);
+            } finally {
+                setLoadingCategories(false);
+            }
+        };
+
+        fetchCategoriesAndCourses();
+    }, []);
+
+    // Add a function to fetch all categories
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                // First, get all unique categories from courses
+                const coursesRef = collection(db, "courses");
+                const coursesSnapshot = await getDocs(coursesRef);
+
+                // Create a set to store unique categories
+                const uniqueCategories = new Set<string>();
+
+                // Process all courses and collect categories
+                coursesSnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const category = data.category || 'Uncategorized';
+                    uniqueCategories.add(category);
+                });
+
+                // Convert set to array and sort alphabetically
+                const categoriesArray = Array.from(uniqueCategories).sort();
+                setCategories(categoriesArray);
+                console.log(`Loaded ${categoriesArray.length} unique categories`);
+            } catch (error) {
+                console.error("Error fetching categories:", error);
+                setCategories([]);
+            }
+        };
+
+        fetchCategories();
+    }, []);
+
+    // Add a helper function to capitalize first letter only
+    const capitalizeFirstLetter = (str: string) => {
+        if (!str) return str;
+        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    };
+
+    // Fix the icon type issue by returning valid IconName values
+    const getCategoryIcon = (category: string): IconName => {
+        // Return valid Ionicons names for each category
+        switch (category.toLowerCase()) {
+            case 'design':
+                return 'brush';
+            case 'development':
+                return 'code-slash';
+            case 'editing':
+                return 'cut';
+            case 'photography':
+                return 'camera';
+            case 'marketing':
+                return 'megaphone';
+            case 'business':
+                return 'briefcase';
+            case 'music':
+                return 'musical-notes';
+            default:
+                return 'book';
+        }
+    };
+
+    // Add a function to handle category selection
+    const handleCategorySelect = (category: string) => {
+        setSelectedCategories(prev => {
+            // If category is already selected, remove it (toggle)
+            if (prev.includes(category)) {
+                // Deselect the category and show all categories
+                setCategoryData(originalCategoryData);
+                return [];
+            } else {
+                // Select only this category (replace previous selection)
+                const filteredCategories = originalCategoryData.filter(cat =>
+                    cat.name === category
+                );
+                setCategoryData(filteredCategories);
+
+                // Return only the newly selected category
+                return [category];
+            }
+        });
+    };
+
     return (
         <SafeAreaView style={[styles.container, isDarkMode && styles.darkBackground]}>
             <View style={styles.header}>
@@ -635,10 +878,20 @@ function Dashboard() {
                     </View>
                 </View>
 
-                <TouchableOpacity style={styles.notificationBanner}>
-                    <Text style={styles.notificationText}>Future-ready skills on your schedule</Text>
-                    <Ionicons name="close" size={18} color="#333" />
-                </TouchableOpacity>
+                {showNotificationBanner && (
+                    <TouchableOpacity
+                        style={styles.notificationBanner}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.notificationText}>Future-ready skills on your schedule</Text>
+                        <TouchableOpacity
+                            onPress={() => setShowNotificationBanner(false)}
+                            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                        >
+                            <Ionicons name="close" size={18} color="#333" />
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                )}
 
                 <View style={styles.sectionHeader}>
                     <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Categories</Text>
@@ -648,55 +901,144 @@ function Dashboard() {
                 </View>
 
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
-                    <TouchableOpacity style={styles.categoryButton}>
-                        <Text style={styles.categoryText}>Development</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.categoryButton}>
-                        <Text style={styles.categoryText}>Finance & Accounting</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.categoryButton}>
-                        <Text style={styles.categoryText}>Business</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.categoryButton}>
-                        <Text style={styles.categoryText}>IT & Software</Text>
-                    </TouchableOpacity>
+                    {categories.length > 0 ? (
+                        categories.map((category) => (
+                            <TouchableOpacity
+                                key={category}
+                                style={[
+                                    styles.categoryButton,
+                                    isDarkMode && styles.darkCategoryButton,
+                                    selectedCategories.includes(category) && styles.selectedCategoryButton,
+                                    selectedCategories.includes(category) && isDarkMode && styles.darkSelectedCategoryButton
+                                ]}
+                                onPress={() => handleCategorySelect(category)}
+                            >
+                                <Ionicons
+                                    name={getCategoryIcon(category)}
+                                    size={24}
+                                    color={selectedCategories.includes(category) ?
+                                        "#FFFFFF" :
+                                        isDarkMode ? "#5C7CFA" : "#3366FF"}
+                                    style={styles.categoryIcon}
+                                />
+                                <Text
+                                    style={[
+                                        styles.categoryText,
+                                        isDarkMode && styles.darkCategoryText,
+                                        selectedCategories.includes(category) && styles.selectedCategoryText
+                                    ]}
+                                >
+                                    {capitalizeFirstLetter(category)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))
+                    ) : (
+                        <View style={[styles.categoryButton, isDarkMode && styles.darkCategoryButton]}>
+                            <Text style={[styles.categoryText, isDarkMode && styles.darkCategoryText]}>Loading categories...</Text>
+                        </View>
+                    )}
                 </ScrollView>
 
-                <View style={styles.sectionHeader}>
-                    <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
-                        Top courses in <Text style={styles.highlightText}>Design</Text>
-                    </Text>
-                </View>
-
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.coursesContainer}>
-                    <TouchableOpacity style={[styles.courseCard, isDarkMode && styles.darkCard]}>
-                        <View style={styles.courseImageContainer}>
-                            <View style={[styles.courseImagePlaceholder, isDarkMode && styles.darkCoursePlaceholder]}>
-                                <Ionicons name="logo-apple" size={40} color={isDarkMode ? "#5C7CFA" : "#3366FF"} />
+                {/* Replace section and courses with dynamically generated categories */}
+                {loadingCategories ? (
+                    <View style={styles.loadingCategoriesContainer}>
+                        <ActivityIndicator size="large" color="#3366FF" />
+                        <Text style={styles.loadingCategoriesText}>Loading courses...</Text>
+                    </View>
+                ) : categoryData.length > 0 ? (
+                    // Map through each category and render a section for each
+                    categoryData.map((category) => (
+                        <View key={category.name}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
+                                    Top courses in <Text style={styles.highlightText}>{capitalizeFirstLetter(category.name)}</Text>
+                                </Text>
+                                <TouchableOpacity>
+                                    <Text style={styles.seeAllText}>See all</Text>
+                                </TouchableOpacity>
                             </View>
-                        </View>
-                        <Text style={[styles.courseTitle, isDarkMode && styles.darkText]}>{isDarkMode ? "Java Masterclass" : "Java Masterclass"}</Text>
-                        <Text style={[styles.courseInstructor, isDarkMode && styles.darkCourseInstructor]}>Avishek Gupta</Text>
-                        <View style={styles.courseRating}>
-                            <Ionicons name="star" size={16} color="#FFD700" />
-                            <Text style={[styles.courseRatingText, isDarkMode && styles.darkCourseInstructor]}>4.8</Text>
-                        </View>
-                    </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.courseCard, isDarkMode && styles.darkCard]}>
-                        <View style={styles.courseImageContainer}>
-                            <View style={[styles.courseImagePlaceholder, isDarkMode && styles.darkCoursePlaceholder]}>
-                                <Ionicons name="pencil" size={40} color={isDarkMode ? "#5C7CFA" : "#3366FF"} />
-                            </View>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.coursesContainer}>
+                                {category.courses.length > 0 ? (
+                                    category.courses.map((course) => (
+                                        <TouchableOpacity
+                                            key={course.id}
+                                            style={[styles.courseCard, isDarkMode && styles.darkCard]}
+                                            onPress={() => router.push(`/course/${course.id}`)}
+                                        >
+                                            <View style={styles.courseImageContainer}>
+                                                {course.imageUrl ? (
+                                                    <Image
+                                                        source={{ uri: course.imageUrl }}
+                                                        style={styles.courseImage}
+                                                        resizeMode="cover"
+                                                    />
+                                                ) : (
+                                                    <View style={[styles.courseImagePlaceholder, isDarkMode && styles.darkCoursePlaceholder]}>
+                                                        <Ionicons
+                                                            name={getCategoryIcon(course.category)}
+                                                            size={40}
+                                                            color={isDarkMode ? "#5C7CFA" : "#3366FF"}
+                                                        />
+                                                    </View>
+                                                )}
+                                            </View>
+                                            <Text style={[styles.courseTitle, isDarkMode && styles.darkText]} numberOfLines={2}>{course.title}</Text>
+                                            <Text style={[styles.courseInstructor, isDarkMode && styles.darkCourseInstructor]}>
+                                                {course.author !== "Unknown" ? `by ${course.author}` : "by Course Instructor"}
+                                            </Text>
+                                            <View style={styles.courseMetaContainer}>
+                                                <View style={styles.courseRating}>
+                                                    <Ionicons name="star" size={16} color="#FFD700" />
+                                                    <Text style={[styles.courseRatingText, isDarkMode && styles.darkCourseInstructor]}>
+                                                        {course.rating.toFixed(1)}
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.courseBadge}>
+                                                    <Text style={styles.courseBadgeText}>{capitalizeFirstLetter(course.category)}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.courseLevelContainer}>
+                                                <Ionicons
+                                                    name="school-outline"
+                                                    size={14}
+                                                    color={isDarkMode ? "#AAAAAA" : "#777"}
+                                                />
+                                                <Text style={[styles.courseLevelText, isDarkMode && styles.darkCourseInstructor]}>
+                                                    {course.level || "All Levels"}
+                                                </Text>
+                                                <Ionicons
+                                                    name="time-outline"
+                                                    size={14}
+                                                    color={isDarkMode ? "#AAAAAA" : "#777"}
+                                                    style={{ marginLeft: 8 }}
+                                                />
+                                                <Text style={[styles.courseLevelText, isDarkMode && styles.darkCourseInstructor]}>
+                                                    {(() => {
+                                                        if (!course.duration) return "Self-paced";
+                                                        // If duration is just a number, append "weeks"
+                                                        if (/^\d+$/.test(course.duration)) {
+                                                            return `${course.duration} weeks`;
+                                                        }
+                                                        return course.duration;
+                                                    })()}
+                                                </Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))
+                                ) : (
+                                    <View style={styles.noCoursesContainer}>
+                                        <Text style={[styles.noCoursesText, isDarkMode && styles.darkText]}>No courses found</Text>
+                                    </View>
+                                )}
+                            </ScrollView>
                         </View>
-                        <Text style={[styles.courseTitle, isDarkMode && styles.darkText]}>{isDarkMode ? "Drawing Fundamentals" : "The Ultimate Drawing Course"}</Text>
-                        <Text style={[styles.courseInstructor, isDarkMode && styles.darkCourseInstructor]}>Sarah Johnson</Text>
-                        <View style={styles.courseRating}>
-                            <Ionicons name="star" size={16} color="#FFD700" />
-                            <Text style={[styles.courseRatingText, isDarkMode && styles.darkCourseInstructor]}>4.7</Text>
-                        </View>
-                    </TouchableOpacity>
-                </ScrollView>
+                    ))
+                ) : (
+                    <View style={styles.noCategoriesContainer}>
+                        <Text style={[styles.noCategoriesText, isDarkMode && styles.darkText]}>No course categories available</Text>
+                    </View>
+                )}
             </ScrollView>
 
             <View style={[styles.bottomNavContainer, isDarkMode && styles.darkBottomNav]}>
@@ -849,6 +1191,7 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         alignItems: 'center',
         justifyContent: 'center',
+        position: 'relative', // Ensure relative positioning for absolute children
     },
     sliderItem: {
         width: '100%',
@@ -926,6 +1269,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFF9C4',
         padding: 16,
         marginHorizontal: 20,
+        marginTop: 10,
         borderRadius: 10,
         marginBottom: 20,
     },
@@ -958,20 +1302,55 @@ const styles = StyleSheet.create({
         marginBottom: 25,
     },
     categoryButton: {
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 20,
+        backgroundColor: '#f0f4ff',
+        paddingHorizontal: 16,
         paddingVertical: 12,
         borderRadius: 25,
         marginRight: 10,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 3,
         elevation: 2,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e6e6ff',
+    },
+    darkCategoryButton: {
+        backgroundColor: '#252836',
+        borderColor: '#323759',
+        shadowColor: '#000',
+        shadowOpacity: 0.2,
+    },
+    selectedCategoryButton: {
+        backgroundColor: '#3366FF',
+        borderColor: '#3366FF',
+        shadowColor: '#3366FF',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 4,
+    },
+    darkSelectedCategoryButton: {
+        backgroundColor: '#4A5CFF',
+        borderColor: '#4A5CFF',
+        shadowColor: '#4A5CFF',
+    },
+    categoryIcon: {
+        marginRight: 8,
     },
     categoryText: {
         fontSize: 14,
+        fontWeight: '500',
         color: '#333',
+    },
+    darkCategoryText: {
+        color: '#f0f0f0',
+    },
+    selectedCategoryText: {
+        color: '#FFFFFF',
+        fontWeight: 'bold',
     },
     coursesContainer: {
         paddingHorizontal: 15,
@@ -1014,14 +1393,21 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#333',
         marginBottom: 4,
+        height: 42,
     },
     courseInstructor: {
         fontSize: 12,
         color: '#777777',
-        marginBottom: 4,
+        marginBottom: 8,
     },
     darkCourseInstructor: {
         color: '#AAAAAA',
+    },
+    courseMetaContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
     },
     courseRating: {
         flexDirection: 'row',
@@ -1029,6 +1415,27 @@ const styles = StyleSheet.create({
     },
     courseRatingText: {
         fontSize: 12,
+        color: '#777777',
+        marginLeft: 4,
+    },
+    courseBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+        backgroundColor: '#f0f4ff',
+    },
+    courseBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#3366FF',
+    },
+    courseLevelContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    courseLevelText: {
+        fontSize: 11,
         color: '#777777',
         marginLeft: 4,
     },
@@ -1258,6 +1665,79 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: 'bold',
         color: '#FFFFFF',
+    },
+    imageContainer: {
+        ...StyleSheet.absoluteFillObject,
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    bannerImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 20,
+    },
+    gradientOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        borderRadius: 20,
+    },
+    imageTextContainer: {
+        marginBottom: 10, // Give more space at bottom when on an image
+        width: '100%',
+        paddingRight: 10,
+    },
+    courseImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 8,
+    },
+    loadingCoursesContainer: {
+        width: 220,
+        height: 200,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8f8f8',
+        borderRadius: 12,
+        marginRight: 15,
+    },
+    loadingCoursesText: {
+        marginTop: 10,
+        fontSize: 14,
+        color: '#666',
+    },
+    noCoursesContainer: {
+        width: 220,
+        height: 200,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8f8f8',
+        borderRadius: 12,
+        marginRight: 15,
+    },
+    noCoursesText: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+        paddingHorizontal: 20,
+    },
+    loadingCategoriesContainer: {
+        padding: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadingCategoriesText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#666',
+    },
+    noCategoriesContainer: {
+        padding: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    noCategoriesText: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
     },
 });
 

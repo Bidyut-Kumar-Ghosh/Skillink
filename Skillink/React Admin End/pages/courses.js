@@ -394,14 +394,22 @@ export default function Courses() {
 
                 <div className="form-group">
                   <label htmlFor="category">Category *</label>
-                  <input
-                    type="text"
+                  <select
                     id="category"
                     name="category"
                     value={formData.category}
                     onChange={handleInputChange}
                     required
-                  />
+                  >
+                    <option value="">Select a category</option>
+                    <option value="design">Design</option>
+                    <option value="development">Development</option>
+                    <option value="editing">Editing</option>
+                    <option value="photography">Photography</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="business">Business</option>
+                    <option value="music">Music</option>
+                  </select>
                 </div>
               </div>
 

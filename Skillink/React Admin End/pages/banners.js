@@ -29,6 +29,8 @@ export default function Banners() {
     description: "",
     position: 0,
     imageUrl: null,
+    offerText: "",
+    hasOffer: false,
   });
 
   useEffect(() => {
@@ -153,6 +155,8 @@ export default function Banners() {
       description: "",
       position: banners.length,
       imageUrl: null,
+      offerText: "",
+      hasOffer: false,
     });
     setIsEditMode(false);
     setBannerImage(null);
@@ -169,6 +173,8 @@ export default function Banners() {
       description: banner.description || "",
       position: banner.position || 0,
       imageUrl: banner.imageUrl || null,
+      offerText: banner.offerText || "",
+      hasOffer: banner.hasOffer || false,
     });
     setImagePreview(banner.imageUrl || "");
     setIsEditMode(true);
@@ -309,6 +315,9 @@ export default function Banners() {
                         <div className="image-placeholder">No Image</div>
                       )}
                       <span className="position">{banner.position}</span>
+                      {banner.hasOffer && banner.offerText && (
+                        <span className="offer-badge">{banner.offerText}</span>
+                      )}
                     </div>
                     <div className="banner-details">
                       <h3>{banner.title}</h3>
@@ -433,6 +442,42 @@ export default function Banners() {
                     rows="3"
                   ></textarea>
                 </div>
+
+                <div className="form-group">
+                  <div className="checkbox-group">
+                    <input
+                      type="checkbox"
+                      id="hasOffer"
+                      name="hasOffer"
+                      checked={formData.hasOffer}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          hasOffer: e.target.checked,
+                        })
+                      }
+                    />
+                    <label htmlFor="hasOffer">This banner has an offer</label>
+                  </div>
+                </div>
+
+                {formData.hasOffer && (
+                  <div className="form-group">
+                    <label htmlFor="offerText">Offer Text *</label>
+                    <input
+                      type="text"
+                      id="offerText"
+                      name="offerText"
+                      value={formData.offerText}
+                      onChange={handleInputChange}
+                      required={formData.hasOffer}
+                      placeholder="e.g., 20% OFF | Limited Time Offer"
+                    />
+                    <small>
+                      This text will be displayed as a special offer badge
+                    </small>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label htmlFor="bannerImage">
@@ -802,6 +847,30 @@ export default function Banners() {
         .cancel-btn:disabled {
           opacity: 0.7;
           cursor: not-allowed;
+        }
+
+        .checkbox-group {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+          width: auto;
+          margin-right: 5px;
+        }
+
+        .offer-badge {
+          position: absolute;
+          top: 40px;
+          left: 10px;
+          background-color: #ff3366;
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 0.8rem;
+          font-weight: 500;
+          z-index: 2;
         }
 
         @media (max-width: 768px) {
