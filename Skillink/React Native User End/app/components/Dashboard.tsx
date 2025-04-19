@@ -45,6 +45,7 @@ interface SlideItem {
     icon: string;
     color: string;
     gradientColors: string[];
+    imageUrl?: string; // Added for Firebase banner images
 }
 
 // Define course/book item type
@@ -58,58 +59,6 @@ interface CourseItem {
     type: 'course' | 'book';
 }
 
-// Slider data
-const sliderData: SlideItem[] = [
-    {
-        id: '1',
-        title: 'Learning that fits',
-        subtitle: 'Skills for your present (and future)',
-        icon: 'school',
-        color: 'linear-gradient(135deg, #6e8efb, #a777e3)',
-        gradientColors: ['#6e8efb', '#a777e3'],
-    },
-    {
-        id: '2',
-        title: 'Learn on your schedule',
-        subtitle: 'Access courses anytime, anywhere',
-        icon: 'time',
-        color: 'linear-gradient(135deg, #4facfe, #00f2fe)',
-        gradientColors: ['#4facfe', '#00f2fe'],
-    },
-    {
-        id: '3',
-        title: 'Expert instructors',
-        subtitle: 'Learn from industry professionals',
-        icon: 'people',
-        color: 'linear-gradient(135deg, #43e97b, #38f9d7)',
-        gradientColors: ['#43e97b', '#38f9d7'],
-    },
-    {
-        id: '4',
-        title: 'Interactive Learning',
-        subtitle: 'Engage with hands-on projects & exercises',
-        icon: 'construct',
-        color: 'linear-gradient(135deg, #ff9a9e, #fad0c4)',
-        gradientColors: ['#ff9a9e', '#fad0c4'],
-    },
-    {
-        id: '5',
-        title: 'Certification Ready',
-        subtitle: 'Prepare for industry-recognized credentials',
-        icon: 'ribbon',
-        color: 'linear-gradient(135deg, #f6d365, #fda085)',
-        gradientColors: ['#f6d365', '#fda085'],
-    },
-    {
-        id: '6',
-        title: 'Community Support',
-        subtitle: 'Connect with peers and mentors',
-        icon: 'people-circle',
-        color: 'linear-gradient(135deg, #5ee7df, #b490ca)',
-        gradientColors: ['#5ee7df', '#b490ca'],
-    },
-];
-
 function Dashboard() {
     const { user, isLoggedIn, loading } = useAuth();
     const { theme, isDarkMode } = useTheme();
@@ -118,6 +67,10 @@ function Dashboard() {
     const [firstName, setFirstName] = useState('');
     const [activeSlide, setActiveSlide] = useState(0);
     const [isManualScrolling, setIsManualScrolling] = useState(false);
+
+    // State for slider data from Firebase
+    const [sliderData, setSliderData] = useState<SlideItem[]>([]);
+    const [isBannerLoading, setIsBannerLoading] = useState(true);
 
     // Search functionality
     const [searchQuery, setSearchQuery] = useState('');
@@ -137,6 +90,46 @@ function Dashboard() {
     // Calculated dimensions for centering
     const sliderItemWidth = width - 60; // Slightly narrower for better centering
     const sliderItemMargin = 10;
+
+    // Fetch banners from Firebase
+    useEffect(() => {
+        const fetchBanners = async () => {
+            setIsBannerLoading(true);
+            try {
+                const bannersCollection = collection(db, "banners");
+                const bannersQuery = firestoreQuery(bannersCollection, orderBy("position", "asc"));
+                const snapshot = await getDocs(bannersQuery);
+
+                if (!snapshot.empty) {
+                    const bannersList: SlideItem[] = [];
+
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        // Map Firebase banner data to SlideItem format
+                        bannersList.push({
+                            id: doc.id,
+                            title: data.title || 'Banner',
+                            subtitle: data.subheading || data.description || '',
+                            // Use heading as subtitle if no subheading
+                            icon: 'images', // Default icon
+                            color: 'linear-gradient(135deg, #6e8efb, #a777e3)', // Default gradient
+                            gradientColors: ['#6e8efb', '#a777e3'], // Default colors
+                            imageUrl: data.imageUrl // Store the image URL from Firebase
+                        });
+                    });
+
+                    // Replace the default slider data with Firebase data
+                    setSliderData(bannersList);
+                }
+            } catch (error) {
+                console.error("Error fetching banners:", error);
+            } finally {
+                setIsBannerLoading(false);
+            }
+        };
+
+        fetchBanners();
+    }, []);
 
     // Start rotate animation
     useEffect(() => {
@@ -159,8 +152,8 @@ function Dashboard() {
 
     // Auto-scroll function with improved looping
     const startAutoScroll = useCallback(() => {
-        // Don't start auto-scroll if user is manually scrolling
-        if (isManualScrolling) return;
+        // Don't start auto-scroll if user is manually scrolling or if we have no slides
+        if (isManualScrolling || sliderData.length === 0) return;
 
         // Clear any existing auto-scroll timer
         if (autoScrollTimer.current) {
@@ -203,7 +196,7 @@ function Dashboard() {
                 clearTimeout(autoScrollTimer.current);
             }
         };
-    }, [startAutoScroll]); // No dependencies to prevent re-triggering
+    }, [startAutoScroll, sliderData]); // Added sliderData as dependency to restart when data changes
 
     // Handler for when user starts dragging
     const handleScrollBegin = () => {
@@ -263,121 +256,64 @@ function Dashboard() {
         router.push('/profile');
     };
 
-    // Render slider item with improved styling
+    // Update the renderSliderItem function to handle Firebase banners
     const renderSliderItem = ({ item, index }: { item: SlideItem; index: number }) => {
-        // Calculate the scale based on the active slide
+        // Calculate animation values for current item
         const inputRange = [
-            (index - 1) * (sliderItemWidth + (sliderItemMargin * 2)),
-            index * (sliderItemWidth + (sliderItemMargin * 2)),
-            (index + 1) * (sliderItemWidth + (sliderItemMargin * 2)),
+            (index - 1) * (sliderItemWidth + sliderItemMargin * 2),
+            index * (sliderItemWidth + sliderItemMargin * 2),
+            (index + 1) * (sliderItemWidth + sliderItemMargin * 2)
         ];
 
         const scale = scrollX.interpolate({
             inputRange,
-            outputRange: [0.85, 1, 0.85],
-            extrapolate: 'clamp',
+            outputRange: [0.9, 1, 0.9],
+            extrapolate: 'clamp'
         });
 
-        const opacity = scrollX.interpolate({
-            inputRange,
-            outputRange: [0.5, 1, 0.5],
-            extrapolate: 'clamp',
-        });
-
-        const translateY = scrollX.interpolate({
-            inputRange,
-            outputRange: [20, 0, 20],
-            extrapolate: 'clamp',
-        });
-
-        // Rotate animation for icon
         const rotate = rotateAnim.interpolate({
             inputRange: [0, 1],
             outputRange: ['0deg', '360deg']
         });
 
-        // Background bubble animations
-        const bubble1Scale = rotateAnim.interpolate({
-            inputRange: [0, 0.5, 1],
-            outputRange: [0.8, 1.2, 0.8]
-        });
-
-        const bubble2Scale = rotateAnim.interpolate({
-            inputRange: [0, 0.5, 1],
-            outputRange: [1.2, 0.8, 1.2]
-        });
-
-        // Create linear gradient background
-        const startColor = item.gradientColors[0];
-        const endColor = item.gradientColors[1];
+        // Determine if we should show image from Firebase or use gradient background
+        const useImageBackground = !!item.imageUrl;
 
         return (
             <Animated.View
                 style={[
                     styles.sliderItemContainer,
-                    {
-                        transform: [
-                            { scale },
-                            { translateY }
-                        ],
-                        opacity,
-                    }
+                    { transform: [{ scale }] }
                 ]}
             >
-                <View
-                    style={[
-                        styles.sliderItem,
-                        {
-                            backgroundColor: startColor,
-                            shadowColor: startColor,
-                        }
-                    ]}
-                >
-                    {/* Static colored circles in background */}
-                    <View
-                        style={[
-                            styles.backgroundBubble,
-                            {
-                                backgroundColor: endColor,
-                                left: -20,
-                                top: -20,
-                            }
-                        ]}
-                    />
-                    <View
-                        style={[
-                            styles.backgroundBubble,
-                            {
-                                backgroundColor: startColor,
-                                right: -40,
-                                bottom: -30,
-                            }
-                        ]}
-                    />
+                <View style={[styles.sliderItem]}>
+                    {useImageBackground ? (
+                        // Display banner image from Firebase
+                        <Image
+                            source={{ uri: item.imageUrl }}
+                            style={StyleSheet.absoluteFillObject}
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        // Use gradient background for default slides
+                        <View style={[
+                            StyleSheet.absoluteFillObject,
+                            { backgroundColor: item.gradientColors[0] }
+                        ]} />
+                    )}
 
-                    {/* Animated overlay for pulse effect */}
-                    <Animated.View
-                        style={[
-                            styles.pulseOverlay,
-                            {
-                                transform: [{ scale: bubble1Scale }],
-                                opacity: 0.3,
-                            }
-                        ]}
-                    />
-
+                    {/* Semi-transparent overlay for better text readability */}
                     <View style={styles.sliderGradientOverlay} />
+
                     <View style={styles.sliderContent}>
-                        <Animated.View
-                            style={[
+                        {!useImageBackground && (
+                            <Animated.View style={[
                                 styles.sliderIconContainer,
-                                {
-                                    transform: [{ rotate }]
-                                }
-                            ]}
-                        >
-                            <Ionicons name={item.icon as any} size={34} color="#FFFFFF" />
-                        </Animated.View>
+                                { transform: [{ rotate }] }
+                            ]}>
+                                <Ionicons name={item.icon as any} size={38} color="#FFFFFF" />
+                            </Animated.View>
+                        )}
                         <View style={styles.sliderTextContainer}>
                             <Text style={styles.sliderTitle}>{item.title}</Text>
                             <Text style={styles.sliderSubtitle}>{item.subtitle}</Text>
@@ -662,36 +598,40 @@ function Dashboard() {
                 {/* Slider Section with centered wrapper */}
                 <View style={styles.sliderOuterContainer}>
                     <View style={styles.sliderContainer}>
-                        <Animated.FlatList
-                            ref={sliderRef}
-                            data={sliderData}
-                            renderItem={renderSliderItem}
-                            keyExtractor={item => item.id}
-                            horizontal
-                            pagingEnabled
-                            showsHorizontalScrollIndicator={false}
-                            snapToInterval={sliderItemWidth + (sliderItemMargin * 2)}
-                            decelerationRate="fast"
-                            contentContainerStyle={styles.sliderContentContainer}
-                            onScroll={Animated.event(
-                                [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-                                { useNativeDriver: true }
-                            )}
-                            onScrollBeginDrag={handleScrollBegin}
-                            onScrollEndDrag={handleTouchEnd}
-                            onMomentumScrollEnd={handleScrollEnd}
-                            getItemLayout={(data, index) => ({
-                                length: sliderItemWidth + (sliderItemMargin * 2),
-                                offset: (sliderItemWidth + (sliderItemMargin * 2)) * index,
-                                index,
-                            })}
-                            initialScrollIndex={0}
-                            maxToRenderPerBatch={3}
-                            windowSize={5}
-                            removeClippedSubviews={false}
-                            contentInsetAdjustmentBehavior="automatic"
-                            style={styles.flatListStyle}
-                        />
+                        {isBannerLoading ? (
+                            <ActivityIndicator size="large" color="#3366FF" />
+                        ) : (
+                            <Animated.FlatList
+                                ref={sliderRef}
+                                data={sliderData}
+                                renderItem={renderSliderItem}
+                                keyExtractor={item => item.id}
+                                horizontal
+                                pagingEnabled
+                                showsHorizontalScrollIndicator={false}
+                                snapToInterval={sliderItemWidth + (sliderItemMargin * 2)}
+                                decelerationRate="fast"
+                                contentContainerStyle={styles.sliderContentContainer}
+                                onScroll={Animated.event(
+                                    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                                    { useNativeDriver: true }
+                                )}
+                                onScrollBeginDrag={handleScrollBegin}
+                                onScrollEndDrag={handleTouchEnd}
+                                onMomentumScrollEnd={handleScrollEnd}
+                                getItemLayout={(data, index) => ({
+                                    length: sliderItemWidth + (sliderItemMargin * 2),
+                                    offset: (sliderItemWidth + (sliderItemMargin * 2)) * index,
+                                    index,
+                                })}
+                                initialScrollIndex={0}
+                                maxToRenderPerBatch={3}
+                                windowSize={5}
+                                removeClippedSubviews={false}
+                                contentInsetAdjustmentBehavior="automatic"
+                                style={styles.flatListStyle}
+                            />
+                        )}
                     </View>
                 </View>
 
