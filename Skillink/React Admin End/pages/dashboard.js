@@ -18,6 +18,7 @@ export default function Dashboard() {
     books: 0,
     enrollments: 0,
     revenue: 0,
+    banners: 0,
   });
   const [recentEnrollments, setRecentEnrollments] = useState([]);
   const [recentBooks, setRecentBooks] = useState([]);
@@ -45,6 +46,7 @@ export default function Dashboard() {
         const coursesSnap = await getDocs(collection(db, "courses"));
         const booksSnap = await getDocs(collection(db, "books"));
         const enrollmentsSnap = await getDocs(collection(db, "enrollments"));
+        const bannersSnap = await getDocs(collection(db, "banners"));
 
         // Calculate total revenue
         let totalRevenue = 0;
@@ -61,6 +63,7 @@ export default function Dashboard() {
           books: booksSnap.size,
           enrollments: enrollmentsSnap.size,
           revenue: totalRevenue.toFixed(2),
+          banners: bannersSnap.size,
         });
 
         // Fetch recent enrollments
@@ -145,6 +148,13 @@ export default function Dashboard() {
               <div className="stat-card">
                 <h3>Revenue</h3>
                 <p className="stat-value">${stats.revenue}</p>
+              </div>
+              <div className="stat-card">
+                <h3>App Banners</h3>
+                <p className="stat-value">{stats.banners}</p>
+                <a href="/banners" className="manage-link">
+                  Manage
+                </a>
               </div>
             </div>
 
@@ -262,6 +272,7 @@ export default function Dashboard() {
           border-radius: 8px;
           padding: 20px;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          position: relative;
         }
 
         .stat-card h3 {
@@ -276,6 +287,23 @@ export default function Dashboard() {
           font-size: 2rem;
           font-weight: bold;
           color: #2c3e50;
+        }
+
+        .manage-link {
+          position: absolute;
+          right: 15px;
+          bottom: 15px;
+          font-size: 0.8rem;
+          padding: 4px 8px;
+          background-color: #e3f2fd;
+          color: #1565c0;
+          text-decoration: none;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+        }
+
+        .manage-link:hover {
+          background-color: #bbdefb;
         }
 
         .dashboard-grid {

@@ -94,6 +94,14 @@ export default function Layout({ children }) {
                 <a>Enrollments</a>
               </Link>
             </li>
+            <li
+              className={router.pathname === "/banners" ? "active" : ""}
+              onClick={() => handleNavigation("/banners")}
+            >
+              <Link href="/banners" legacyBehavior>
+                <a>App Banners</a>
+              </Link>
+            </li>
             <li className="logout" onClick={handleSignOut}>
               <a>Logout</a>
             </li>
