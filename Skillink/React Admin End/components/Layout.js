@@ -99,7 +99,7 @@ export default function Layout({ children }) {
               onClick={() => handleNavigation("/banners")}
             >
               <Link href="/banners" legacyBehavior>
-                <a>App Banners</a>
+                <a>Banners</a>
               </Link>
             </li>
             <li className="logout" onClick={handleSignOut}>

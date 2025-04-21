@@ -891,35 +891,13 @@ const Dashboard = () => {
                     <Text style={[styles.welcomeMessage, isDarkMode && styles.darkText]}>
                         Welcome
                         {firstName && (
-                            <Text style={[styles.userName, isDarkMode && styles.darkText]}>
+                            <Text style={[styles.userName, isDarkMode && styles.userNameDark]}>
                                 {' ' + firstName + '!'}
                             </Text>
                         )}
                     </Text>
                 </View>
                 <View style={styles.headerRightSection}>
-                    <TouchableOpacity
-                        style={styles.notificationIconContainer}
-                        onPress={toggleNotifications}
-                    >
-                        <View style={styles.notificationIconWrapper}>
-                            <Ionicons
-                                name="notifications-outline"
-                                size={24}
-                                color={isDarkMode ? "#f0f0f0" : "#333"}
-                            />
-                            {hasNewNotifications && (
-                                <View style={[
-                                    styles.notificationBadge,
-                                    isDarkMode && { borderColor: '#121212' }
-                                ]}>
-                                    <Text style={styles.notificationBadgeText}>
-                                        {notifications.length > 9 ? '9+' : notifications.length}
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                    </TouchableOpacity>
                     <TouchableOpacity onPress={navigateToProfile}>
                         {user?.photoURL ? (
                             <Image source={{ uri: user.photoURL }} style={styles.avatar} />
@@ -931,119 +909,6 @@ const Dashboard = () => {
                     </TouchableOpacity>
                 </View>
             </View>
-
-            {/* Notifications dropdown */}
-            {showNotifications && (
-                <View style={[styles.notificationsDropdown, isDarkMode && styles.darkNotificationsDropdown]}>
-                    <View style={styles.notificationsHeader}>
-                        <View style={styles.notificationsHeaderLeft}>
-                            <Ionicons
-                                name="notifications"
-                                size={18}
-                                color={isDarkMode ? "#5C7CFA" : "#3366FF"}
-                                style={styles.notificationsHeaderIcon}
-                            />
-                            <Text style={[styles.notificationsTitle, isDarkMode && styles.darkText]}>
-                                Notifications
-                            </Text>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.closeNotificationButton}
-                            onPress={() => setShowNotifications(false)}
-                        >
-                            <Ionicons
-                                name="close"
-                                size={20}
-                                color={isDarkMode ? "#f0f0f0" : "#333"}
-                            />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView style={styles.notificationsList}>
-                        {notifications.length > 0 ? (
-                            notifications.map((course) => (
-                                <TouchableOpacity
-                                    key={course.id}
-                                    style={[styles.notificationItem, isDarkMode && styles.darkNotificationItem]}
-                                    onPress={() => navigateToCourse(course.id)}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={styles.notificationImageContainer}>
-                                        {course.imageUrl ? (
-                                            <Image
-                                                source={{ uri: course.imageUrl }}
-                                                style={styles.notificationImage}
-                                            />
-                                        ) : (
-                                            <View style={[
-                                                styles.notificationImagePlaceholder,
-                                                isDarkMode && styles.darkNotificationImagePlaceholder
-                                            ]}>
-                                                <Ionicons
-                                                    name={getCategoryIcon(course.category)}
-                                                    size={22}
-                                                    color={isDarkMode ? "#5C7CFA" : "#3366FF"}
-                                                />
-                                            </View>
-                                        )}
-                                    </View>
-                                    <View style={styles.notificationContent}>
-                                        <Text
-                                            style={[styles.notificationTitle, isDarkMode && styles.darkText]}
-                                            numberOfLines={2}
-                                        >
-                                            {course.title}
-                                        </Text>
-                                        <View style={styles.notificationMetaRow}>
-                                            <View style={[
-                                                styles.notificationTag,
-                                                isDarkMode ? { backgroundColor: '#252836' } : { backgroundColor: '#f0f4ff' }
-                                            ]}>
-                                                <Text style={[
-                                                    styles.notificationTagText,
-                                                    { color: isDarkMode ? "#5C7CFA" : "#3366FF" }
-                                                ]}>NEW</Text>
-                                            </View>
-                                            <Text style={[
-                                                styles.notificationMeta,
-                                                isDarkMode && styles.darkNotificationMeta
-                                            ]}>
-                                                {capitalizeFirstLetter(course.category)}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                    <Ionicons
-                                        name="chevron-forward"
-                                        size={16}
-                                        color={isDarkMode ? "#5C7CFA" : "#3366FF"}
-                                        style={styles.notificationArrow}
-                                    />
-                                </TouchableOpacity>
-                            ))
-                        ) : (
-                            <View style={styles.emptyNotifications}>
-                                <Ionicons
-                                    name="checkmark-circle-outline"
-                                    size={48}
-                                    color={isDarkMode ? "#5C7CFA" : "#3366FF"}
-                                />
-                                <Text style={[
-                                    styles.emptyNotificationsText,
-                                    isDarkMode && styles.darkText
-                                ]}>
-                                    All caught up!
-                                </Text>
-                                <Text style={[
-                                    styles.emptyNotificationsSubtext,
-                                    isDarkMode && styles.darkNotificationMeta
-                                ]}>
-                                    We'll notify you when new courses arrive
-                                </Text>
-                            </View>
-                        )}
-                    </ScrollView>
-                </View>
-            )}
 
             <TouchableOpacity
                 style={[styles.searchContainer, isDarkMode && styles.darkSearchContainer]}
@@ -1330,8 +1195,14 @@ const styles = StyleSheet.create({
         color: '#3366FF',
         fontFamily: 'Inter-Bold',
     },
+    userNameDark: {
+        color: '#5C7CFA', // Lighter blue color for dark mode that stands out better
+        fontSize: 18,
+        fontWeight: 'bold',
+        fontFamily: 'Inter-Bold',
+    },
     darkText: {
-        color: '#FFFFFF',
+        color: '#E0E0E0',
     },
     avatar: {
         width: 40,

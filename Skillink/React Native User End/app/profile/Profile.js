@@ -22,7 +22,16 @@ import { useTheme } from "@/context/ThemeContext";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { doc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { useFonts } from "expo-font";
 import LogoutDialog from "@/app/components/LogoutDialog";
@@ -42,11 +51,79 @@ const fallbackTheme = {
   error: "#ff3d71",
 };
 
+// Profile item icons as component names
+const profileItemIcons = {
+  purchases: "lock-closed-outline",
+  educators: "school-outline",
+  updates: "notifications-outline",
+  help: "help-circle-outline",
+  settings: "settings-outline",
+};
+
+// Featured profile cover image
+const featuredCoverImage = require("@/assets/images/background-image.png");
+
+// Achievement badge images
+const achievementBadges = [
+  {
+    id: 1,
+    image: require("@/assets/images/splash-icon.png"),
+    title: "Quick Learner",
+    description: "Completed 5 lessons in a day",
+  },
+  {
+    id: 2,
+    image: require("@/assets/images/logo.png"),
+    title: "Perfect Score",
+    description: "Scored 100% in a test",
+  },
+  {
+    id: 3,
+    image: require("@/assets/images/partial-react-logo.png"),
+    title: "Streak Master",
+    description: "Maintained a 7-day streak",
+  },
+  {
+    id: 4,
+    image: require("@/assets/images/Google.png"),
+    title: "First Step",
+    description: "Completed your first course",
+  },
+];
+
+// Featured carousel content
+const featuredCarouselContent = [
+  {
+    id: 1,
+    image: require("@/assets/images/background-image.png"),
+    title: "Upcoming Bank Exams",
+    description: "Prepare for SBI, IBPS, and other bank exams",
+  },
+  {
+    id: 2,
+    image: require("@/assets/images/landing.png"),
+    title: "Practice Tests",
+    description: "Take mock tests to improve your score",
+  },
+  {
+    id: 3,
+    image: require("@/assets/images/login.jpg"),
+    title: "Study Material",
+    description: "Access comprehensive study materials",
+  },
+];
+
 function Profile() {
   const { user, isLoggedIn, logOut, loading, authLoading, setUser } = useAuth();
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [carouselActiveIndex, setCarouselActiveIndex] = useState(0);
+
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [hasNewNotifications, setHasNewNotifications] = useState(false);
+  const [lastCheckTime, setLastCheckTime] = useState(null);
 
   // Form fields
   const [name, setName] = useState("");
@@ -131,6 +208,74 @@ function Profile() {
     }
   }, [user]);
 
+  // Check for new notifications
+  useEffect(() => {
+    const checkForNewNotifications = async () => {
+      try {
+        // Get last check time from storage or use current time if not available
+        const now = new Date();
+        let checkTime = lastCheckTime;
+
+        if (!checkTime) {
+          // If first time, use current time minus 7 days
+          const storedTime = await AsyncStorage.getItem(
+            "lastNotificationCheck"
+          );
+          if (storedTime) {
+            checkTime = new Date(JSON.parse(storedTime));
+          } else {
+            checkTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          }
+          setLastCheckTime(checkTime);
+        }
+
+        // Query for courses created after the last check time
+        const coursesRef = collection(db, "courses");
+        const newCoursesQuery = query(
+          coursesRef,
+          where("createdAt", ">", checkTime),
+          orderBy("createdAt", "desc"),
+          limit(10)
+        );
+
+        const snapshot = await getDocs(newCoursesQuery);
+        const newNotifications = [];
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          newNotifications.push({
+            id: doc.id,
+            title: data.title || "",
+            author: data.author || data.instructor || "Course Instructor",
+            rating: data.rating || 4.5,
+            imageUrl: data.imageUrl,
+            category: data.category || "Course",
+            type: "course",
+            createdAt: data.createdAt?.toDate() || new Date(),
+          });
+        });
+
+        if (newNotifications.length > 0) {
+          setNotifications(newNotifications);
+          setHasNewNotifications(true);
+        }
+
+        // Update the last check time to now
+        await AsyncStorage.setItem(
+          "lastNotificationCheck",
+          JSON.stringify(now)
+        );
+        setLastCheckTime(now);
+      } catch (error) {
+        console.error("Error checking for new notifications:", error);
+      }
+    };
+
+    if (user) {
+      checkForNewNotifications();
+    }
+  }, [user]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     // Simple refresh with no image loading
@@ -182,6 +327,80 @@ function Profile() {
       console.error("Error picking image:", error);
       Alert.alert("Error", "Failed to pick image");
       setImageLoading(false);
+    }
+  };
+
+  const pickCoverImage = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "We need camera roll permissions to upload a cover image."
+        );
+        return;
+      }
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [3, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImageUri = result.assets[0].uri;
+
+        // Convert image to base64
+        const base64Image = await FileSystem.readAsStringAsync(
+          selectedImageUri,
+          {
+            encoding: FileSystem.EncodingType.Base64,
+          }
+        );
+
+        // Update profile with cover image
+        updateCoverImage(base64Image);
+      }
+    } catch (error) {
+      console.error("Error picking cover image:", error);
+      Alert.alert("Error", "Failed to pick cover image");
+    }
+  };
+
+  const updateCoverImage = async (imageBase64) => {
+    try {
+      if (!user || !user.id) {
+        Alert.alert("Error", "User not found");
+        return;
+      }
+
+      // Prepare update data
+      const updateData = {
+        coverImageURL: "data:image/jpeg;base64," + imageBase64,
+      };
+
+      // Update user's data in Firestore
+      const userRef = doc(db, "users", user.id);
+      await updateDoc(userRef, updateData);
+
+      // Update local user state with the new data
+      const updatedUser = {
+        ...user,
+        coverImageURL: "data:image/jpeg;base64," + imageBase64,
+      };
+
+      setUser(updatedUser);
+
+      // Update AsyncStorage
+      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+
+      Alert.alert("Success", "Cover image updated successfully!");
+    } catch (error) {
+      console.error("Error updating cover image:", error);
+      Alert.alert("Error", "Failed to update cover image");
     }
   };
 
@@ -255,6 +474,30 @@ function Profile() {
   const avatarSection = () => {
     return (
       <View style={styles.avatarSection}>
+        {/* Featured Cover Image */}
+        <View style={styles.coverImageContainer}>
+          {user?.coverImageURL ? (
+            <Image
+              source={{ uri: user.coverImageURL }}
+              style={styles.coverImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Image
+              source={featuredCoverImage}
+              style={styles.coverImage}
+              resizeMode="cover"
+            />
+          )}
+          <TouchableOpacity
+            style={styles.changeCoverButton}
+            onPress={pickCoverImage}
+          >
+            <Ionicons name="camera" size={18} color="#FFFFFF" />
+            <Text style={styles.changeCoverText}>Change Cover</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           style={[
             styles.avatarWrapper,
@@ -292,58 +535,16 @@ function Profile() {
           </View>
         </TouchableOpacity>
 
-        {isEditingName ? (
-          <View style={styles.nameEditContainer}>
-            <TextInput
-              style={styles.nameInput}
-              value={name}
-              onChangeText={setName}
-              autoFocus={true}
-              placeholder="Enter your name"
-              placeholderTextColor="#8F96AB"
-              onSubmitEditing={() => {
-                updateProfile(null);
-                setIsEditingName(false);
-              }}
-            />
-            <TouchableOpacity
-              style={styles.saveNameButton}
-              onPress={() => {
-                updateProfile(null);
-                setIsEditingName(false);
-              }}
-              disabled={isSubmitting}
-              activeOpacity={0.8}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.nameContainer}
-            onPress={() => setIsEditingName(true)}
-            activeOpacity={0.7}
+        <View style={styles.nameContainer}>
+          <Text
+            style={[
+              styles.profileName,
+              { color: isDarkMode ? "#FFFFFF" : "#333333" },
+            ]}
           >
-            <Text
-              style={[
-                styles.profileName,
-                { color: isDarkMode ? "#FFFFFF" : "#333333" },
-              ]}
-            >
-              {user?.name || "User"}
-            </Text>
-            <Ionicons
-              name="create-outline"
-              size={18}
-              color="#3366FF"
-              style={styles.editIcon}
-            />
-          </TouchableOpacity>
-        )}
+            {user?.name || "User"}
+          </Text>
+        </View>
 
         <Text
           style={[
@@ -357,34 +558,373 @@ function Profile() {
     );
   };
 
-  const handleLogout = async () => {
-    // Start the animation
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 30,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start(async () => {
-      // Force reset user state for web platform
-      if (Platform.OS === "web") {
-        try {
-          await AsyncStorage.removeItem("user");
-          setUser(null);
-          router.replace("/authentication/login");
-        } catch (error) {
-          console.error("Error during manual logout:", error);
-        }
-      }
+  // New section for profile menu items with SVG icons
+  const renderProfileMenuItems = () => {
+    return (
+      <Animated.View
+        style={[
+          styles.profileMenuContainer,
+          { backgroundColor: isDarkMode ? "#121212" : "#FFFFFF" },
+        ]}
+      >
+        <View style={styles.profileHeader}>
+          <Ionicons name="grid-outline" size={20} color="#3366FF" />
+          <Text
+            style={[
+              styles.profileTitle,
+              { color: isDarkMode ? "#FFFFFF" : "#333333" },
+            ]}
+          >
+            MY ACTIVITIES
+          </Text>
+        </View>
 
-      // Call the normal logout function
-      logOut();
-    });
+        <View style={styles.profileMenuGrid}>
+          <TouchableOpacity
+            style={[
+              styles.profileMenuItem,
+              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+            ]}
+            activeOpacity={0.7}
+            onPress={() => {
+              animateButtonPress();
+              // Navigate to purchases
+              router.push("/profile/purchases");
+            }}
+          >
+            <View
+              style={[
+                styles.profileMenuIconContainer,
+                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
+              ]}
+            >
+              <Ionicons
+                name={profileItemIcons.purchases}
+                size={24}
+                color="#3366FF"
+              />
+            </View>
+            <Text
+              style={[
+                styles.profileMenuText,
+                { color: isDarkMode ? "#FFFFFF" : "#333333" },
+              ]}
+            >
+              My purchases
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.profileMenuItem,
+              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+            ]}
+            activeOpacity={0.7}
+            onPress={() => {
+              animateButtonPress();
+              // Navigate to educators
+              router.push("/profile/educators");
+            }}
+          >
+            <View
+              style={[
+                styles.profileMenuIconContainer,
+                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
+              ]}
+            >
+              <Ionicons
+                name={profileItemIcons.educators}
+                size={24}
+                color="#3366FF"
+              />
+            </View>
+            <Text
+              style={[
+                styles.profileMenuText,
+                { color: isDarkMode ? "#FFFFFF" : "#333333" },
+              ]}
+            >
+              My educators
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.profileMenuItem,
+              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+            ]}
+            activeOpacity={0.7}
+            onPress={() => {
+              animateButtonPress();
+              // Navigate to updates with notification data
+              router.push({
+                pathname: "/profile/updates",
+                params: { hasNewNotifications: hasNewNotifications },
+              });
+              // Mark notifications as read when visiting the page
+              if (hasNewNotifications) {
+                setHasNewNotifications(false);
+              }
+            }}
+          >
+            <View
+              style={[
+                styles.profileMenuIconContainer,
+                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
+              ]}
+            >
+              <Ionicons
+                name={profileItemIcons.updates}
+                size={24}
+                color="#3366FF"
+              />
+              {hasNewNotifications && (
+                <View
+                  style={[
+                    styles.notificationBadge,
+                    { borderColor: isDarkMode ? "#121212" : "#FFFFFF" },
+                  ]}
+                >
+                  <Text style={styles.notificationBadgeText}>
+                    {notifications.length > 9 ? "9+" : notifications.length}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text
+              style={[
+                styles.profileMenuText,
+                { color: isDarkMode ? "#FFFFFF" : "#333333" },
+              ]}
+            >
+              Updates
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.profileMenuItem,
+              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+            ]}
+            activeOpacity={0.7}
+            onPress={() => {
+              animateButtonPress();
+              // Navigate to help page
+              router.push("/help");
+            }}
+          >
+            <View
+              style={[
+                styles.profileMenuIconContainer,
+                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
+              ]}
+            >
+              <Ionicons
+                name={profileItemIcons.help}
+                size={24}
+                color="#3366FF"
+              />
+            </View>
+            <Text
+              style={[
+                styles.profileMenuText,
+                { color: isDarkMode ? "#FFFFFF" : "#333333" },
+              ]}
+            >
+              Help & Support
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.profileMenuItem,
+              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+            ]}
+            activeOpacity={0.7}
+            onPress={() => {
+              animateButtonPress();
+              // Navigate to settings page
+              router.push("/settings");
+            }}
+          >
+            <View
+              style={[
+                styles.profileMenuIconContainer,
+                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
+              ]}
+            >
+              <Ionicons
+                name={profileItemIcons.settings}
+                size={24}
+                color="#3366FF"
+              />
+            </View>
+            <Text
+              style={[
+                styles.profileMenuText,
+                { color: isDarkMode ? "#FFFFFF" : "#333333" },
+              ]}
+            >
+              Settings
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    );
+  };
+
+  // Render achievements section with badges
+  const renderAchievements = () => {
+    return (
+      <Animated.View
+        style={[
+          styles.achievementsContainer,
+          { backgroundColor: isDarkMode ? "#121212" : "#FFFFFF" },
+        ]}
+      >
+        <View style={styles.profileHeader}>
+          <Ionicons name="trophy" size={20} color="#3366FF" />
+          <Text
+            style={[
+              styles.profileTitle,
+              { color: isDarkMode ? "#FFFFFF" : "#333333" },
+            ]}
+          >
+            MY ACHIEVEMENTS
+          </Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.badgesScrollContainer}
+        >
+          {achievementBadges.map((badge) => (
+            <TouchableOpacity
+              key={badge.id}
+              style={[
+                styles.badgeContainer,
+                { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+              ]}
+              activeOpacity={0.7}
+              onPress={() => {
+                Alert.alert(badge.title, badge.description);
+              }}
+            >
+              <Image source={badge.image} style={styles.badgeImage} />
+              <Text
+                style={[
+                  styles.badgeTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                ]}
+              >
+                {badge.title}
+              </Text>
+              <Text
+                style={[
+                  styles.badgeDescription,
+                  { color: isDarkMode ? "#8F96AB" : "#666666" },
+                ]}
+                numberOfLines={2}
+              >
+                {badge.description}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </Animated.View>
+    );
+  };
+
+  // Function to render the featured content carousel
+  const renderFeaturedContentCarousel = () => {
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setCarouselActiveIndex((current) =>
+          current === featuredCarouselContent.length - 1 ? 0 : current + 1
+        );
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }, []);
+
+    return (
+      <Animated.View
+        style={[
+          styles.carouselContainer,
+          { backgroundColor: isDarkMode ? "#121212" : "#FFFFFF" },
+        ]}
+      >
+        <View style={styles.profileHeader}>
+          <Ionicons name="star" size={20} color="#3366FF" />
+          <Text
+            style={[
+              styles.profileTitle,
+              { color: isDarkMode ? "#FFFFFF" : "#333333" },
+            ]}
+          >
+            FEATURED CONTENT
+          </Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(event) => {
+            const slideWidth = width - 40; // Container padding
+            const index = Math.round(
+              event.nativeEvent.contentOffset.x / slideWidth
+            );
+            setCarouselActiveIndex(index);
+          }}
+          style={styles.carouselScroll}
+        >
+          {featuredCarouselContent.map((item, index) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.carouselSlide}
+              activeOpacity={0.9}
+              onPress={() => {
+                Alert.alert(item.title, item.description);
+              }}
+            >
+              <Image
+                source={item.image}
+                style={styles.carouselImage}
+                resizeMode="cover"
+              />
+              <View style={styles.carouselTextOverlay}>
+                <Text style={styles.carouselTitle}>{item.title}</Text>
+                <Text style={styles.carouselDescription}>
+                  {item.description}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View style={styles.carouselDots}>
+          {featuredCarouselContent.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.carouselDot,
+                carouselActiveIndex === index ? styles.carouselDotActive : null,
+                {
+                  backgroundColor:
+                    carouselActiveIndex === index ? "#3366FF" : "#D0D0D0",
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </Animated.View>
+    );
+  };
+
+  const handleLogout = async () => {
+    // ... existing code ...
   };
 
   // Show loading while checking authentication or loading fonts
@@ -455,183 +995,14 @@ function Profile() {
           >
             {avatarSection()}
 
-            <Animated.View
-              style={[
-                styles.profileCard,
-                {
-                  transform: [{ scale: buttonScale }],
-                  backgroundColor: isDarkMode ? "#121212" : "#FFFFFF",
-                },
-              ]}
-            >
-              <View style={styles.profileHeader}>
-                <Ionicons name="person" size={20} color="#3366FF" />
-                <Text
-                  style={[
-                    styles.profileTitle,
-                    { color: isDarkMode ? "#FFFFFF" : "#333333" },
-                  ]}
-                >
-                  PROFILE
-                </Text>
-              </View>
+            {/* Add the new profile menu items section */}
+            {renderProfileMenuItems()}
 
-              <View style={styles.formSection}>
-                <Text
-                  style={[
-                    styles.label,
-                    { color: isDarkMode ? "#8F96AB" : "#666666" },
-                  ]}
-                >
-                  EMAIL
-                </Text>
-                <View
-                  style={[
-                    styles.emailFieldContainer,
-                    { backgroundColor: isDarkMode ? "#1E1E1E" : "#f5f5f5" },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.emailField,
-                      { color: isDarkMode ? "#FFFFFF" : "#333333" },
-                    ]}
-                  >
-                    {user?.email}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.helperText,
-                    { color: isDarkMode ? "#8F96AB" : "#888888" },
-                  ]}
-                >
-                  Contact support to change your email address
-                </Text>
-              </View>
-            </Animated.View>
+            {/* Add the achievements section */}
+            {renderAchievements()}
 
-            {/* Account Actions Section */}
-            <Animated.View
-              style={[
-                styles.actionsContainer,
-                { backgroundColor: isDarkMode ? "#121212" : "#FFFFFF" },
-              ]}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { borderBottomColor: isDarkMode ? "#1E1E1E" : "#f0f0f0" },
-                ]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  animateButtonPress();
-                  // Navigate to settings page
-                  router.push("/settings");
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionIconContainer,
-                    { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
-                  ]}
-                >
-                  <Ionicons name="settings-outline" size={22} color="#3366FF" />
-                </View>
-                <Text
-                  style={[
-                    styles.actionText,
-                    { color: isDarkMode ? "#FFFFFF" : "#333333" },
-                  ]}
-                >
-                  Settings
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={isDarkMode ? "#8F96AB" : "#999"}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  { borderBottomColor: isDarkMode ? "#1E1E1E" : "#f0f0f0" },
-                ]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  animateButtonPress();
-                  // Navigate to help page
-                  router.push("/help");
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionIconContainer,
-                    { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
-                  ]}
-                >
-                  <Ionicons
-                    name="help-circle-outline"
-                    size={22}
-                    color="#3366FF"
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.actionText,
-                    { color: isDarkMode ? "#FFFFFF" : "#333333" },
-                  ]}
-                >
-                  Help & Support
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={isDarkMode ? "#8F96AB" : "#999"}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.actionButton, styles.logoutButton]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  animateButtonPress();
-                  if (Platform.OS === "web") {
-                    setShowLogoutDialog(true);
-                  } else {
-                    Alert.alert("Logout", "Are you sure you want to logout?", [
-                      {
-                        text: "Cancel",
-                        style: "cancel",
-                      },
-                      {
-                        text: "Logout",
-                        onPress: handleLogout,
-                        style: "destructive",
-                      },
-                    ]);
-                  }
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionIconContainer,
-                    { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
-                  ]}
-                >
-                  <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
-                </View>
-                <Text style={[styles.actionText, styles.logoutText]}>
-                  Logout
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={isDarkMode ? "#8F96AB" : "#999"}
-                />
-              </TouchableOpacity>
-            </Animated.View>
+            {/* Featured Content Carousel */}
+            {renderFeaturedContentCarousel()}
           </Animated.ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -696,6 +1067,35 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
   },
+  coverImageContainer: {
+    width: "100%",
+    height: 180,
+    marginBottom: 60,
+    position: "relative",
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  coverImage: {
+    width: "100%",
+    height: "100%",
+  },
+  changeCoverButton: {
+    position: "absolute",
+    right: 10,
+    bottom: 10,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  changeCoverText: {
+    color: "#FFFFFF",
+    marginLeft: 5,
+    fontSize: 12,
+    fontFamily: "Inter-Medium",
+  },
   avatarWrapper: {
     width: 100,
     height: 100,
@@ -703,6 +1103,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 10,
     borderWidth: 2,
+    position: "absolute",
+    top: 130,
+    left: "50%",
+    marginLeft: -50,
+    zIndex: 10,
     borderColor: "#3D435C",
     backgroundColor: "#242B42",
     shadowColor: "#000",
@@ -992,6 +1397,226 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 2,
     borderColor: "#FFFFFF",
+  },
+
+  // Updated styles for profile menu items
+  profileMenuContainer: {
+    backgroundColor: "#242B42",
+    borderRadius: 10,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 2,
+  },
+  profileMenuGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  profileMenuItem: {
+    width: "48%",
+    backgroundColor: "transparent",
+    alignItems: "center",
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  profileMenuIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f0f6ff",
+    marginBottom: 10,
+  },
+  profileMenuText: {
+    fontSize: 14,
+    textAlign: "center",
+    fontFamily: "Inter-Medium",
+  },
+
+  // New styles for image gallery
+  imageGalleryContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 15,
+    marginBottom: 15,
+  },
+  galleryImageContainer: {
+    width: "48%",
+    height: 120,
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  galleryImage: {
+    width: "100%",
+    height: "100%",
+  },
+  addImageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 5,
+  },
+  addImageButtonText: {
+    fontSize: 14,
+    marginLeft: 8,
+    fontFamily: "Inter-Medium",
+  },
+
+  // Styles for achievements section
+  achievementsContainer: {
+    backgroundColor: "#242B42",
+    borderRadius: 10,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 2,
+  },
+  badgesScrollContainer: {
+    marginTop: 15,
+    marginBottom: 5,
+  },
+  badgeContainer: {
+    width: 140,
+    height: 180,
+    marginRight: 15,
+    borderRadius: 10,
+    padding: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  badgeImage: {
+    width: 80,
+    height: 80,
+    marginBottom: 10,
+    borderRadius: 40,
+  },
+  badgeTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 5,
+    fontFamily: "Inter-SemiBold",
+  },
+  badgeDescription: {
+    fontSize: 12,
+    textAlign: "center",
+    fontFamily: "Inter-Regular",
+  },
+
+  // Styles for carousel
+  carouselContainer: {
+    backgroundColor: "#242B42",
+    borderRadius: 10,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 2,
+  },
+  carouselScroll: {
+    marginTop: 15,
+  },
+  carouselSlide: {
+    width: width - 80, // Account for container padding and spacing
+    height: 200,
+    borderRadius: 10,
+    marginRight: 20,
+    overflow: "hidden",
+    position: "relative",
+  },
+  carouselImage: {
+    width: "100%",
+    height: "100%",
+  },
+  carouselTextOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 15,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  carouselTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 5,
+    fontFamily: "Inter-SemiBold",
+  },
+  carouselDescription: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: "Inter-Regular",
+  },
+  carouselDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 15,
+  },
+  carouselDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  carouselDotActive: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+
+  // Styles for notification badge
+  notificationBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    backgroundColor: "#FF3B30",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+    zIndex: 1,
+  },
+  notificationBadgeText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    textAlign: "center",
   },
 });
 
