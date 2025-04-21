@@ -330,43 +330,120 @@ function Profile() {
     }
   };
 
+  // Helper function to resize images on web platform
+  const resizeImageForWeb = async (
+    base64Image,
+    maxWidth = 1200,
+    quality = 0.7
+  ) => {
+    // This function only works on web platform
+    if (Platform.OS !== "web") return base64Image;
+
+    return new Promise((resolve) => {
+      // Create an image object
+      const img = new Image();
+      img.src = `data:image/jpeg;base64,${base64Image}`;
+
+      img.onload = () => {
+        // Create a canvas element
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions if needed
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        // Set canvas dimensions
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw image on canvas
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Get base64 data
+        const resizedBase64 = canvas
+          .toDataURL("image/jpeg", quality)
+          .replace("data:image/jpeg;base64,", "");
+
+        resolve(resizedBase64);
+      };
+    });
+  };
+
   const pickCoverImage = async () => {
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      // For web and mobile platforms
+      let permissionResult;
 
-      if (status !== "granted") {
-        Alert.alert(
-          "Permission Denied",
-          "We need camera roll permissions to upload a cover image."
-        );
-        return;
+      // Skip permission check on web
+      if (Platform.OS !== "web") {
+        permissionResult =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (permissionResult.status !== "granted") {
+          Alert.alert(
+            "Permission Denied",
+            "We need camera roll permissions to upload a cover image."
+          );
+          return;
+        }
       }
+
+      // Show loading state
+      setImageLoading(true);
 
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [3, 1],
-        quality: 0.5,
+        quality: 0.5, // Compress the image to 50% quality
+        base64: true, // Get base64 data directly
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedImageUri = result.assets[0].uri;
+        const selectedImage = result.assets[0];
+        let base64Image;
 
-        // Convert image to base64
-        const base64Image = await FileSystem.readAsStringAsync(
-          selectedImageUri,
-          {
+        // For web, we may already have base64 data
+        if (selectedImage.base64) {
+          base64Image = selectedImage.base64;
+        } else {
+          // For native platforms, read as base64 if not already provided
+          base64Image = await FileSystem.readAsStringAsync(selectedImage.uri, {
             encoding: FileSystem.EncodingType.Base64,
-          }
-        );
+          });
+        }
 
-        // Update profile with cover image
+        // Compress large images - this is a simple approach
+        // A more sophisticated approach would check actual file size
+        if (base64Image.length > 500000) {
+          // If larger than ~500KB
+          console.log("Large image detected, applying additional compression");
+          // Use a canvas for additional compression on large images
+          if (Platform.OS === "web") {
+            base64Image = await resizeImageForWeb(base64Image);
+          }
+        }
+
+        // For web platform, always process through our resize function
+        // This handles proper image formatting and compression
+        if (Platform.OS === "web") {
+          base64Image = await resizeImageForWeb(base64Image, 1200, 0.7);
+        }
+
+        // Update cover image
         updateCoverImage(base64Image);
       }
+
+      setImageLoading(false);
     } catch (error) {
       console.error("Error picking cover image:", error);
       Alert.alert("Error", "Failed to pick cover image");
+      setImageLoading(false);
     }
   };
 
@@ -377,9 +454,15 @@ function Profile() {
         return;
       }
 
+      setIsSubmitting(true);
+
+      // Prepare the cover image data with proper format
+      const coverImageData = `data:image/jpeg;base64,${imageBase64}`;
+
       // Prepare update data
       const updateData = {
-        coverImageURL: "data:image/jpeg;base64," + imageBase64,
+        coverImageURL: coverImageData,
+        updatedAt: new Date(), // Add a timestamp for when the cover was last updated
       };
 
       // Update user's data in Firestore
@@ -389,18 +472,20 @@ function Profile() {
       // Update local user state with the new data
       const updatedUser = {
         ...user,
-        coverImageURL: "data:image/jpeg;base64," + imageBase64,
+        coverImageURL: coverImageData,
       };
 
       setUser(updatedUser);
 
-      // Update AsyncStorage
+      // Update AsyncStorage to persist locally
       await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
 
       Alert.alert("Success", "Cover image updated successfully!");
+      setIsSubmitting(false);
     } catch (error) {
       console.error("Error updating cover image:", error);
       Alert.alert("Error", "Failed to update cover image");
+      setIsSubmitting(false);
     }
   };
 
@@ -476,7 +561,12 @@ function Profile() {
       <View style={styles.avatarSection}>
         {/* Featured Cover Image */}
         <View style={styles.coverImageContainer}>
-          {user?.coverImageURL ? (
+          {isSubmitting ? (
+            <View style={styles.coverImageLoadingContainer}>
+              <ActivityIndicator size="large" color="#3366FF" />
+              <Text style={styles.loadingText}>Updating cover image...</Text>
+            </View>
+          ) : user?.coverImageURL ? (
             <Image
               source={{ uri: user.coverImageURL }}
               style={styles.coverImage}
@@ -492,9 +582,12 @@ function Profile() {
           <TouchableOpacity
             style={styles.changeCoverButton}
             onPress={pickCoverImage}
+            disabled={isSubmitting}
           >
             <Ionicons name="camera" size={18} color="#FFFFFF" />
-            <Text style={styles.changeCoverText}>Change Cover</Text>
+            <Text style={styles.changeCoverText}>
+              {isSubmitting ? "Uploading..." : "Change Cover"}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -558,17 +651,25 @@ function Profile() {
     );
   };
 
-  // New section for profile menu items with SVG icons
+  // New section for profile menu items with modern futuristic design
   const renderProfileMenuItems = () => {
     return (
       <Animated.View
         style={[
           styles.profileMenuContainer,
-          { backgroundColor: isDarkMode ? "#121212" : "#FFFFFF" },
+          {
+            backgroundColor: isDarkMode
+              ? "rgba(18, 18, 18, 0.8)"
+              : "rgba(255, 255, 255, 0.9)",
+            borderWidth: isDarkMode ? 1 : 0,
+            borderColor: isDarkMode ? "#3D435C" : "transparent",
+          },
         ]}
       >
         <View style={styles.profileHeader}>
-          <Ionicons name="grid-outline" size={20} color="#3366FF" />
+          <View style={styles.headerIconGlow}>
+            <Ionicons name="grid-outline" size={20} color="#3366FF" />
+          </View>
           <Text
             style={[
               styles.profileTitle,
@@ -580,10 +681,16 @@ function Profile() {
         </View>
 
         <View style={styles.profileMenuGrid}>
+          {/* My Purchases */}
           <TouchableOpacity
             style={[
               styles.profileMenuItem,
-              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+              {
+                backgroundColor: isDarkMode
+                  ? "rgba(30, 30, 30, 0.8)"
+                  : "rgba(255, 255, 255, 0.9)",
+                borderColor: isDarkMode ? "#3D435C" : "#e0e0e0",
+              },
             ]}
             activeOpacity={0.7}
             onPress={() => {
@@ -595,7 +702,13 @@ function Profile() {
             <View
               style={[
                 styles.profileMenuIconContainer,
-                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
+                {
+                  backgroundColor: isDarkMode ? "#242B42" : "#E6EEFF",
+                  shadowColor: "#3366FF",
+                  shadowOpacity: 0.3,
+                  shadowRadius: 10,
+                  elevation: 6,
+                },
               ]}
             >
               <Ionicons
@@ -612,12 +725,25 @@ function Profile() {
             >
               My purchases
             </Text>
+            <View style={styles.menuItemArrow}>
+              <Ionicons
+                name="chevron-forward"
+                size={14}
+                color={isDarkMode ? "#8F96AB" : "#AAAAAA"}
+              />
+            </View>
           </TouchableOpacity>
 
+          {/* My Educators */}
           <TouchableOpacity
             style={[
               styles.profileMenuItem,
-              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+              {
+                backgroundColor: isDarkMode
+                  ? "rgba(30, 30, 30, 0.8)"
+                  : "rgba(255, 255, 255, 0.9)",
+                borderColor: isDarkMode ? "#3D435C" : "#e0e0e0",
+              },
             ]}
             activeOpacity={0.7}
             onPress={() => {
@@ -629,7 +755,13 @@ function Profile() {
             <View
               style={[
                 styles.profileMenuIconContainer,
-                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
+                {
+                  backgroundColor: isDarkMode ? "#242B42" : "#E6EEFF",
+                  shadowColor: "#3366FF",
+                  shadowOpacity: 0.3,
+                  shadowRadius: 10,
+                  elevation: 6,
+                },
               ]}
             >
               <Ionicons
@@ -646,12 +778,25 @@ function Profile() {
             >
               My educators
             </Text>
+            <View style={styles.menuItemArrow}>
+              <Ionicons
+                name="chevron-forward"
+                size={14}
+                color={isDarkMode ? "#8F96AB" : "#AAAAAA"}
+              />
+            </View>
           </TouchableOpacity>
 
+          {/* Updates */}
           <TouchableOpacity
             style={[
               styles.profileMenuItem,
-              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+              {
+                backgroundColor: isDarkMode
+                  ? "rgba(30, 30, 30, 0.8)"
+                  : "rgba(255, 255, 255, 0.9)",
+                borderColor: isDarkMode ? "#3D435C" : "#e0e0e0",
+              },
             ]}
             activeOpacity={0.7}
             onPress={() => {
@@ -670,7 +815,13 @@ function Profile() {
             <View
               style={[
                 styles.profileMenuIconContainer,
-                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
+                {
+                  backgroundColor: isDarkMode ? "#242B42" : "#E6EEFF",
+                  shadowColor: "#3366FF",
+                  shadowOpacity: 0.3,
+                  shadowRadius: 10,
+                  elevation: 6,
+                },
               ]}
             >
               <Ionicons
@@ -682,7 +833,7 @@ function Profile() {
                 <View
                   style={[
                     styles.notificationBadge,
-                    { borderColor: isDarkMode ? "#121212" : "#FFFFFF" },
+                    { borderColor: isDarkMode ? "#242B42" : "#E6EEFF" },
                   ]}
                 >
                   <Text style={styles.notificationBadgeText}>
@@ -699,46 +850,25 @@ function Profile() {
             >
               Updates
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.profileMenuItem,
-              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
-            ]}
-            activeOpacity={0.7}
-            onPress={() => {
-              animateButtonPress();
-              // Navigate to help page
-              router.push("/help");
-            }}
-          >
-            <View
-              style={[
-                styles.profileMenuIconContainer,
-                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
-              ]}
-            >
+            <View style={styles.menuItemArrow}>
               <Ionicons
-                name={profileItemIcons.help}
-                size={24}
-                color="#3366FF"
+                name="chevron-forward"
+                size={14}
+                color={isDarkMode ? "#8F96AB" : "#AAAAAA"}
               />
             </View>
-            <Text
-              style={[
-                styles.profileMenuText,
-                { color: isDarkMode ? "#FFFFFF" : "#333333" },
-              ]}
-            >
-              Help & Support
-            </Text>
           </TouchableOpacity>
 
+          {/* Settings */}
           <TouchableOpacity
             style={[
               styles.profileMenuItem,
-              { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
+              {
+                backgroundColor: isDarkMode
+                  ? "rgba(30, 30, 30, 0.8)"
+                  : "rgba(255, 255, 255, 0.9)",
+                borderColor: isDarkMode ? "#3D435C" : "#e0e0e0",
+              },
             ]}
             activeOpacity={0.7}
             onPress={() => {
@@ -750,7 +880,13 @@ function Profile() {
             <View
               style={[
                 styles.profileMenuIconContainer,
-                { backgroundColor: isDarkMode ? "#1E1E1E" : "#f0f6ff" },
+                {
+                  backgroundColor: isDarkMode ? "#242B42" : "#E6EEFF",
+                  shadowColor: "#3366FF",
+                  shadowOpacity: 0.3,
+                  shadowRadius: 10,
+                  elevation: 6,
+                },
               ]}
             >
               <Ionicons
@@ -767,6 +903,13 @@ function Profile() {
             >
               Settings
             </Text>
+            <View style={styles.menuItemArrow}>
+              <Ionicons
+                name="chevron-forward"
+                size={14}
+                color={isDarkMode ? "#8F96AB" : "#AAAAAA"}
+              />
+            </View>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -1170,15 +1313,17 @@ const styles = StyleSheet.create({
   profileHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(61, 67, 92, 0.3)",
+    paddingBottom: 15,
   },
   profileTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
-    color: "#FFFFFF",
-    marginLeft: 10,
-    letterSpacing: 1,
-    fontFamily: "Inter-SemiBold",
+    letterSpacing: 1.2,
+    fontFamily: "Inter-Bold",
+    textTransform: "uppercase",
   },
   formSection: {
     marginBottom: 20,
@@ -1402,82 +1547,87 @@ const styles = StyleSheet.create({
   // Updated styles for profile menu items
   profileMenuContainer: {
     backgroundColor: "#242B42",
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 20,
     marginBottom: 20,
-    shadowColor: "#000",
+    shadowColor: "#3366FF",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 8,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 2,
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: "#3D435C",
   },
   profileMenuGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 15,
   },
   profileMenuItem: {
     width: "48%",
-    backgroundColor: "transparent",
-    alignItems: "center",
+    alignItems: "flex-start",
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    position: "relative",
+    overflow: "hidden",
+    shadowColor: "#3366FF",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
   },
   profileMenuIconContainer: {
     width: 50,
     height: 50,
-    borderRadius: 25,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f0f6ff",
-    marginBottom: 10,
+    marginBottom: 12,
+    position: "relative",
+    borderWidth: 1,
+    borderColor: "rgba(51, 102, 255, 0.3)",
   },
   profileMenuText: {
     fontSize: 14,
-    textAlign: "center",
-    fontFamily: "Inter-Medium",
+    fontWeight: "600",
+    marginBottom: 5,
+    fontFamily: "Inter-SemiBold",
   },
-
-  // New styles for image gallery
-  imageGalleryContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginTop: 15,
-    marginBottom: 15,
-  },
-  galleryImageContainer: {
-    width: "48%",
-    height: 120,
-    borderRadius: 8,
-    overflow: "hidden",
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  galleryImage: {
-    width: "100%",
-    height: "100%",
-  },
-  addImageButton: {
-    flexDirection: "row",
-    alignItems: "center",
+  headerIconGlow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 5,
+    alignItems: "center",
+    marginRight: 10,
+    shadowColor: "#3366FF",
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  addImageButtonText: {
-    fontSize: 14,
-    marginLeft: 8,
-    fontFamily: "Inter-Medium",
+  menuItemArrow: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    backgroundColor: "rgba(51, 102, 255, 0.1)",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   // Styles for achievements section
@@ -1617,6 +1767,58 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#FFFFFF",
     textAlign: "center",
+  },
+
+  // New styles for image gallery
+  imageGalleryContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 15,
+    marginBottom: 15,
+  },
+  galleryImageContainer: {
+    width: "48%",
+    height: 120,
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  galleryImage: {
+    width: "100%",
+    height: "100%",
+  },
+  addImageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 5,
+  },
+  addImageButtonText: {
+    fontSize: 14,
+    marginLeft: 8,
+    fontFamily: "Inter-Medium",
+  },
+  coverImageLoadingContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  loadingText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginTop: 10,
+    fontFamily: "Inter-SemiBold",
   },
 });
 

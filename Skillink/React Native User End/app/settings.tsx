@@ -448,6 +448,42 @@ function SettingsContent() {
                         styles.sectionHeader,
                         { borderBottomColor: isDarkMode ? '#1E1E1E' : '#EDF1F7' }
                     ]}>
+                        <Ionicons name="help-circle" size={20} color="#3366FF" />
+                        <Text style={[
+                            styles.sectionTitle,
+                            { color: isDarkMode ? '#FFFFFF' : '#222B45' }
+                        ]}>Help & Support</Text>
+                    </View>
+
+                    <TouchableOpacity
+                        style={[
+                            styles.menuItem,
+                            { borderBottomColor: 'transparent' }
+                        ]}
+                        onPress={() => router.push('/help')}
+                    >
+                        <Text style={[
+                            styles.menuItemText,
+                            { color: isDarkMode ? '#FFFFFF' : '#222B45' }
+                        ]}>
+                            Help Center
+                        </Text>
+                        <Ionicons
+                            name="chevron-forward"
+                            size={20}
+                            color={isDarkMode ? '#AAAAAA' : '#8F9BB3'}
+                        />
+                    </TouchableOpacity>
+                </View>
+
+                <View style={[
+                    styles.section,
+                    { backgroundColor: isDarkMode ? '#121212' : '#FFFFFF' }
+                ]}>
+                    <View style={[
+                        styles.sectionHeader,
+                        { borderBottomColor: isDarkMode ? '#1E1E1E' : '#EDF1F7' }
+                    ]}>
                         <Ionicons name="log-out" size={20} color="#FF3B30" />
                         <Text style={[
                             styles.sectionTitle,

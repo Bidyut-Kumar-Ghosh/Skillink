@@ -156,7 +156,7 @@ function Help() {
                             styles.contactDetail,
                             { color: isDarkMode ? '#FFFFFF' : '#222B45' }
                         ]}>
-                            +91 6290728881,7076754831
+                            +91 6290728881
                         </Text>
                     </TouchableOpacity>
 
