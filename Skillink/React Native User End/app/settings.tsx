@@ -98,7 +98,7 @@ function SettingsContent() {
     const handleLogout = async () => {
         try {
             await logOut();
-            router.replace('/login');
+            router.replace('/authentication/login');
         } catch (error) {
             console.error("Logout error:", error);
             Alert.alert("Error", "Failed to logout. Please try again.");
