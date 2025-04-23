@@ -1,91 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/router";
-import { auth, db } from "../firebase/config";
-import {
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-} from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 import Head from "next/head";
+import { useAuth } from "../firebase/useAuth";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { login, error, loading, clearError } = useAuth();
   const router = useRouter();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Check if user has admin role
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists() && userDoc.data().role === "admin") {
-            router.push("/dashboard");
-          } else {
-            // Not an admin, sign them out
-            await signOut(auth);
-            setError(
-              "You don't have administrator privileges. If you are a student, please use the mobile app instead. If you believe you should have admin access, please contact support."
-            );
-            setLoading(false);
-          }
-        } catch (error) {
-          await signOut(auth);
-          setError("Error verifying your account. Please try again.");
-          setLoading(false);
-        }
-      } else {
-        // No user is signed in
-        setLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    clearError();
 
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      // Authentication successful, but don't redirect yet
-      // The onAuthStateChanged listener will check admin role and redirect if appropriate
-
-      // If we get here without errors, check if there's a user
-      if (!userCredential || !userCredential.user) {
-        setError("Login failed. Please try again.");
-        setLoading(false);
-      }
-    } catch (error) {
-      // Handle specific Firebase error codes
-      switch (error.code) {
-        case "auth/invalid-credential":
-        case "auth/user-not-found":
-        case "auth/wrong-password":
-        case "auth/invalid-email":
-          setError(
-            "Invalid email or password. If you are a student, please use the mobile app instead. If you are an administrator, please check your credentials and try again."
-          );
-          break;
-        case "auth/too-many-requests":
-          setError(
-            "Too many failed login attempts. Please try again later or reset your password."
-          );
-          break;
-        default:
-          setError(`Login failed. Please try again later.`);
-      }
-
-      setLoading(false);
+      await login(email, password);
+      router.push("/dashboard");
+    } catch (err) {
+      // Error is handled by useAuth hook
+      console.error("Login error:", err);
     }
   };
 

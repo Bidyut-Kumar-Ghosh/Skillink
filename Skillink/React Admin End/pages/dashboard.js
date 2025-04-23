@@ -10,8 +10,9 @@ import {
   limit,
   where,
 } from "firebase/firestore";
+import { withAuth } from "../firebase/useAuth";
 
-export default function Dashboard() {
+function Dashboard() {
   const [stats, setStats] = useState({
     students: 0,
     courses: 0,
@@ -586,3 +587,5 @@ export default function Dashboard() {
     </Layout>
   );
 }
+
+export default withAuth(Dashboard);
