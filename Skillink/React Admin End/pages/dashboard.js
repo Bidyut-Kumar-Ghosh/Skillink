@@ -23,6 +23,7 @@ function Dashboard() {
   });
   const [recentEnrollments, setRecentEnrollments] = useState([]);
   const [recentBooks, setRecentBooks] = useState([]);
+  const [recentCourses, setRecentCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -106,6 +107,26 @@ function Dashboard() {
         });
 
         setRecentBooks(recentBooksList);
+
+        // Fetch recent courses
+        const recentCoursesQuery = query(
+          collection(db, "courses"),
+          orderBy("createdAt", "desc"),
+          limit(5)
+        );
+
+        const recentCoursesSnap = await getDocs(recentCoursesQuery);
+        const recentCoursesList = [];
+
+        recentCoursesSnap.forEach((doc) => {
+          recentCoursesList.push({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+          });
+        });
+
+        setRecentCourses(recentCoursesList);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -202,9 +223,14 @@ function Dashboard() {
                   <p className="no-data">No recent enrollments found</p>
                 )}
               </div>
+            </div>
 
+            <div className="dashboard-section-row">
               <div className="recent-books">
                 <h2>Recent Books</h2>
+                <a href="/books" className="view-all-link">
+                  View All
+                </a>
 
                 {recentBooks.length > 0 ? (
                   <div className="books-grid-display">
@@ -250,7 +276,10 @@ function Dashboard() {
                               <span className="format pdf">PDF</span>
                             )}
                             {book.hasPrintedVersion && (
-                              <span className="format print">Print</span>
+                              <span className="format print">
+                                Print: $
+                                {book.printedBookPrice?.toFixed(2) || "0.00"}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -259,6 +288,70 @@ function Dashboard() {
                   </div>
                 ) : (
                   <p className="no-data">No recent books found</p>
+                )}
+              </div>
+
+              <div className="recent-courses">
+                <h2>Recent Courses</h2>
+                <a href="/courses" className="view-all-link">
+                  View All
+                </a>
+
+                {recentCourses.length > 0 ? (
+                  <div className="courses-grid-display">
+                    {recentCourses.map((course) => (
+                      <div className="course-card-mini" key={course.id}>
+                        <div className="course-cover">
+                          {course.imageUrl ? (
+                            <img src={course.imageUrl} alt={course.title} />
+                          ) : (
+                            <div className="cover-placeholder">
+                              <span>{course.title?.charAt(0) || "C"}</span>
+                            </div>
+                          )}
+                          <span
+                            className={`course-status ${
+                              course.status || "active"
+                            }`}
+                          >
+                            {course.status.charAt(0).toUpperCase() +
+                              course.status.slice(1) || "Active"}
+                          </span>
+                        </div>
+                        <div className="course-info">
+                          <h3 className="course-title">
+                            {course.title || "Unknown"}
+                          </h3>
+                          <p className="course-instructor">
+                            by {course.instructor || "Unknown"}
+                          </p>
+                          <div className="course-meta">
+                            <span className="course-level">
+                              {course.level || "Beginner"}
+                            </span>
+                            {course.duration && (
+                              <span className="course-duration">
+                                {course.duration}
+                              </span>
+                            )}
+                          </div>
+                          {course.category && (
+                            <span className="course-category">
+                              {course.category}
+                            </span>
+                          )}
+                          <p className="course-price">
+                            $
+                            {typeof course.price === "number"
+                              ? course.price.toFixed(2)
+                              : "0.00"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="no-data">No recent courses found</p>
                 )}
               </div>
             </div>
@@ -333,23 +426,46 @@ function Dashboard() {
 
         .dashboard-grid {
           display: grid;
+          grid-template-columns: 1fr;
+          gap: 20px;
+          margin-bottom: 20px;
+        }
+
+        .dashboard-section-row {
+          display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 20px;
         }
 
         .recent-enrollments,
-        .recent-books {
+        .recent-books,
+        .recent-courses {
           background: white;
           border-radius: 8px;
           padding: 20px;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          position: relative;
         }
 
         .recent-enrollments h2,
-        .recent-books h2 {
+        .recent-books h2,
+        .recent-courses h2 {
           margin-top: 0;
           margin-bottom: 20px;
           color: #2c3e50;
+        }
+
+        .view-all-link {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          font-size: 0.85rem;
+          color: #3498db;
+          text-decoration: none;
+        }
+
+        .view-all-link:hover {
+          text-decoration: underline;
         }
 
         .enrollments-table,
@@ -410,13 +526,15 @@ function Dashboard() {
           padding: 20px;
         }
 
-        .books-grid-display {
+        .books-grid-display,
+        .courses-grid-display {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
           gap: 15px;
         }
 
-        .book-card-mini {
+        .book-card-mini,
+        .course-card-mini {
           display: flex;
           flex-direction: column;
           background: white;
@@ -426,19 +544,22 @@ function Dashboard() {
           transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .book-card-mini:hover {
+        .book-card-mini:hover,
+        .course-card-mini:hover {
           transform: translateY(-5px);
           box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
         }
 
-        .book-cover {
+        .book-cover,
+        .course-cover {
           position: relative;
           height: 130px;
           background: #f8f9fa;
           overflow: hidden;
         }
 
-        .book-cover img {
+        .book-cover img,
+        .course-cover img {
           width: 100%;
           height: 100%;
           object-fit: cover;
@@ -458,7 +579,8 @@ function Dashboard() {
           font-weight: bold;
         }
 
-        .book-status {
+        .book-status,
+        .course-status {
           position: absolute;
           top: 8px;
           right: 8px;
@@ -469,7 +591,8 @@ function Dashboard() {
           text-transform: uppercase;
         }
 
-        .book-status.available {
+        .book-status.available,
+        .course-status.active {
           background-color: rgba(46, 125, 50, 0.9);
           color: white;
         }
@@ -479,14 +602,21 @@ function Dashboard() {
           color: white;
         }
 
-        .book-info {
+        .course-status.maintenance {
+          background-color: rgba(255, 152, 0, 0.9);
+          color: white;
+        }
+
+        .book-info,
+        .course-info {
           padding: 12px;
           flex: 1;
           display: flex;
           flex-direction: column;
         }
 
-        .book-title {
+        .book-title,
+        .course-title {
           margin: 0 0 4px 0;
           font-size: 0.95rem;
           font-weight: 600;
@@ -499,7 +629,8 @@ function Dashboard() {
           overflow: hidden;
         }
 
-        .book-author {
+        .book-author,
+        .course-instructor {
           margin: 0 0 4px 0;
           font-size: 0.8rem;
           color: #7f8c8d;
@@ -509,13 +640,28 @@ function Dashboard() {
           text-overflow: ellipsis;
         }
 
-        .book-date {
+        .book-date,
+        .course-meta {
           margin: 0 0 6px 0;
+          font-size: 0.75rem;
+          color: #95a5a6;
+          display: flex;
+          gap: 8px;
+        }
+
+        .course-level,
+        .course-duration {
           font-size: 0.75rem;
           color: #95a5a6;
         }
 
-        .book-category {
+        .course-level::before {
+          content: "•";
+          margin-right: 4px;
+        }
+
+        .book-category,
+        .course-category {
           display: inline-block;
           background-color: #f1f9f1;
           color: #2c3e50;
@@ -523,6 +669,13 @@ function Dashboard() {
           border-radius: 4px;
           font-size: 0.7rem;
           margin-top: auto;
+        }
+
+        .course-price {
+          margin: 8px 0 0;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: #2c3e50;
         }
 
         .book-formats {
@@ -549,7 +702,8 @@ function Dashboard() {
         }
 
         @media (max-width: 768px) {
-          .dashboard-grid {
+          .dashboard-grid,
+          .dashboard-section-row {
             grid-template-columns: 1fr;
           }
 
@@ -557,17 +711,20 @@ function Dashboard() {
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
           }
 
-          .books-grid-display {
+          .books-grid-display,
+          .courses-grid-display {
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
           }
 
-          .book-cover {
+          .book-cover,
+          .course-cover {
             height: 120px;
           }
         }
 
         @media (max-width: 480px) {
-          .books-grid-display {
+          .books-grid-display,
+          .courses-grid-display {
             grid-template-columns: repeat(2, 1fr);
           }
 
@@ -579,7 +736,8 @@ function Dashboard() {
             font-size: 1.6rem;
           }
 
-          .book-cover {
+          .book-cover,
+          .course-cover {
             height: 100px;
           }
         }

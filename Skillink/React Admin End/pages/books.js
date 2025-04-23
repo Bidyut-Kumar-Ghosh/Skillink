@@ -27,7 +27,6 @@ export default function Books() {
     author: "",
     description: "",
     category: "",
-    price: "",
     publishDate: "",
     status: "available",
     hasPrintedVersion: false,
@@ -74,8 +73,6 @@ export default function Books() {
     if (!formData.author.trim()) return "Author name is required";
     if (!formData.description.trim()) return "Description is required";
     if (!formData.category.trim()) return "Category is required";
-    if (formData.price === "" || formData.price < 0)
-      return "Valid price is required";
     if (!formData.publishDate) return "Publication date is required";
     if (
       formData.hasPrintedVersion &&
@@ -110,17 +107,23 @@ export default function Books() {
           // Create a canvas element
           const canvas = document.createElement("canvas");
 
-          // Calculate new dimensions (max 800px width/height while maintaining aspect ratio)
-          let width = img.width;
-          let height = img.height;
-          const maxSize = 800;
+          // Calculate new dimensions to match 2:3 aspect ratio (600×900)
+          let width = 600;
+          let height = 900;
+          let sourceX = 0;
+          let sourceY = 0;
+          let sourceWidth = img.width;
+          let sourceHeight = img.height;
 
-          if (width > height && width > maxSize) {
-            height = Math.round((height * maxSize) / width);
-            width = maxSize;
-          } else if (height > maxSize) {
-            width = Math.round((width * maxSize) / height);
-            height = maxSize;
+          // Calculate source dimensions to crop to 2:3 aspect ratio
+          if (img.width / img.height > 2 / 3) {
+            // Image is wider than 2:3, crop width
+            sourceWidth = img.height * (2 / 3);
+            sourceX = (img.width - sourceWidth) / 2;
+          } else if (img.width / img.height < 2 / 3) {
+            // Image is taller than 2:3, crop height
+            sourceHeight = img.width * (3 / 2);
+            sourceY = (img.height - sourceHeight) / 2;
           }
 
           // Set canvas dimensions
@@ -129,10 +132,22 @@ export default function Books() {
 
           // Draw and compress the image on canvas
           const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(
+            img,
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            0,
+            0,
+            width,
+            height
+          );
 
-          // Get compressed image as base64 string (0.7 quality)
-          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7);
+          // Get compressed image as base64 string (0.8 quality - better quality for book covers)
+          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
 
           // Set preview and update form data
           setImagePreview(compressedBase64);
@@ -186,7 +201,6 @@ export default function Books() {
       author: "",
       description: "",
       category: "",
-      price: "",
       publishDate: "",
       status: "available",
       imageUrl: null,
@@ -204,7 +218,6 @@ export default function Books() {
     if (book) {
       setFormData({
         ...book,
-        price: book.price?.toString() || "",
         imageUrl: book.imageUrl || null,
         hasPrintedVersion: book.hasPrintedVersion || false,
         printedBookPrice: book.printedBookPrice?.toString() || "",
@@ -234,10 +247,9 @@ export default function Books() {
     setError(null);
 
     try {
-      // Convert price to a valid number format
+      // Convert price to a valid number format if applicable
       const formattedData = {
         ...formData,
-        price: formData.price ? parseFloat(formData.price) : 0,
         printedBookPrice:
           formData.hasPrintedVersion && formData.printedBookPrice
             ? parseFloat(formData.printedBookPrice)
@@ -369,12 +381,14 @@ export default function Books() {
                             ? new Date(book.publishDate).toLocaleDateString()
                             : "No date"}
                         </span>
-                        <span className="price">
-                          $
-                          {typeof book.price === "number"
-                            ? book.price.toFixed(2)
-                            : "0.00"}
-                        </span>
+                        {book.hasPrintedVersion && (
+                          <span className="price">
+                            $
+                            {typeof book.printedBookPrice === "number"
+                              ? book.printedBookPrice.toFixed(2)
+                              : "0.00"}
+                          </span>
+                        )}
                       </div>
                       <div className="format-options">
                         {book.pdfData && (
@@ -486,32 +500,18 @@ export default function Books() {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="price">Price ($) *</label>
-                  <input
-                    type="number"
-                    id="price"
-                    name="price"
-                    value={formData.price}
+                  <label htmlFor="status">Status *</label>
+                  <select
+                    id="status"
+                    name="status"
+                    value={formData.status}
                     onChange={handleInputChange}
-                    min="0"
-                    step="0.01"
                     required
-                  />
+                  >
+                    <option value="available">Available</option>
+                    <option value="outofstock">Out of Stock</option>
+                  </select>
                 </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="status">Status *</label>
-                <select
-                  id="status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="available">Available</option>
-                  <option value="outofstock">Out of Stock</option>
-                </select>
               </div>
 
               <div className="form-group checkbox-group">
@@ -545,10 +545,7 @@ export default function Books() {
                     step="0.01"
                     required={formData.hasPrintedVersion}
                   />
-                  <small>
-                    Price for the physical copy (must be higher than the digital
-                    version)
-                  </small>
+                  <small>Price for the physical copy</small>
                 </div>
               )}
 
@@ -560,6 +557,10 @@ export default function Books() {
                   accept="image/*"
                   onChange={handleImageChange}
                 />
+                <small className="resolution-guide">
+                  For best display, upload images with a resolution of 600×900
+                  pixels or higher. Recommended aspect ratio: 2:3.
+                </small>
                 {(imagePreview || formData.imageUrl) && (
                   <div className="image-preview">
                     <img
@@ -571,15 +572,18 @@ export default function Books() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="pdfFile">
-                  Book PDF File {!isEditMode && "*"}
-                </label>
+                <label htmlFor="pdfFile">Book PDF File *</label>
                 <input
                   type="file"
                   id="pdfFile"
                   accept="application/pdf"
                   onChange={handlePdfUpload}
+                  required={!isEditMode && !formData.pdfData}
                 />
+                <small className="pdf-guide">
+                  PDF file is mandatory. Please upload a well-formatted PDF
+                  document.
+                </small>
                 {isEditMode && !formData.pdfData && (
                   <small>
                     Current PDF file will be preserved unless a new one is
@@ -912,8 +916,9 @@ export default function Books() {
         }
 
         .image-preview img {
-          max-width: 100%;
-          max-height: 100%;
+          width: 100%;
+          height: auto;
+          max-height: 200px;
           object-fit: contain;
         }
 
@@ -970,12 +975,20 @@ export default function Books() {
         }
 
         .pdf-status {
-          margin-top: 8px;
+          margin-top: 10px;
         }
 
         .success-text {
           color: #2ecc71;
           font-weight: 500;
+        }
+
+        .resolution-guide,
+        .pdf-guide {
+          display: block;
+          margin-top: 5px;
+          color: #777;
+          font-size: 0.8rem;
         }
       `}</style>
     </Layout>

@@ -102,17 +102,23 @@ export default function Courses() {
           // Create a canvas element
           const canvas = document.createElement("canvas");
 
-          // Calculate new dimensions (max 800px width/height while maintaining aspect ratio)
-          let width = img.width;
-          let height = img.height;
-          const maxSize = 800;
+          // Calculate new dimensions to match 2:3 aspect ratio (600×900)
+          let width = 600;
+          let height = 900;
+          let sourceX = 0;
+          let sourceY = 0;
+          let sourceWidth = img.width;
+          let sourceHeight = img.height;
 
-          if (width > height && width > maxSize) {
-            height = Math.round((height * maxSize) / width);
-            width = maxSize;
-          } else if (height > maxSize) {
-            width = Math.round((width * maxSize) / height);
-            height = maxSize;
+          // Calculate source dimensions to crop to 2:3 aspect ratio
+          if (img.width / img.height > 2 / 3) {
+            // Image is wider than 2:3, crop width
+            sourceWidth = img.height * (2 / 3);
+            sourceX = (img.width - sourceWidth) / 2;
+          } else if (img.width / img.height < 2 / 3) {
+            // Image is taller than 2:3, crop height
+            sourceHeight = img.width * (3 / 2);
+            sourceY = (img.height - sourceHeight) / 2;
           }
 
           // Set canvas dimensions
@@ -121,10 +127,22 @@ export default function Courses() {
 
           // Draw and compress the image on canvas
           const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(
+            img,
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            0,
+            0,
+            width,
+            height
+          );
 
-          // Get compressed image as base64 string (0.7 quality)
-          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7);
+          // Get compressed image as base64 string (0.8 quality - better quality for course covers)
+          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
 
           // Set preview and update form data
           setImagePreview(compressedBase64);
@@ -314,7 +332,8 @@ export default function Courses() {
                         <div className="image-placeholder">No Image</div>
                       )}
                       <span className={`status ${course.status}`}>
-                        {course.status}
+                        {course.status.charAt(0).toUpperCase() +
+                          course.status.slice(1)}
                       </span>
                     </div>
                     <div className="course-details">
@@ -481,8 +500,7 @@ export default function Courses() {
                     required
                   >
                     <option value="active">Active</option>
-                    <option value="draft">Draft</option>
-                    <option value="archived">Archived</option>
+                    <option value="maintenance">Maintenance</option>
                   </select>
                 </div>
               </div>
@@ -495,6 +513,10 @@ export default function Courses() {
                   accept="image/*"
                   onChange={handleImageChange}
                 />
+                <small className="resolution-guide">
+                  For best display, upload images with a resolution of 600×900
+                  pixels or higher. Recommended aspect ratio: 2:3.
+                </small>
                 {(imagePreview || formData.imageUrl) && (
                   <div className="image-preview">
                     <img
@@ -633,14 +655,9 @@ export default function Courses() {
           color: #2e7d32;
         }
 
-        .status.draft {
-          background-color: #e3f2fd;
-          color: #1565c0;
-        }
-
-        .status.archived {
-          background-color: #ffebee;
-          color: #c62828;
+        .status.maintenance {
+          background-color: #fff8e1;
+          color: #ff8f00;
         }
 
         .course-details {
@@ -806,8 +823,9 @@ export default function Courses() {
         }
 
         .image-preview img {
-          max-width: 100%;
-          max-height: 100%;
+          width: 100%;
+          height: auto;
+          max-height: 200px;
           object-fit: contain;
         }
 
@@ -850,6 +868,13 @@ export default function Courses() {
         .save-btn:disabled {
           background-color: #bdc3c7;
           cursor: not-allowed;
+        }
+
+        .resolution-guide {
+          display: block;
+          margin-top: 5px;
+          color: #777;
+          font-size: 0.8rem;
         }
       `}</style>
     </Layout>
