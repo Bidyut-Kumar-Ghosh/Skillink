@@ -206,32 +206,56 @@ export default function Dashboard() {
                 <h2>Recent Books</h2>
 
                 {recentBooks.length > 0 ? (
-                  <table className="books-table">
-                    <thead>
-                      <tr>
-                        <th>Title</th>
-                        <th>Author</th>
-                        <th>Category</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentBooks.map((book) => (
-                        <tr key={book.id}>
-                          <td>{book.title || "Unknown"}</td>
-                          <td>{book.author || "Unknown"}</td>
-                          <td>{book.category || "Unknown"}</td>
-                          <td>
-                            <span
-                              className={`status ${book.status || "available"}`}
-                            >
-                              {book.status || "Available"}
+                  <div className="books-grid-display">
+                    {recentBooks.map((book) => (
+                      <div className="book-card-mini" key={book.id}>
+                        <div className="book-cover">
+                          {book.imageUrl ? (
+                            <img src={book.imageUrl} alt={book.title} />
+                          ) : (
+                            <div className="cover-placeholder">
+                              <span>{book.title?.charAt(0) || "B"}</span>
+                            </div>
+                          )}
+                          <span
+                            className={`book-status ${
+                              book.status || "available"
+                            }`}
+                          >
+                            {book.status === "outofstock"
+                              ? "Out of Stock"
+                              : book.status || "Available"}
+                          </span>
+                        </div>
+                        <div className="book-info">
+                          <h3 className="book-title">
+                            {book.title || "Unknown"}
+                          </h3>
+                          <p className="book-author">
+                            by {book.author || "Unknown"}
+                          </p>
+                          {book.publishDate && (
+                            <p className="book-date">
+                              {new Date(book.publishDate).toLocaleDateString()}
+                            </p>
+                          )}
+                          {book.category && (
+                            <span className="book-category">
+                              {book.category}
                             </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          )}
+                          <div className="book-formats">
+                            {book.pdfData && (
+                              <span className="format pdf">PDF</span>
+                            )}
+                            {book.hasPrintedVersion && (
+                              <span className="format print">Print</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <p className="no-data">No recent books found</p>
                 )}
@@ -385,9 +409,177 @@ export default function Dashboard() {
           padding: 20px;
         }
 
+        .books-grid-display {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: 15px;
+        }
+
+        .book-card-mini {
+          display: flex;
+          flex-direction: column;
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .book-card-mini:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .book-cover {
+          position: relative;
+          height: 130px;
+          background: #f8f9fa;
+          overflow: hidden;
+        }
+
+        .book-cover img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .cover-placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+        }
+
+        .cover-placeholder span {
+          font-size: 2.5rem;
+          font-weight: bold;
+        }
+
+        .book-status {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          font-size: 0.65rem;
+          padding: 3px 6px;
+          border-radius: 4px;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .book-status.available {
+          background-color: rgba(46, 125, 50, 0.9);
+          color: white;
+        }
+
+        .book-status.outofstock {
+          background-color: rgba(230, 81, 0, 0.9);
+          color: white;
+        }
+
+        .book-info {
+          padding: 12px;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .book-title {
+          margin: 0 0 4px 0;
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: #2c3e50;
+          line-height: 1.3;
+          /* Limit to 2 lines and add ellipsis */
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .book-author {
+          margin: 0 0 4px 0;
+          font-size: 0.8rem;
+          color: #7f8c8d;
+          /* Limit to 1 line and add ellipsis */
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .book-date {
+          margin: 0 0 6px 0;
+          font-size: 0.75rem;
+          color: #95a5a6;
+        }
+
+        .book-category {
+          display: inline-block;
+          background-color: #f1f9f1;
+          color: #2c3e50;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 0.7rem;
+          margin-top: auto;
+        }
+
+        .book-formats {
+          display: flex;
+          gap: 6px;
+          margin-top: 8px;
+        }
+
+        .format {
+          font-size: 0.7rem;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-weight: 500;
+        }
+
+        .format.pdf {
+          background-color: #e3f2fd;
+          color: #1565c0;
+        }
+
+        .format.print {
+          background-color: #e8f5e9;
+          color: #2e7d32;
+        }
+
         @media (max-width: 768px) {
           .dashboard-grid {
             grid-template-columns: 1fr;
+          }
+
+          .stats-grid {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          }
+
+          .books-grid-display {
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          }
+
+          .book-cover {
+            height: 120px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .books-grid-display {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .stat-card {
+            padding: 15px;
+          }
+
+          .stat-value {
+            font-size: 1.6rem;
+          }
+
+          .book-cover {
+            height: 100px;
           }
         }
       `}</style>

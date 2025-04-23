@@ -489,6 +489,10 @@ export default function Banners() {
                     accept="image/*"
                     onChange={handleImageChange}
                   />
+                  <small className="resolution-guide">
+                    For best display, upload images with a resolution of
+                    1920×600 pixels or higher. Recommended aspect ratio: 16:5.
+                  </small>
                   {(imagePreview || formData.imageUrl) && (
                     <div className="image-preview">
                       <img
@@ -871,6 +875,13 @@ export default function Banners() {
           font-size: 0.8rem;
           font-weight: 500;
           z-index: 2;
+        }
+
+        .resolution-guide {
+          display: block;
+          margin-top: 5px;
+          color: #7f8c8d;
+          font-size: 0.8rem;
         }
 
         @media (max-width: 768px) {

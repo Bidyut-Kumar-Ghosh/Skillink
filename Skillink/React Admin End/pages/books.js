@@ -27,11 +27,12 @@ export default function Books() {
     author: "",
     description: "",
     category: "",
-    isbn: "",
     price: "",
-    publishYear: "",
-    publisher: "",
+    publishDate: "",
     status: "available",
+    hasPrintedVersion: false,
+    printedBookPrice: "",
+    pdfData: null,
   });
 
   useEffect(() => {
@@ -73,11 +74,16 @@ export default function Books() {
     if (!formData.author.trim()) return "Author name is required";
     if (!formData.description.trim()) return "Description is required";
     if (!formData.category.trim()) return "Category is required";
-    if (!formData.isbn.trim()) return "ISBN is required";
     if (formData.price === "" || formData.price < 0)
       return "Valid price is required";
-    if (!formData.publishYear.trim()) return "Publication year is required";
-    if (!formData.publisher.trim()) return "Publisher is required";
+    if (!formData.publishDate) return "Publication date is required";
+    if (
+      formData.hasPrintedVersion &&
+      (formData.printedBookPrice === "" || formData.printedBookPrice < 0)
+    )
+      return "Valid printed book price is required";
+    if (!formData.imageUrl && !bookImage) return "Book cover image is required";
+    if (!formData.pdfData && !isEditMode) return "PDF file is required";
     return null;
   };
 
@@ -152,18 +158,41 @@ export default function Books() {
     setError(null);
   };
 
+  const handlePdfUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (file.type !== "application/pdf") {
+        setError("Please upload a PDF file");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFormData({
+          ...formData,
+          pdfData: e.target.result,
+        });
+      };
+
+      reader.readAsDataURL(file);
+      setError(null);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       title: "",
       author: "",
       description: "",
       category: "",
-      isbn: "",
       price: "",
-      publishYear: "",
-      publisher: "",
+      publishDate: "",
       status: "available",
       imageUrl: null,
+      hasPrintedVersion: false,
+      printedBookPrice: "",
+      pdfData: null,
     });
     setBookImage(null);
     setImagePreview("");
@@ -177,6 +206,11 @@ export default function Books() {
         ...book,
         price: book.price?.toString() || "",
         imageUrl: book.imageUrl || null,
+        hasPrintedVersion: book.hasPrintedVersion || false,
+        printedBookPrice: book.printedBookPrice?.toString() || "",
+        publishDate: book.publishDate
+          ? new Date(book.publishDate).toISOString().split("T")[0]
+          : "",
       });
       setImagePreview(book.imageUrl || "");
       setIsEditMode(true);
@@ -204,9 +238,14 @@ export default function Books() {
       const formattedData = {
         ...formData,
         price: formData.price ? parseFloat(formData.price) : 0,
+        printedBookPrice:
+          formData.hasPrintedVersion && formData.printedBookPrice
+            ? parseFloat(formData.printedBookPrice)
+            : 0,
       };
 
       // The image is already stored in formData.imageUrl as a base64 string
+      // PDF is stored in formData.pdfData as a base64 string
       // No need to upload to Firebase Storage
 
       const bookData = {
@@ -273,8 +312,7 @@ export default function Books() {
     (book) =>
       book.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       book.author?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      book.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      book.isbn?.toLowerCase().includes(searchTerm.toLowerCase())
+      book.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -324,17 +362,31 @@ export default function Books() {
                     <div className="book-details">
                       <h3>{book.title}</h3>
                       <p className="author">by {book.author || "Unknown"}</p>
-                      <p className="isbn">ISBN: {book.isbn}</p>
                       <p className="category">{book.category}</p>
                       <div className="book-meta">
-                        <span className="publisher">{book.publisher}</span>
-                        <span className="year">{book.publishYear}</span>
+                        <span className="date">
+                          {book.publishDate
+                            ? new Date(book.publishDate).toLocaleDateString()
+                            : "No date"}
+                        </span>
                         <span className="price">
                           $
                           {typeof book.price === "number"
                             ? book.price.toFixed(2)
                             : "0.00"}
                         </span>
+                      </div>
+                      <div className="format-options">
+                        {book.pdfData && (
+                          <span className="format-badge pdf">
+                            PDF Available
+                          </span>
+                        )}
+                        {book.hasPrintedVersion && (
+                          <span className="format-badge print">
+                            Print: ${book.printedBookPrice.toFixed(2)}
+                          </span>
+                        )}
                       </div>
                       <div className="card-actions">
                         <button
@@ -396,12 +448,12 @@ export default function Books() {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="isbn">ISBN *</label>
+                  <label htmlFor="category">Category *</label>
                   <input
                     type="text"
-                    id="isbn"
-                    name="isbn"
-                    value={formData.isbn}
+                    id="category"
+                    name="category"
+                    value={formData.category}
                     onChange={handleInputChange}
                     required
                   />
@@ -422,40 +474,13 @@ export default function Books() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="category">Category *</label>
+                  <label htmlFor="publishDate">Publication Date *</label>
                   <input
-                    type="text"
-                    id="category"
-                    name="category"
-                    value={formData.category}
+                    type="date"
+                    id="publishDate"
+                    name="publishDate"
+                    value={formData.publishDate}
                     onChange={handleInputChange}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="publisher">Publisher *</label>
-                  <input
-                    type="text"
-                    id="publisher"
-                    name="publisher"
-                    value={formData.publisher}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="publishYear">Publication Year *</label>
-                  <input
-                    type="text"
-                    id="publishYear"
-                    name="publishYear"
-                    value={formData.publishYear}
-                    onChange={handleInputChange}
-                    placeholder="e.g. 2023"
                     required
                   />
                 </div>
@@ -485,13 +510,50 @@ export default function Books() {
                   required
                 >
                   <option value="available">Available</option>
-                  <option value="borrowed">Borrowed</option>
-                  <option value="maintenance">Maintenance</option>
+                  <option value="outofstock">Out of Stock</option>
                 </select>
               </div>
 
+              <div className="form-group checkbox-group">
+                <input
+                  type="checkbox"
+                  id="hasPrintedVersion"
+                  name="hasPrintedVersion"
+                  checked={formData.hasPrintedVersion}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      hasPrintedVersion: e.target.checked,
+                    })
+                  }
+                />
+                <label htmlFor="hasPrintedVersion">Offer printed version</label>
+              </div>
+
+              {formData.hasPrintedVersion && (
+                <div className="form-group">
+                  <label htmlFor="printedBookPrice">
+                    Printed Book Price ($) *
+                  </label>
+                  <input
+                    type="number"
+                    id="printedBookPrice"
+                    name="printedBookPrice"
+                    value={formData.printedBookPrice}
+                    onChange={handleInputChange}
+                    min="0"
+                    step="0.01"
+                    required={formData.hasPrintedVersion}
+                  />
+                  <small>
+                    Price for the physical copy (must be higher than the digital
+                    version)
+                  </small>
+                </div>
+              )}
+
               <div className="form-group">
-                <label htmlFor="bookImage">Book Cover Image</label>
+                <label htmlFor="bookImage">Book Cover Image *</label>
                 <input
                   type="file"
                   id="bookImage"
@@ -504,6 +566,29 @@ export default function Books() {
                       src={imagePreview || formData.imageUrl}
                       alt="Preview"
                     />
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="pdfFile">
+                  Book PDF File {!isEditMode && "*"}
+                </label>
+                <input
+                  type="file"
+                  id="pdfFile"
+                  accept="application/pdf"
+                  onChange={handlePdfUpload}
+                />
+                {isEditMode && !formData.pdfData && (
+                  <small>
+                    Current PDF file will be preserved unless a new one is
+                    uploaded
+                  </small>
+                )}
+                {formData.pdfData && (
+                  <div className="pdf-status">
+                    <span className="success-text">✓ PDF file uploaded</span>
                   </div>
                 )}
               </div>
@@ -636,14 +721,9 @@ export default function Books() {
           color: #2e7d32;
         }
 
-        .status.borrowed {
-          background-color: #e3f2fd;
-          color: #1565c0;
-        }
-
-        .status.maintenance {
-          background-color: #ffebee;
-          color: #c62828;
+        .status.outofstock {
+          background-color: #fff3e0;
+          color: #e65100;
         }
 
         .book-details {
@@ -660,12 +740,6 @@ export default function Books() {
           color: #7f8c8d;
           font-size: 0.9rem;
           margin-bottom: 4px;
-        }
-
-        .isbn {
-          color: #7f8c8d;
-          font-size: 0.8rem;
-          margin-bottom: 8px;
         }
 
         .category {
@@ -685,14 +759,37 @@ export default function Books() {
           font-size: 0.85rem;
         }
 
-        .publisher,
-        .year {
+        .date {
           color: #7f8c8d;
         }
 
         .price {
           font-weight: bold;
           color: #2c3e50;
+        }
+
+        .format-options {
+          display: flex;
+          gap: 8px;
+          margin: 10px 0;
+          flex-wrap: wrap;
+        }
+
+        .format-badge {
+          font-size: 0.8rem;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-weight: 500;
+        }
+
+        .format-badge.pdf {
+          background-color: #e3f2fd;
+          color: #1565c0;
+        }
+
+        .format-badge.print {
+          background-color: #e8f5e9;
+          color: #2e7d32;
         }
 
         .card-actions {
@@ -859,6 +956,26 @@ export default function Books() {
         .save-btn:disabled {
           background-color: #bdc3c7;
           cursor: not-allowed;
+        }
+
+        .checkbox-group {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+          width: auto;
+          margin: 0;
+        }
+
+        .pdf-status {
+          margin-top: 8px;
+        }
+
+        .success-text {
+          color: #2ecc71;
+          font-weight: 500;
         }
       `}</style>
     </Layout>
