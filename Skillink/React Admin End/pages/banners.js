@@ -23,14 +23,8 @@ export default function Banners() {
   const [imagePreview, setImagePreview] = useState("");
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
-    title: "",
-    heading: "",
-    subheading: "",
-    description: "",
     position: 0,
     imageUrl: null,
-    offerText: "",
-    hasOffer: false,
   });
 
   useEffect(() => {
@@ -68,7 +62,6 @@ export default function Banners() {
   };
 
   const validateForm = () => {
-    if (!formData.title.trim()) return "Banner title is required";
     if (formData.position === "" || isNaN(formData.position))
       return "Valid position is required";
     if (!formData.imageUrl && !bannerImage) return "Banner image is required";
@@ -149,14 +142,8 @@ export default function Banners() {
 
   const resetForm = () => {
     setFormData({
-      title: "",
-      heading: "",
-      subheading: "",
-      description: "",
       position: banners.length,
       imageUrl: null,
-      offerText: "",
-      hasOffer: false,
     });
     setIsEditMode(false);
     setBannerImage(null);
@@ -167,14 +154,8 @@ export default function Banners() {
   const openEditModal = (banner) => {
     setFormData({
       id: banner.id,
-      title: banner.title || "",
-      heading: banner.heading || "",
-      subheading: banner.subheading || "",
-      description: banner.description || "",
       position: banner.position || 0,
       imageUrl: banner.imageUrl || null,
-      offerText: banner.offerText || "",
-      hasOffer: banner.hasOffer || false,
     });
     setImagePreview(banner.imageUrl || "");
     setIsEditMode(true);
@@ -260,9 +241,11 @@ export default function Banners() {
   };
 
   // Filter banners based on search term
-  const filteredBanners = banners.filter((banner) =>
-    banner.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredBanners = banners.filter((banner) => {
+    if (!searchTerm) return true;
+    // Just filter on ID since we removed title
+    return banner.id.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <Layout>
@@ -310,32 +293,11 @@ export default function Banners() {
                   <div className="banner-card" key={banner.id}>
                     <div className="banner-image">
                       {banner.imageUrl ? (
-                        <img src={banner.imageUrl} alt={banner.title} />
+                        <img src={banner.imageUrl} alt="Banner" />
                       ) : (
                         <div className="image-placeholder">No Image</div>
                       )}
                       <span className="position">{banner.position}</span>
-                      {banner.hasOffer && banner.offerText && (
-                        <span className="offer-badge">{banner.offerText}</span>
-                      )}
-                    </div>
-                    <div className="banner-details">
-                      <h3>{banner.title}</h3>
-                      {banner.heading && (
-                        <p className="heading">
-                          <strong>Heading:</strong> {banner.heading}
-                        </p>
-                      )}
-                      {banner.subheading && (
-                        <p className="subheading">
-                          <strong>Subheading:</strong> {banner.subheading}
-                        </p>
-                      )}
-                      {banner.description && (
-                        <p className="description">
-                          <strong>Description:</strong> {banner.description}
-                        </p>
-                      )}
                     </div>
                     <div className="banner-actions">
                       <button
@@ -382,102 +344,19 @@ export default function Banners() {
               {error && <div className="error-message">{error}</div>}
 
               <form onSubmit={handleSubmit}>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="title">Banner Title *</label>
-                    <input
-                      type="text"
-                      id="title"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="position">Position *</label>
-                    <input
-                      type="number"
-                      id="position"
-                      name="position"
-                      min="0"
-                      value={formData.position}
-                      onChange={handleInputChange}
-                      required
-                    />
-                    <small>Lower numbers appear first</small>
-                  </div>
-                </div>
-
                 <div className="form-group">
-                  <label htmlFor="heading">Heading</label>
+                  <label htmlFor="position">Position *</label>
                   <input
-                    type="text"
-                    id="heading"
-                    name="heading"
-                    value={formData.heading}
+                    type="number"
+                    id="position"
+                    name="position"
+                    min="0"
+                    value={formData.position}
                     onChange={handleInputChange}
+                    required
                   />
+                  <small>Lower numbers appear first</small>
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="subheading">Sub Heading</label>
-                  <input
-                    type="text"
-                    id="subheading"
-                    name="subheading"
-                    value={formData.subheading}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="description">Description</label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows="3"
-                  ></textarea>
-                </div>
-
-                <div className="form-group">
-                  <div className="checkbox-group">
-                    <input
-                      type="checkbox"
-                      id="hasOffer"
-                      name="hasOffer"
-                      checked={formData.hasOffer}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          hasOffer: e.target.checked,
-                        })
-                      }
-                    />
-                    <label htmlFor="hasOffer">This banner has an offer</label>
-                  </div>
-                </div>
-
-                {formData.hasOffer && (
-                  <div className="form-group">
-                    <label htmlFor="offerText">Offer Text *</label>
-                    <input
-                      type="text"
-                      id="offerText"
-                      name="offerText"
-                      value={formData.offerText}
-                      onChange={handleInputChange}
-                      required={formData.hasOffer}
-                      placeholder="e.g., 20% OFF | Limited Time Offer"
-                    />
-                    <small>
-                      This text will be displayed as a special offer badge
-                    </small>
-                  </div>
-                )}
 
                 <div className="form-group">
                   <label htmlFor="bannerImage">
@@ -512,6 +391,19 @@ export default function Banners() {
                   >
                     Cancel
                   </button>
+                  {isEditMode && (
+                    <button
+                      type="button"
+                      className="delete-btn-modal"
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        handleDeleteBanner(formData.id);
+                      }}
+                      disabled={submitting}
+                    >
+                      Delete
+                    </button>
+                  )}
                   <button
                     type="submit"
                     className="save-btn"
@@ -627,29 +519,10 @@ export default function Banners() {
           font-weight: 500;
         }
 
-        .banner-details {
-          padding: 15px;
-        }
-
-        .banner-details h3 {
-          margin: 0 0 10px 0;
-          color: #2c3e50;
-        }
-
-        .heading,
-        .subheading,
-        .description {
-          margin: 0 0 10px 0;
-          color: #7f8c8d;
-          font-size: 0.9rem;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
         .banner-actions {
           display: flex;
           justify-content: flex-end;
-          padding: 0 15px 15px;
+          padding: 15px;
           gap: 10px;
         }
 
@@ -738,6 +611,7 @@ export default function Banners() {
           justify-content: center;
           align-items: center;
           z-index: 1000;
+          pointer-events: all;
         }
 
         .modal-content {
@@ -749,6 +623,8 @@ export default function Banners() {
           max-height: 90vh;
           overflow-y: auto;
           position: relative;
+          pointer-events: auto;
+          z-index: 1001;
         }
 
         .modal-content h2 {
@@ -764,12 +640,6 @@ export default function Banners() {
           font-size: 24px;
           cursor: pointer;
           color: #7f8c8d;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 15px;
         }
 
         .form-group {
@@ -820,7 +690,8 @@ export default function Banners() {
         }
 
         .cancel-btn,
-        .save-btn {
+        .save-btn,
+        .delete-btn-modal {
           padding: 10px 20px;
           border: none;
           border-radius: 4px;
@@ -838,6 +709,15 @@ export default function Banners() {
           background-color: #e9ecef;
         }
 
+        .delete-btn-modal {
+          background-color: #ffebee;
+          color: #c62828;
+        }
+
+        .delete-btn-modal:hover {
+          background-color: #ffcdd2;
+        }
+
         .save-btn {
           background-color: #5468ff;
           color: white;
@@ -851,30 +731,6 @@ export default function Banners() {
         .cancel-btn:disabled {
           opacity: 0.7;
           cursor: not-allowed;
-        }
-
-        .checkbox-group {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-          width: auto;
-          margin-right: 5px;
-        }
-
-        .offer-badge {
-          position: absolute;
-          top: 40px;
-          left: 10px;
-          background-color: #ff3366;
-          color: white;
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 0.8rem;
-          font-weight: 500;
-          z-index: 2;
         }
 
         .resolution-guide {
@@ -898,10 +754,6 @@ export default function Banners() {
 
           .search-box input {
             width: 100%;
-          }
-
-          .form-row {
-            grid-template-columns: 1fr;
           }
         }
       `}</style>
