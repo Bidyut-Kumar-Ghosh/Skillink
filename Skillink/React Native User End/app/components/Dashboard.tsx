@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import {
@@ -72,9 +72,15 @@ interface CategoryCourses {
 // Define the type for the Ionicons name prop
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-const Dashboard = () => {
+// Add a prop to customize the component's rendering
+interface DashboardProps {
+    isNested?: boolean;
+}
+
+const Dashboard = ({ isNested = false }: DashboardProps) => {
     const { user, isLoggedIn, loading } = useAuth();
     const { theme, isDarkMode } = useTheme();
+    const currentPath = usePathname();
     const [storageUsed, setStorageUsed] = useState('2.8');
     const [totalStorage, setTotalStorage] = useState('10');
     const [firstName, setFirstName] = useState('');
@@ -298,6 +304,14 @@ const Dashboard = () => {
         router.push('/profile');
     };
 
+    const navigateToMyLearning = () => {
+        router.push('/learning');
+    };
+
+    const navigateToWishlist = () => {
+        router.push('/wishlist');
+    };
+
     // Update the renderSliderItem function
     const renderSliderItem = ({ item, index }: { item: SlideItem; index: number }) => {
         // Calculate animation values for current item
@@ -313,11 +327,6 @@ const Dashboard = () => {
             extrapolate: 'clamp'
         });
 
-        const rotate = rotateAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: ['0deg', '360deg']
-        });
-
         // Determine if we should show image from Firebase or use gradient background
         const useImageBackground = !!item.imageUrl;
 
@@ -328,51 +337,21 @@ const Dashboard = () => {
                     { transform: [{ scale }] }
                 ]}
             >
-                <View style={[styles.sliderItem]}>
+                <View style={[styles.sliderItem, { padding: 0 }]}>
                     {useImageBackground ? (
-                        // Enhanced image display with better quality settings
-                        <View style={styles.imageContainer}>
-                            <Image
-                                source={{ uri: item.imageUrl }}
-                                style={styles.bannerImage}
-                                resizeMode="cover"
-                            />
-                            {/* Gradient overlay for better text visibility over image */}
-                            <LinearGradient
-                                colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.6)']}
-                                style={styles.gradientOverlay}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 0, y: 1 }}
-                            />
-                        </View>
+                        // Image-only display without any overlays
+                        <Image
+                            source={{ uri: item.imageUrl }}
+                            style={styles.bannerImageFull}
+                            resizeMode="cover"
+                        />
                     ) : (
-                        // Use gradient background for default slides
+                        // Use gradient background for default slides (fallback)
                         <View style={[
                             StyleSheet.absoluteFillObject,
                             { backgroundColor: item.gradientColors[0] }
                         ]} />
                     )}
-
-                    {/* Semi-transparent overlay for better text readability (for non-image backgrounds) */}
-                    {!useImageBackground && <View style={styles.sliderGradientOverlay} />}
-
-                    <View style={styles.sliderContent}>
-                        {!useImageBackground && (
-                            <Animated.View style={[
-                                styles.sliderIconContainer,
-                                { transform: [{ rotate }] }
-                            ]}>
-                                <Ionicons name={item.icon as any} size={38} color="#FFFFFF" />
-                            </Animated.View>
-                        )}
-                        <View style={[
-                            styles.sliderTextContainer,
-                            useImageBackground && styles.imageTextContainer
-                        ]}>
-                            <Text style={styles.sliderTitle}>{item.title}</Text>
-                            <Text style={styles.sliderSubtitle}>{item.subtitle}</Text>
-                        </View>
-                    </View>
                 </View>
             </Animated.View>
         );
@@ -884,6 +863,39 @@ const Dashboard = () => {
         router.push(`/course/${courseId}`);
     };
 
+    // If isNested is true, only render the bottom navigation part
+    if (isNested) {
+        return (
+            <View style={[styles.bottomNavContainer, isDarkMode && styles.darkBottomNav]}>
+                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/')}>
+                    <Ionicons name="home" size={24} color={currentPath === '/' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Home</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem} onPress={navigateToSearch}>
+                    <Ionicons name="search" size={24} color={currentPath === '/search' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/search' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Search</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem} onPress={navigateToMyLearning}>
+                    <Ionicons name="play-circle" size={24} color={currentPath === '/learning' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/learning' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>My learning</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem} onPress={navigateToWishlist}>
+                    <Ionicons name="heart" size={24} color={currentPath === '/wishlist' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/wishlist' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Wishlist</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem} onPress={navigateToProfile}>
+                    <Ionicons name="person" size={24} color={currentPath === '/profile' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/profile' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Account</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    // Otherwise, render the full dashboard with all its content
     return (
         <SafeAreaView style={[styles.container, isDarkMode && styles.darkBackground]}>
             <View style={styles.header}>
@@ -1128,29 +1140,29 @@ const Dashboard = () => {
             </ScrollView>
 
             <View style={[styles.bottomNavContainer, isDarkMode && styles.darkBottomNav]}>
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="home" size={24} color="#3366FF" />
-                    <Text style={styles.navTextActive}>Home</Text>
+                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/')}>
+                    <Ionicons name="home" size={24} color={currentPath === '/' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Home</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToSearch}>
-                    <Ionicons name="search" size={24} color={isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={[styles.navText, isDarkMode && styles.darkNavText]}>Search</Text>
+                    <Ionicons name="search" size={24} color={currentPath === '/search' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/search' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Search</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="play-circle" size={24} color={isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={[styles.navText, isDarkMode && styles.darkNavText]}>My learning</Text>
+                <TouchableOpacity style={styles.navItem} onPress={navigateToMyLearning}>
+                    <Ionicons name="play-circle" size={24} color={currentPath === '/learning' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/learning' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>My learning</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.navItem}>
-                    <Ionicons name="heart" size={24} color={isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={[styles.navText, isDarkMode && styles.darkNavText]}>Wishlist</Text>
+                <TouchableOpacity style={styles.navItem} onPress={navigateToWishlist}>
+                    <Ionicons name="heart" size={24} color={currentPath === '/wishlist' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/wishlist' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Wishlist</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToProfile}>
-                    <Ionicons name="person" size={24} color={isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={[styles.navText, isDarkMode && styles.darkNavText]}>Account</Text>
+                    <Ionicons name="person" size={24} color={currentPath === '/profile' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/profile' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Account</Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -1297,7 +1309,6 @@ const styles = StyleSheet.create({
         height: '100%',
         borderRadius: 20,
         overflow: 'hidden',
-        padding: 20,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -1307,59 +1318,6 @@ const styles = StyleSheet.create({
         shadowRadius: 15,
         elevation: 10,
         position: 'relative',
-    },
-    sliderGradientOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        backfaceVisibility: 'hidden',
-    },
-    sliderContent: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        zIndex: 2,
-    },
-    sliderIconContainer: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        backgroundColor: 'rgba(255, 255, 255, 0.25)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 15,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 5,
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.3)',
-    },
-    sliderTextContainer: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    sliderTitle: {
-        fontSize: 26,
-        fontWeight: 'bold',
-        color: '#FFFFFF',
-        marginBottom: 8,
-        textShadowColor: 'rgba(0, 0, 0, 0.2)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 2,
-    },
-    sliderSubtitle: {
-        fontSize: 16,
-        color: '#FFFFFF',
-        opacity: 0.9,
-        textShadowColor: 'rgba(0, 0, 0, 0.2)',
-        textShadowOffset: { width: 0.5, height: 0.5 },
-        textShadowRadius: 1,
     },
     notificationBanner: {
         flexDirection: 'row',
@@ -1766,23 +1724,13 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     imageContainer: {
-        ...StyleSheet.absoluteFillObject,
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    bannerImage: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 20,
+        // Empty or remove
     },
     gradientOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        borderRadius: 20,
+        // Empty or remove
     },
     imageTextContainer: {
-        marginBottom: 10, // Give more space at bottom when on an image
-        width: '100%',
-        paddingRight: 10,
+        // Empty or remove
     },
     courseImage: {
         width: '100%',
@@ -1997,6 +1945,11 @@ const styles = StyleSheet.create({
     },
     closeNotificationButton: {
         padding: 5,
+    },
+    bannerImageFull: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 20,
     },
 });
 

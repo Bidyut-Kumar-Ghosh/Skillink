@@ -38,6 +38,7 @@ import { useFonts } from "expo-font";
 import LogoutDialog from "@/app/components/LogoutDialog";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
+import { LinearGradient } from "expo-linear-gradient";
 
 const { width, height } = Dimensions.get("window");
 
@@ -906,111 +907,6 @@ function Profile() {
               color={isDarkMode ? "#5D6986" : "#CBD5E0"}
             />
           </TouchableOpacity>
-
-          <View
-            style={[
-              styles.itemDivider,
-              { backgroundColor: isDarkMode ? "#1E1E1E" : "#F1F5F9" },
-            ]}
-          />
-
-          <TouchableOpacity
-            style={styles.profileMenuItem}
-            onPress={() => {
-              // Help functionality
-              Alert.alert(
-                "Help & Support",
-                "For assistance, please contact our support team at support@skillink.com",
-                [{ text: "OK", onPress: () => console.log("OK Pressed") }]
-              );
-            }}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[
-                styles.profileMenuIconContainer,
-                { backgroundColor: isDarkMode ? "#1A202C" : "#F0F7FF" },
-              ]}
-            >
-              <Ionicons
-                name={profileItemIcons.help}
-                size={20}
-                color={isDarkMode ? "#64B5F6" : "#2196F3"}
-              />
-            </View>
-            <View style={styles.profileMenuTextContainer}>
-              <Text
-                style={[
-                  styles.profileMenuTitle,
-                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
-                ]}
-              >
-                Help
-              </Text>
-              <Text
-                style={[
-                  styles.profileMenuDescription,
-                  { color: isDarkMode ? "#8F96AB" : "#718096" },
-                ]}
-              >
-                Contact support
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={isDarkMode ? "#5D6986" : "#CBD5E0"}
-            />
-          </TouchableOpacity>
-
-          <View
-            style={[
-              styles.itemDivider,
-              { backgroundColor: isDarkMode ? "#1E1E1E" : "#F1F5F9" },
-            ]}
-          />
-
-          <TouchableOpacity
-            style={styles.profileMenuItem}
-            onPress={() => router.push("/settings")}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[
-                styles.profileMenuIconContainer,
-                { backgroundColor: isDarkMode ? "#1A202C" : "#F5F3FF" },
-              ]}
-            >
-              <Ionicons
-                name={profileItemIcons.settings}
-                size={20}
-                color={isDarkMode ? "#B794F6" : "#7C4DFF"}
-              />
-            </View>
-            <View style={styles.profileMenuTextContainer}>
-              <Text
-                style={[
-                  styles.profileMenuTitle,
-                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
-                ]}
-              >
-                Settings
-              </Text>
-              <Text
-                style={[
-                  styles.profileMenuDescription,
-                  { color: isDarkMode ? "#8F96AB" : "#718096" },
-                ]}
-              >
-                Customize your app preferences
-              </Text>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={isDarkMode ? "#5D6986" : "#CBD5E0"}
-            />
-          </TouchableOpacity>
         </View>
       </View>
     );
@@ -1141,15 +1037,40 @@ function Profile() {
 
   // Function to render the featured content carousel
   const renderFeaturedContentCarousel = () => {
+    const scrollViewRef = useRef(null);
+    const [containerWidth, setContainerWidth] = useState(width - 40);
+    const slideWidth = containerWidth - 10; // Account for container padding and margins
+
+    // Function to scroll to a specific slide
+    const scrollToSlide = (index) => {
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({
+          x: index * slideWidth,
+          animated: true,
+        });
+        setCarouselActiveIndex(index);
+      }
+    };
+
+    // Auto scrolling effect
     useEffect(() => {
       const interval = setInterval(() => {
-        setCarouselActiveIndex((current) =>
-          current === featuredCarouselContent.length - 1 ? 0 : current + 1
-        );
-      }, 3000);
+        const nextIndex =
+          carouselActiveIndex === featuredCarouselContent.length - 1
+            ? 0
+            : carouselActiveIndex + 1;
+
+        scrollToSlide(nextIndex);
+      }, 4000);
 
       return () => clearInterval(interval);
-    }, []);
+    }, [carouselActiveIndex, slideWidth]);
+
+    // Measure container width on layout
+    const handleContainerLayout = (event) => {
+      const { width: containerWidth } = event.nativeEvent.layout;
+      setContainerWidth(containerWidth);
+    };
 
     return (
       <Animated.View
@@ -1157,13 +1078,24 @@ function Profile() {
           styles.carouselContainer,
           { backgroundColor: isDarkMode ? "#121212" : "#FFFFFF" },
         ]}
+        onLayout={handleContainerLayout}
       >
         <View style={styles.profileHeader}>
-          <Ionicons name="star" size={20} color="#3366FF" />
+          <View
+            style={[
+              styles.achievementIconContainer,
+              { backgroundColor: isDarkMode ? "#252836" : "#f0f4ff" },
+            ]}
+          >
+            <Ionicons name="star" size={20} color="#3366FF" />
+          </View>
           <Text
             style={[
               styles.profileTitle,
-              { color: isDarkMode ? "#FFFFFF" : "#333333" },
+              {
+                color: isDarkMode ? "#FFFFFF" : "#333333",
+                marginLeft: 10,
+              },
             ]}
           >
             FEATURED CONTENT
@@ -1171,22 +1103,26 @@ function Profile() {
         </View>
 
         <ScrollView
+          ref={scrollViewRef}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={slideWidth}
+          snapToAlignment="start"
           onMomentumScrollEnd={(event) => {
-            const slideWidth = width - 40; // Container padding
             const index = Math.round(
               event.nativeEvent.contentOffset.x / slideWidth
             );
             setCarouselActiveIndex(index);
           }}
           style={styles.carouselScroll}
+          contentContainerStyle={styles.carouselScrollContent}
         >
           {featuredCarouselContent.map((item, index) => (
             <TouchableOpacity
               key={item.id}
-              style={styles.carouselSlide}
+              style={[styles.carouselSlide, { width: slideWidth }]}
               activeOpacity={0.9}
               onPress={() => {
                 Alert.alert(item.title, item.description);
@@ -1196,11 +1132,18 @@ function Profile() {
                 source={item.image}
                 style={styles.carouselImage}
                 resizeMode="cover"
+                defaultSource={require("@/assets/images/background-image.png")}
+              />
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.7)", "rgba(0,0,0,0.9)"]}
+                style={styles.carouselGradient}
               />
               <View style={styles.carouselTextOverlay}>
-                <Text style={styles.carouselTitle}>{item.title}</Text>
-                <Text style={styles.carouselDescription}>
-                  {item.description}
+                <Text style={styles.carouselTitle} numberOfLines={1}>
+                  {item.title || "Featured Content"}
+                </Text>
+                <Text style={styles.carouselDescription} numberOfLines={2}>
+                  {item.description || "Check out our featured content"}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -1209,17 +1152,24 @@ function Profile() {
 
         <View style={styles.carouselDots}>
           {featuredCarouselContent.map((_, index) => (
-            <View
+            <TouchableOpacity
               key={index}
-              style={[
-                styles.carouselDot,
-                carouselActiveIndex === index ? styles.carouselDotActive : null,
-                {
-                  backgroundColor:
-                    carouselActiveIndex === index ? "#3366FF" : "#D0D0D0",
-                },
-              ]}
-            />
+              onPress={() => scrollToSlide(index)}
+              style={styles.dotTouchable}
+            >
+              <View
+                style={[
+                  styles.carouselDot,
+                  carouselActiveIndex === index
+                    ? styles.carouselDotActive
+                    : null,
+                  {
+                    backgroundColor:
+                      carouselActiveIndex === index ? "#3366FF" : "#D0D0D0",
+                  },
+                ]}
+              />
+            </TouchableOpacity>
           ))}
         </View>
       </Animated.View>
@@ -1241,74 +1191,71 @@ function Profile() {
 
   return (
     <SafeAreaView
-      style={[
-        styles.container,
-        isDarkMode
-          ? { backgroundColor: "#000000" }
-          : { backgroundColor: "#F8F9FA" },
-      ]}
+      style={[styles.container, isDarkMode && { backgroundColor: "#000000" }]}
     >
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+      <StatusBar
+        backgroundColor={isDarkMode ? "#000000" : "#FFFFFF"}
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+      />
+
+      <Animated.View
+        style={[
+          styles.header,
+          isDarkMode && styles.darkHeader,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
       >
-        <View
-          style={[
-            styles.backgroundContainer,
-            isDarkMode
-              ? { backgroundColor: "#000000" }
-              : { backgroundColor: "#F8F9FA" },
-          ]}
-        >
-          <View
-            style={[
-              styles.header,
-              {
-                backgroundColor: isDarkMode ? "#121212" : "#3366FF",
-                borderBottomColor: isDarkMode ? "#1E1E1E" : "transparent",
-              },
-            ]}
+        <View style={styles.headerContent}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={isDarkMode ? "#FFFFFF" : "#000000"}
+            />
+          </TouchableOpacity>
+          <Text
+            style={[styles.headerTitle, isDarkMode && { color: "#FFFFFF" }]}
           >
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBackPress}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>MY PROFILE</Text>
-            <View style={styles.headerRight} />
-          </View>
-
-          <Animated.ScrollView
-            contentContainerStyle={styles.scrollContainer}
-            style={{
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            }}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={isDarkMode ? "#FFFFFF" : "#3366FF"}
-              />
-            }
-          >
-            {avatarSection()}
-
-            {/* Add the new profile menu items section */}
-            {renderProfileMenuItems()}
-
-            {/* Add the achievements section */}
-            {renderAchievements()}
-
-            {/* Featured Content Carousel */}
-            {renderFeaturedContentCarousel()}
-          </Animated.ScrollView>
+            Profile
+          </Text>
+          <TouchableOpacity onPress={() => router.push("/settings")}>
+            <Ionicons
+              name="settings-outline"
+              size={24}
+              color={isDarkMode ? "#FFFFFF" : "#000000"}
+            />
+          </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </Animated.View>
+
+      <Animated.ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        style={{
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={isDarkMode ? "#FFFFFF" : "#3366FF"}
+          />
+        }
+      >
+        {avatarSection()}
+
+        {/* Add the new profile menu items section */}
+        {renderProfileMenuItems()}
+
+        {/* Add the achievements section */}
+        {renderAchievements()}
+
+        {/* Featured Content Carousel */}
+        {renderFeaturedContentCarousel()}
+      </Animated.ScrollView>
 
       <LogoutDialog
         visible={showLogoutDialog}
@@ -1322,44 +1269,37 @@ function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1A2138",
-  },
-  backgroundContainer: {
-    flex: 1,
-    backgroundColor: "#1A2138",
+    backgroundColor: "#F5F5F5",
   },
   header: {
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "android" ? 15 : 10,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  darkHeader: {
+    backgroundColor: "#121212",
+    borderBottomColor: "#2A2A2A",
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 40 : 20,
-    paddingBottom: 20,
-    backgroundColor: "#1A2138",
-    borderBottomWidth: 1,
-    borderBottomColor: "#3D435C",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 4,
   },
   backButton: {
-    padding: 10,
-    borderRadius: 20,
+    padding: 5,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "bold",
-    color: "#FFFFFF",
-    letterSpacing: 1,
-    fontFamily: "Inter-SemiBold",
-  },
-  headerRight: {
-    width: 40,
+    color: "#333333",
   },
   scrollContainer: {
     paddingHorizontal: 20,
@@ -1769,7 +1709,7 @@ const styles = StyleSheet.create({
   },
   carouselContainer: {
     backgroundColor: "#242B42",
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     shadowColor: "#000",
@@ -1780,20 +1720,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 2,
+    overflow: "hidden",
   },
   carouselScroll: {
     marginTop: 15,
   },
+  carouselScrollContent: {
+    paddingVertical: 5,
+  },
   carouselSlide: {
-    width: width - 80, // Account for container padding and spacing
-    height: 200,
+    height: 180,
     borderRadius: 10,
-    marginRight: 20,
     overflow: "hidden",
     position: "relative",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3.84,
+    elevation: 4,
+    backgroundColor: "#1A2138",
   },
   carouselImage: {
     width: "100%",
+    height: "100%",
+  },
+  carouselGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: "100%",
   },
   carouselTextOverlay: {
@@ -1802,24 +1760,36 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 15,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "transparent",
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
   },
   carouselTitle: {
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 5,
+    marginBottom: 6,
     fontFamily: "Inter-SemiBold",
+    textShadowColor: "rgba(0, 0, 0, 0.9)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   carouselDescription: {
     color: "#FFFFFF",
     fontSize: 14,
     fontFamily: "Inter-Regular",
+    textShadowColor: "rgba(0, 0, 0, 0.9)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+    lineHeight: 18,
   },
   carouselDots: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 15,
+  },
+  dotTouchable: {
+    padding: 5,
   },
   carouselDot: {
     width: 8,
