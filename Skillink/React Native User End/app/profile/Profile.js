@@ -31,6 +31,7 @@ import {
   where,
   orderBy,
   limit,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { useFonts } from "expo-font";
@@ -68,25 +69,29 @@ const featuredCoverImage = require("@/assets/images/background-image.png");
 const achievementBadges = [
   {
     id: 1,
-    image: require("@/assets/images/splash-icon.png"),
+    icon: "school",
+    color: "#FF7D67",
     title: "Quick Learner",
     description: "Completed 5 lessons in a day",
   },
   {
     id: 2,
-    image: require("@/assets/images/logo.png"),
+    icon: "ribbon",
+    color: "#46C390",
     title: "Perfect Score",
     description: "Scored 100% in a test",
   },
   {
     id: 3,
-    image: require("@/assets/images/partial-react-logo.png"),
+    icon: "flame",
+    color: "#3366FF",
     title: "Streak Master",
     description: "Maintained a 7-day streak",
   },
   {
     id: 4,
-    image: require("@/assets/images/Google.png"),
+    icon: "trophy",
+    color: "#FFC83E",
     title: "First Step",
     description: "Completed your first course",
   },
@@ -206,6 +211,40 @@ function Profile() {
       if (user.photoURL) {
         setProfileImage(user.photoURL);
       }
+
+      // If user has refreshed the page or logged back in,
+      // fetch the latest user data from Firestore to ensure cover image is loaded
+      const fetchUserData = async () => {
+        try {
+          if (user.id) {
+            const userDoc = await getDoc(doc(db, "users", user.id));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+
+              // If the user data has a coverImageURL but the local user doesn't,
+              // update the local user state
+              if (
+                userData.coverImageURL &&
+                (!user.coverImageURL ||
+                  user.coverImageURL !== userData.coverImageURL)
+              ) {
+                const updatedUser = {
+                  ...user,
+                  coverImageURL: userData.coverImageURL,
+                };
+                setUser(updatedUser);
+
+                // Update AsyncStorage with the latest user data
+                await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      };
+
+      fetchUserData();
     }
   }, [user]);
 
@@ -979,19 +1018,57 @@ function Profile() {
 
   // Render achievements section with badges
   const renderAchievements = () => {
+    // Create refs for badge animations
+    const badgeScales = achievementBadges.map(
+      () => useRef(new Animated.Value(1)).current
+    );
+
+    // Function to animate badge press
+    const animateBadgePress = (index, pressed) => {
+      Animated.spring(badgeScales[index], {
+        toValue: pressed ? 0.95 : 1,
+        friction: 5,
+        tension: 300,
+        useNativeDriver: true,
+      }).start();
+    };
+
     return (
       <Animated.View
         style={[
           styles.achievementsContainer,
-          { backgroundColor: isDarkMode ? "#121212" : "#FFFFFF" },
+          {
+            backgroundColor: isDarkMode ? "#121212" : "#FFFFFF",
+            borderWidth: 1,
+            borderColor: isDarkMode ? "#2D3246" : "#f0f0f0",
+          },
         ]}
       >
-        <View style={styles.profileHeader}>
-          <Ionicons name="trophy" size={20} color="#3366FF" />
+        <View
+          style={[
+            styles.profileHeader,
+            {
+              borderBottomColor: isDarkMode
+                ? "rgba(61, 67, 92, 0.3)"
+                : "rgba(0, 0, 0, 0.05)",
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.achievementIconContainer,
+              { backgroundColor: isDarkMode ? "#252836" : "#f0f4ff" },
+            ]}
+          >
+            <Ionicons name="trophy" size={20} color="#3366FF" />
+          </View>
           <Text
             style={[
               styles.profileTitle,
-              { color: isDarkMode ? "#FFFFFF" : "#333333" },
+              {
+                color: isDarkMode ? "#FFFFFF" : "#333333",
+                marginLeft: 10,
+              },
             ]}
           >
             MY ACHIEVEMENTS
@@ -1003,37 +1080,52 @@ function Profile() {
           showsHorizontalScrollIndicator={false}
           style={styles.badgesScrollContainer}
         >
-          {achievementBadges.map((badge) => (
-            <TouchableOpacity
+          {achievementBadges.map((badge, index) => (
+            <Animated.View
               key={badge.id}
-              style={[
-                styles.badgeContainer,
-                { borderColor: isDarkMode ? "#2D3246" : "#e0e0e0" },
-              ]}
-              activeOpacity={0.7}
-              onPress={() => {
-                Alert.alert(badge.title, badge.description);
+              style={{
+                transform: [{ scale: badgeScales[index] }],
               }}
             >
-              <Image source={badge.image} style={styles.badgeImage} />
-              <Text
+              <TouchableOpacity
                 style={[
-                  styles.badgeTitle,
-                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                  styles.badgeContainer,
+                  { borderColor: badge.color + "33" }, // Add transparency to the border color
                 ]}
+                activeOpacity={0.7}
+                onPressIn={() => animateBadgePress(index, true)}
+                onPressOut={() => animateBadgePress(index, false)}
+                onPress={() => {
+                  Alert.alert(badge.title, badge.description);
+                }}
               >
-                {badge.title}
-              </Text>
-              <Text
-                style={[
-                  styles.badgeDescription,
-                  { color: isDarkMode ? "#8F96AB" : "#666666" },
-                ]}
-                numberOfLines={2}
-              >
-                {badge.description}
-              </Text>
-            </TouchableOpacity>
+                <View
+                  style={[
+                    styles.badgeIconContainer,
+                    { backgroundColor: badge.color + "15" },
+                  ]}
+                >
+                  <Ionicons name={badge.icon} size={36} color={badge.color} />
+                </View>
+                <Text
+                  style={[
+                    styles.badgeTitle,
+                    { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                  ]}
+                >
+                  {badge.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.badgeDescription,
+                    { color: isDarkMode ? "#8F96AB" : "#666666" },
+                  ]}
+                  numberOfLines={2}
+                >
+                  {badge.description}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           ))}
         </ScrollView>
       </Animated.View>
@@ -1732,6 +1824,92 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  // Achievement styles
+  achievementsContainer: {
+    backgroundColor: "#242B42",
+    borderRadius: 10,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 2,
+  },
+  badgesScrollContainer: {
+    marginTop: 15,
+  },
+  badgeContainer: {
+    width: 110,
+    height: 150,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    padding: 12,
+    marginRight: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4.65,
+    elevation: 6,
+  },
+  badgeIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  badgeTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginVertical: 5,
+    textAlign: "center",
+    fontFamily: "Inter-SemiBold",
+  },
+  badgeDescription: {
+    fontSize: 12,
+    textAlign: "center",
+    fontFamily: "Inter-Regular",
+    lineHeight: 16,
+  },
+  coverImageLoadingContainer: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1A2138",
+  },
+  loadingText: {
+    color: "white",
+    marginTop: 10,
+    fontFamily: "Inter-Regular",
+  },
+  achievementIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#252836",
   },
 });
 
