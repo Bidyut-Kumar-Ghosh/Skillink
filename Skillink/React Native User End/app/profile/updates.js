@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -10,18 +10,36 @@ import {
   Platform,
   Animated,
   FlatList,
+  RefreshControl,
+  Alert,
 } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
+import { db } from "@/config/firebase";
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
+
+// Auto-refresh interval in milliseconds (30 seconds)
+const AUTO_REFRESH_INTERVAL = 30000;
 
 function Updates() {
   const { user, loading } = useAuth();
   const { theme, isDarkMode } = useTheme();
   const [updates, setUpdates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [markingAsRead, setMarkingAsRead] = useState(false);
+  const refreshIntervalRef = useRef(null);
+  const isComponentMounted = useRef(true);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -35,8 +53,125 @@ function Updates() {
     "Inter-SemiBold": require("@/assets/fonts/Inter-SemiBold.ttf"),
   });
 
-  // Run animations when component mounts
+  // Fetch updates from Firebase
+  const fetchUpdates = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setIsLoading(true);
+    }
+
+    try {
+      const updatesCollection = collection(db, "updates");
+      const updatesQuery = query(
+        updatesCollection,
+        orderBy("createdAt", "desc")
+      );
+      const snapshot = await getDocs(updatesQuery);
+
+      const updatesList = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        updatesList.push({
+          id: doc.id,
+          title: data.title || "",
+          description: data.description || "",
+          date: data.date || "Just now",
+          type: data.type || "notification",
+          isNew: data.isNew !== undefined ? data.isNew : false,
+        });
+      });
+
+      // Only update state if component is still mounted
+      if (isComponentMounted.current) {
+        setUpdates(updatesList);
+      }
+    } catch (error) {
+      console.error("Error fetching updates:", error);
+      // If there's an error fetching, show empty state
+      if (isComponentMounted.current) {
+        setUpdates([]);
+      }
+    } finally {
+      if (isComponentMounted.current) {
+        setIsLoading(false);
+        setRefreshing(false);
+      }
+    }
+  }, []);
+
+  // Mark update as read
+  const markAsRead = async (updateId) => {
+    if (!updateId || markingAsRead) return;
+
+    setMarkingAsRead(true);
+    try {
+      // Update the Firestore document
+      const updateRef = doc(db, "updates", updateId);
+      await updateDoc(updateRef, {
+        isNew: false,
+        updatedAt: new Date(),
+      });
+
+      // Update local state to reflect change
+      setUpdates(
+        updates.map((update) =>
+          update.id === updateId ? { ...update, isNew: false } : update
+        )
+      );
+    } catch (error) {
+      console.error("Error marking update as read:", error);
+      Alert.alert("Error", "Could not mark update as read. Please try again.");
+    } finally {
+      setMarkingAsRead(false);
+    }
+  };
+
+  // Mark all updates as read
+  const markAllAsRead = async () => {
+    if (markingAsRead || updates.filter((u) => u.isNew).length === 0) return;
+
+    setMarkingAsRead(true);
+    try {
+      // Get all updates that are marked as new
+      const newUpdates = updates.filter((update) => update.isNew);
+
+      // Update each one in Firestore
+      const updatePromises = newUpdates.map((update) => {
+        const updateRef = doc(db, "updates", update.id);
+        return updateDoc(updateRef, {
+          isNew: false,
+          updatedAt: new Date(),
+        });
+      });
+
+      await Promise.all(updatePromises);
+
+      // Update local state to reflect all updates as read
+      setUpdates(
+        updates.map((update) => ({
+          ...update,
+          isNew: false,
+        }))
+      );
+    } catch (error) {
+      console.error("Error marking all updates as read:", error);
+      Alert.alert(
+        "Error",
+        "Could not mark all updates as read. Please try again."
+      );
+    } finally {
+      setMarkingAsRead(false);
+    }
+  };
+
+  // Handle manual refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchUpdates(false);
+  }, [fetchUpdates]);
+
+  // Setup auto-refresh
   useEffect(() => {
+    // Initial fetch and animation
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -50,58 +185,24 @@ function Updates() {
       }),
     ]).start();
 
-    // Simulate loading updates data
-    setTimeout(() => {
-      setUpdates([
-        {
-          id: "1",
-          title: "New Banking Course Released",
-          description:
-            "Check out our latest banking course with mock tests and personalized feedback.",
-          date: "2 hours ago",
-          type: "course",
-          isNew: true,
-        },
-        {
-          id: "2",
-          title: "Exam Notification: SBI PO",
-          description:
-            "SBI PO exam dates announced. Check the syllabus and prepare accordingly.",
-          date: "Yesterday",
-          type: "notification",
-          isNew: true,
-        },
-        {
-          id: "3",
-          title: "Your Performance Report",
-          description:
-            "Your latest mock test results are available. View detailed analysis.",
-          date: "3 days ago",
-          type: "report",
-          isNew: false,
-        },
-        {
-          id: "4",
-          title: "Special Discount Offer",
-          description:
-            "Get 30% off on our premium packages until the end of the month.",
-          date: "1 week ago",
-          type: "offer",
-          isNew: false,
-        },
-        {
-          id: "5",
-          title: "New Study Material",
-          description:
-            "Check out updated study material for Quantitative Aptitude section.",
-          date: "2 weeks ago",
-          type: "material",
-          isNew: false,
-        },
-      ]);
-      setIsLoading(false);
-    }, 1000);
-  }, []);
+    fetchUpdates();
+
+    // Set up interval for auto-refresh
+    refreshIntervalRef.current = setInterval(() => {
+      if (isComponentMounted.current) {
+        console.log("Auto-refreshing updates...");
+        fetchUpdates(false);
+      }
+    }, AUTO_REFRESH_INTERVAL);
+
+    // Cleanup on unmount
+    return () => {
+      isComponentMounted.current = false;
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [fetchUpdates]);
 
   // Handle back button with animation
   const handleBackPress = () => {
@@ -212,14 +313,16 @@ function Updates() {
         >
           {item.description}
         </Text>
-        <Text
-          style={[
-            styles.updateDate,
-            { color: isDarkMode ? "#5D6986" : "#8F8F8F" },
-          ]}
-        >
-          {item.date}
-        </Text>
+        <View style={styles.updateFooter}>
+          <Text
+            style={[
+              styles.updateDate,
+              { color: isDarkMode ? "#5D6986" : "#8F8F8F" },
+            ]}
+          >
+            {item.date}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -260,16 +363,25 @@ function Updates() {
       >
         Recent Updates
       </Text>
-      <TouchableOpacity style={styles.markAllReadButton}>
-        <Text
+      {updates.some((update) => update.isNew) && (
+        <TouchableOpacity
           style={[
-            styles.markAllReadText,
-            { color: isDarkMode ? "#4D9CFF" : "#3366FF" },
+            styles.markAllReadButton,
+            { backgroundColor: isDarkMode ? "#2C3E50" : "#EEF3FF" },
           ]}
+          onPress={markAllAsRead}
+          disabled={markingAsRead}
         >
-          Mark all as read
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.markAllReadText,
+              { color: isDarkMode ? "#4D9CFF" : "#3366FF" },
+            ]}
+          >
+            {markingAsRead ? "Marking..." : "Mark all as read"}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -335,6 +447,15 @@ function Updates() {
               ListEmptyComponent={ListEmptyComponent}
               ListHeaderComponent={
                 updates.length > 0 ? ListHeaderComponent : null
+              }
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={["#3366FF"]}
+                  tintColor={isDarkMode ? "#4D9CFF" : "#3366FF"}
+                  progressBackgroundColor={isDarkMode ? "#242B42" : "#F5F5F5"}
+                />
               }
             />
           )}
@@ -410,7 +531,10 @@ const styles = StyleSheet.create({
     fontFamily: "Inter-SemiBold",
   },
   markAllReadButton: {
-    padding: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#EEF3FF",
   },
   markAllReadText: {
     fontSize: 14,
@@ -503,6 +627,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
     fontFamily: "Inter-Regular",
+  },
+  updateFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
   },
 });
 

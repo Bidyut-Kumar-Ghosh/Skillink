@@ -199,6 +199,14 @@ export default function Layout({ children }) {
                 <a>Feedback</a>
               </Link>
             </li>
+            <li
+              className={router.pathname === "/updates" ? "active" : ""}
+              onClick={() => handleNavigation("/updates")}
+            >
+              <Link href="/updates" legacyBehavior>
+                <a>Updates</a>
+              </Link>
+            </li>
             <li className="logout" onClick={handleSignOut}>
               <a>Logout</a>
             </li>

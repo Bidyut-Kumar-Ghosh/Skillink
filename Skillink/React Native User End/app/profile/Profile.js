@@ -56,6 +56,7 @@ const profileItemIcons = {
   purchases: "lock-closed-outline",
   educators: "school-outline",
   updates: "notifications-outline",
+  feedback: "chatbubble-ellipses-outline",
   help: "help-circle-outline",
   settings: "settings-outline",
 };
@@ -654,265 +655,325 @@ function Profile() {
   // New section for profile menu items with modern futuristic design
   const renderProfileMenuItems = () => {
     return (
-      <Animated.View
-        style={[
-          styles.profileMenuContainer,
-          {
-            backgroundColor: isDarkMode
-              ? "rgba(18, 18, 18, 0.8)"
-              : "rgba(255, 255, 255, 0.9)",
-            borderWidth: isDarkMode ? 1 : 0,
-            borderColor: isDarkMode ? "#3D435C" : "transparent",
-          },
-        ]}
-      >
-        <View style={styles.profileHeader}>
-          <View style={styles.headerIconGlow}>
-            <Ionicons name="grid-outline" size={20} color="#3366FF" />
-          </View>
-          <Text
-            style={[
-              styles.profileTitle,
-              { color: isDarkMode ? "#FFFFFF" : "#333333" },
-            ]}
-          >
-            MY ACTIVITIES
-          </Text>
-        </View>
-
-        <View style={styles.profileMenuGrid}>
-          {/* My Purchases */}
+      <View style={styles.profileMenuContainer}>
+        <Text
+          style={[
+            styles.sectionTitle,
+            { color: isDarkMode ? "#FFFFFF" : "#2D3748" },
+          ]}
+        >
+          Account
+        </Text>
+        <View
+          style={[
+            styles.profileMenuList,
+            {
+              backgroundColor: isDarkMode ? "#121212" : "#FFFFFF",
+              borderRadius: 16,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDarkMode ? 0.3 : 0.1,
+              shadowRadius: 8,
+              elevation: 5,
+            },
+          ]}
+        >
           <TouchableOpacity
-            style={[
-              styles.profileMenuItem,
-              {
-                backgroundColor: isDarkMode
-                  ? "rgba(30, 30, 30, 0.8)"
-                  : "rgba(255, 255, 255, 0.9)",
-                borderColor: isDarkMode ? "#3D435C" : "#e0e0e0",
-              },
-            ]}
+            style={styles.profileMenuItem}
+            onPress={() => router.push("/profile/purchases")}
             activeOpacity={0.7}
-            onPress={() => {
-              animateButtonPress();
-              // Navigate to purchases
-              router.push("/profile/purchases");
-            }}
           >
             <View
               style={[
                 styles.profileMenuIconContainer,
-                {
-                  backgroundColor: isDarkMode ? "#242B42" : "#E6EEFF",
-                  shadowColor: "#3366FF",
-                  shadowOpacity: 0.3,
-                  shadowRadius: 10,
-                  elevation: 6,
-                },
+                { backgroundColor: isDarkMode ? "#1A202C" : "#F0F5FF" },
               ]}
             >
               <Ionicons
                 name={profileItemIcons.purchases}
-                size={24}
-                color="#3366FF"
+                size={20}
+                color={isDarkMode ? "#4D9CFF" : "#3366FF"}
               />
             </View>
-            <Text
-              style={[
-                styles.profileMenuText,
-                { color: isDarkMode ? "#FFFFFF" : "#333333" },
-              ]}
-            >
-              My purchases
-            </Text>
-            <View style={styles.menuItemArrow}>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={isDarkMode ? "#8F96AB" : "#AAAAAA"}
-              />
+            <View style={styles.profileMenuTextContainer}>
+              <Text
+                style={[
+                  styles.profileMenuTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                ]}
+              >
+                Purchases
+              </Text>
+              <Text
+                style={[
+                  styles.profileMenuDescription,
+                  { color: isDarkMode ? "#8F96AB" : "#718096" },
+                ]}
+              >
+                View your purchase history
+              </Text>
             </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={isDarkMode ? "#5D6986" : "#CBD5E0"}
+            />
           </TouchableOpacity>
 
-          {/* My Educators */}
-          <TouchableOpacity
+          <View
             style={[
-              styles.profileMenuItem,
-              {
-                backgroundColor: isDarkMode
-                  ? "rgba(30, 30, 30, 0.8)"
-                  : "rgba(255, 255, 255, 0.9)",
-                borderColor: isDarkMode ? "#3D435C" : "#e0e0e0",
-              },
+              styles.itemDivider,
+              { backgroundColor: isDarkMode ? "#1E1E1E" : "#F1F5F9" },
             ]}
+          />
+
+          <TouchableOpacity
+            style={styles.profileMenuItem}
+            onPress={() => router.push("/profile/educators")}
             activeOpacity={0.7}
-            onPress={() => {
-              animateButtonPress();
-              // Navigate to educators
-              router.push("/profile/educators");
-            }}
           >
             <View
               style={[
                 styles.profileMenuIconContainer,
-                {
-                  backgroundColor: isDarkMode ? "#242B42" : "#E6EEFF",
-                  shadowColor: "#3366FF",
-                  shadowOpacity: 0.3,
-                  shadowRadius: 10,
-                  elevation: 6,
-                },
+                { backgroundColor: isDarkMode ? "#1A202C" : "#EEFBF5" },
               ]}
             >
               <Ionicons
                 name={profileItemIcons.educators}
-                size={24}
-                color="#3366FF"
+                size={20}
+                color={isDarkMode ? "#46C390" : "#32B679"}
               />
             </View>
-            <Text
-              style={[
-                styles.profileMenuText,
-                { color: isDarkMode ? "#FFFFFF" : "#333333" },
-              ]}
-            >
-              My educators
-            </Text>
-            <View style={styles.menuItemArrow}>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={isDarkMode ? "#8F96AB" : "#AAAAAA"}
-              />
+            <View style={styles.profileMenuTextContainer}>
+              <Text
+                style={[
+                  styles.profileMenuTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                ]}
+              >
+                Educators
+              </Text>
+              <Text
+                style={[
+                  styles.profileMenuDescription,
+                  { color: isDarkMode ? "#8F96AB" : "#718096" },
+                ]}
+              >
+                View your educators
+              </Text>
             </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={isDarkMode ? "#5D6986" : "#CBD5E0"}
+            />
           </TouchableOpacity>
 
-          {/* Updates */}
-          <TouchableOpacity
+          <View
             style={[
-              styles.profileMenuItem,
-              {
-                backgroundColor: isDarkMode
-                  ? "rgba(30, 30, 30, 0.8)"
-                  : "rgba(255, 255, 255, 0.9)",
-                borderColor: isDarkMode ? "#3D435C" : "#e0e0e0",
-              },
+              styles.itemDivider,
+              { backgroundColor: isDarkMode ? "#1E1E1E" : "#F1F5F9" },
             ]}
+          />
+
+          <TouchableOpacity
+            style={styles.profileMenuItem}
+            onPress={() => router.push("/profile/updates")}
             activeOpacity={0.7}
-            onPress={() => {
-              animateButtonPress();
-              // Navigate to updates with notification data
-              router.push({
-                pathname: "/profile/updates",
-                params: { hasNewNotifications: hasNewNotifications },
-              });
-              // Mark notifications as read when visiting the page
-              if (hasNewNotifications) {
-                setHasNewNotifications(false);
-              }
-            }}
           >
             <View
               style={[
                 styles.profileMenuIconContainer,
-                {
-                  backgroundColor: isDarkMode ? "#242B42" : "#E6EEFF",
-                  shadowColor: "#3366FF",
-                  shadowOpacity: 0.3,
-                  shadowRadius: 10,
-                  elevation: 6,
-                },
+                { backgroundColor: isDarkMode ? "#1A202C" : "#FFF2F5" },
               ]}
             >
               <Ionicons
                 name={profileItemIcons.updates}
-                size={24}
-                color="#3366FF"
+                size={20}
+                color={isDarkMode ? "#FF7D67" : "#FF5E3A"}
               />
-              {hasNewNotifications && (
-                <View
-                  style={[
-                    styles.notificationBadge,
-                    { borderColor: isDarkMode ? "#242B42" : "#E6EEFF" },
-                  ]}
-                >
-                  <Text style={styles.notificationBadgeText}>
-                    {notifications.length > 9 ? "9+" : notifications.length}
-                  </Text>
-                </View>
-              )}
+              {hasNewNotifications && <View style={styles.notificationBadge} />}
             </View>
-            <Text
-              style={[
-                styles.profileMenuText,
-                { color: isDarkMode ? "#FFFFFF" : "#333333" },
-              ]}
-            >
-              Updates
-            </Text>
-            <View style={styles.menuItemArrow}>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={isDarkMode ? "#8F96AB" : "#AAAAAA"}
-              />
+            <View style={styles.profileMenuTextContainer}>
+              <Text
+                style={[
+                  styles.profileMenuTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                ]}
+              >
+                Updates
+              </Text>
+              <Text
+                style={[
+                  styles.profileMenuDescription,
+                  { color: isDarkMode ? "#8F96AB" : "#718096" },
+                ]}
+              >
+                Check latest notifications
+              </Text>
             </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={isDarkMode ? "#5D6986" : "#CBD5E0"}
+            />
           </TouchableOpacity>
 
-          {/* Settings */}
-          <TouchableOpacity
+          <View
             style={[
-              styles.profileMenuItem,
-              {
-                backgroundColor: isDarkMode
-                  ? "rgba(30, 30, 30, 0.8)"
-                  : "rgba(255, 255, 255, 0.9)",
-                borderColor: isDarkMode ? "#3D435C" : "#e0e0e0",
-              },
+              styles.itemDivider,
+              { backgroundColor: isDarkMode ? "#1E1E1E" : "#F1F5F9" },
             ]}
+          />
+
+          <TouchableOpacity
+            style={styles.profileMenuItem}
+            onPress={() => router.push("/profile/feedback")}
             activeOpacity={0.7}
-            onPress={() => {
-              animateButtonPress();
-              // Navigate to settings page
-              router.push("/settings");
-            }}
           >
             <View
               style={[
                 styles.profileMenuIconContainer,
-                {
-                  backgroundColor: isDarkMode ? "#242B42" : "#E6EEFF",
-                  shadowColor: "#3366FF",
-                  shadowOpacity: 0.3,
-                  shadowRadius: 10,
-                  elevation: 6,
-                },
+                { backgroundColor: isDarkMode ? "#1A202C" : "#F0F7FF" },
+              ]}
+            >
+              <Ionicons
+                name={profileItemIcons.feedback}
+                size={20}
+                color={isDarkMode ? "#64B5F6" : "#2196F3"}
+              />
+            </View>
+            <View style={styles.profileMenuTextContainer}>
+              <Text
+                style={[
+                  styles.profileMenuTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                ]}
+              >
+                Feedback
+              </Text>
+              <Text
+                style={[
+                  styles.profileMenuDescription,
+                  { color: isDarkMode ? "#8F96AB" : "#718096" },
+                ]}
+              >
+                Share your thoughts with us
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={isDarkMode ? "#5D6986" : "#CBD5E0"}
+            />
+          </TouchableOpacity>
+
+          <View
+            style={[
+              styles.itemDivider,
+              { backgroundColor: isDarkMode ? "#1E1E1E" : "#F1F5F9" },
+            ]}
+          />
+
+          <TouchableOpacity
+            style={styles.profileMenuItem}
+            onPress={() => {
+              // Help functionality
+              Alert.alert(
+                "Help & Support",
+                "For assistance, please contact our support team at support@skillink.com",
+                [{ text: "OK", onPress: () => console.log("OK Pressed") }]
+              );
+            }}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.profileMenuIconContainer,
+                { backgroundColor: isDarkMode ? "#1A202C" : "#F0F7FF" },
+              ]}
+            >
+              <Ionicons
+                name={profileItemIcons.help}
+                size={20}
+                color={isDarkMode ? "#64B5F6" : "#2196F3"}
+              />
+            </View>
+            <View style={styles.profileMenuTextContainer}>
+              <Text
+                style={[
+                  styles.profileMenuTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                ]}
+              >
+                Help
+              </Text>
+              <Text
+                style={[
+                  styles.profileMenuDescription,
+                  { color: isDarkMode ? "#8F96AB" : "#718096" },
+                ]}
+              >
+                Contact support
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={isDarkMode ? "#5D6986" : "#CBD5E0"}
+            />
+          </TouchableOpacity>
+
+          <View
+            style={[
+              styles.itemDivider,
+              { backgroundColor: isDarkMode ? "#1E1E1E" : "#F1F5F9" },
+            ]}
+          />
+
+          <TouchableOpacity
+            style={styles.profileMenuItem}
+            onPress={() => router.push("/settings")}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.profileMenuIconContainer,
+                { backgroundColor: isDarkMode ? "#1A202C" : "#F5F3FF" },
               ]}
             >
               <Ionicons
                 name={profileItemIcons.settings}
-                size={24}
-                color="#3366FF"
+                size={20}
+                color={isDarkMode ? "#B794F6" : "#7C4DFF"}
               />
             </View>
-            <Text
-              style={[
-                styles.profileMenuText,
-                { color: isDarkMode ? "#FFFFFF" : "#333333" },
-              ]}
-            >
-              Settings
-            </Text>
-            <View style={styles.menuItemArrow}>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={isDarkMode ? "#8F96AB" : "#AAAAAA"}
-              />
+            <View style={styles.profileMenuTextContainer}>
+              <Text
+                style={[
+                  styles.profileMenuTitle,
+                  { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                ]}
+              >
+                Settings
+              </Text>
+              <Text
+                style={[
+                  styles.profileMenuDescription,
+                  { color: isDarkMode ? "#8F96AB" : "#718096" },
+                ]}
+              >
+                Customize your app preferences
+              </Text>
             </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={isDarkMode ? "#5D6986" : "#CBD5E0"}
+            />
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -1546,140 +1607,67 @@ const styles = StyleSheet.create({
 
   // Updated styles for profile menu items
   profileMenuContainer: {
-    backgroundColor: "#242B42",
-    borderRadius: 16,
-    padding: 20,
     marginBottom: 20,
-    shadowColor: "#3366FF",
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: "#3D435C",
   },
-  profileMenuGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+  profileMenuList: {
+    borderRadius: 16,
+    overflow: "hidden",
     marginTop: 15,
   },
   profileMenuItem: {
-    width: "48%",
-    alignItems: "flex-start",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
-    borderWidth: 1,
-    position: "relative",
-    overflow: "hidden",
-    shadowColor: "#3366FF",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "transparent",
   },
   profileMenuIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 15,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
-    position: "relative",
-    borderWidth: 1,
-    borderColor: "rgba(51, 102, 255, 0.3)",
+    marginRight: 16,
   },
-  profileMenuText: {
-    fontSize: 14,
+  profileMenuTextContainer: {
+    flex: 1,
+  },
+  profileMenuTitle: {
+    fontSize: 16,
     fontWeight: "600",
-    marginBottom: 5,
+    marginBottom: 4,
     fontFamily: "Inter-SemiBold",
   },
-  headerIconGlow: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-    shadowColor: "#3366FF",
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
-    elevation: 5,
+  profileMenuDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: "Inter-Regular",
   },
-  menuItemArrow: {
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 10,
+    fontFamily: "Inter-SemiBold",
+  },
+  itemDivider: {
+    height: 1,
+    backgroundColor: "#e0e0e0",
+    marginHorizontal: 16,
+  },
+  notificationBadge: {
     position: "absolute",
-    bottom: 10,
-    right: 10,
-    backgroundColor: "rgba(51, 102, 255, 0.1)",
+    top: -5,
+    right: -5,
+    backgroundColor: "#FF3B30",
     borderRadius: 10,
-    width: 20,
+    minWidth: 20,
     height: 20,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+    zIndex: 1,
   },
-
-  // Styles for achievements section
-  achievementsContainer: {
-    backgroundColor: "#242B42",
-    borderRadius: 10,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 2,
-  },
-  badgesScrollContainer: {
-    marginTop: 15,
-    marginBottom: 5,
-  },
-  badgeContainer: {
-    width: 140,
-    height: 180,
-    marginRight: 15,
-    borderRadius: 10,
-    padding: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  badgeImage: {
-    width: 80,
-    height: 80,
-    marginBottom: 10,
-    borderRadius: 40,
-  },
-  badgeTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "center",
-    marginBottom: 5,
-    fontFamily: "Inter-SemiBold",
-  },
-  badgeDescription: {
-    fontSize: 12,
-    textAlign: "center",
-    fontFamily: "Inter-Regular",
-  },
-
-  // Styles for carousel
   carouselContainer: {
     backgroundColor: "#242B42",
     borderRadius: 10,
@@ -1744,81 +1732,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-  },
-
-  // Styles for notification badge
-  notificationBadge: {
-    position: "absolute",
-    top: -5,
-    right: -5,
-    backgroundColor: "#FF3B30",
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: "#FFFFFF",
-    zIndex: 1,
-  },
-  notificationBadgeText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    textAlign: "center",
-  },
-
-  // New styles for image gallery
-  imageGalleryContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginTop: 15,
-    marginBottom: 15,
-  },
-  galleryImageContainer: {
-    width: "48%",
-    height: 120,
-    borderRadius: 8,
-    overflow: "hidden",
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  galleryImage: {
-    width: "100%",
-    height: "100%",
-  },
-  addImageButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 5,
-  },
-  addImageButtonText: {
-    fontSize: 14,
-    marginLeft: 8,
-    fontFamily: "Inter-Medium",
-  },
-  coverImageLoadingContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  loadingText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 10,
-    fontFamily: "Inter-SemiBold",
   },
 });
 

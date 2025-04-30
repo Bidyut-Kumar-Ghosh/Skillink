@@ -6,11 +6,16 @@ import {
   collection,
   getDocs,
   doc,
+  getDoc,
   updateDoc,
   deleteDoc,
+  query,
+  where,
+  orderBy,
 } from "firebase/firestore";
 import { deleteUser, getAuth } from "firebase/auth";
 import styles from "../styles/dashboard.module.css";
+import Link from "next/link";
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -19,10 +24,29 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("students"); // "students" or "admins"
+  const [userEnrollments, setUserEnrollments] = useState([]);
+  const [userDetailTab, setUserDetailTab] = useState("profile");
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
+  const [courses, setCourses] = useState({});
 
   useEffect(() => {
     fetchUsers();
+    // Fetch all courses for reference
+    fetchAllCourses();
   }, []);
+
+  const fetchAllCourses = async () => {
+    try {
+      const coursesSnapshot = await getDocs(collection(db, "courses"));
+      const coursesData = {};
+      coursesSnapshot.forEach((doc) => {
+        coursesData[doc.id] = { id: doc.id, ...doc.data() };
+      });
+      setCourses(coursesData);
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -67,6 +91,42 @@ export default function Users() {
       console.error("Error fetching users:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserEnrollments = async (userId) => {
+    if (!userId) return;
+
+    setEnrollmentsLoading(true);
+    try {
+      // Fetch user enrollments
+      const enrollmentsQuery = query(
+        collection(db, "enrollments"),
+        where("userId", "==", userId),
+        orderBy("enrollmentDate", "desc")
+      );
+      const enrollmentsSnapshot = await getDocs(enrollmentsQuery);
+
+      const enrollmentsList = [];
+      enrollmentsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const courseData = courses[data.courseId] || {};
+
+        enrollmentsList.push({
+          id: doc.id,
+          ...data,
+          enrollmentDate: data.enrollmentDate?.toDate?.() || new Date(),
+          courseName: courseData.title || "Unknown Course",
+          courseCategory: courseData.category || "Unknown",
+          courseImage: courseData.imageUrl || null,
+        });
+      });
+
+      setUserEnrollments(enrollmentsList);
+    } catch (error) {
+      console.error("Error fetching enrollments:", error);
+    } finally {
+      setEnrollmentsLoading(false);
     }
   };
 
@@ -165,9 +225,12 @@ export default function Users() {
     }
   };
 
-  const openUserDetails = (user) => {
+  const openUserDetails = async (user) => {
     setSelectedUser(user);
     setIsModalOpen(true);
+    setUserDetailTab("profile");
+    // Fetch enrollments when opening user details
+    await fetchUserEnrollments(user.id);
   };
 
   // Filter users by role and search term
@@ -260,7 +323,7 @@ export default function Users() {
                     className={`${styles["action-btn"]} ${styles["view-btn"]}`}
                     onClick={() => openUserDetails(user)}
                   >
-                    View
+                    View Details
                   </button>
                   <button
                     className={`${styles["action-btn"]} ${styles["activate-btn"]}`}
@@ -306,6 +369,135 @@ export default function Users() {
           ))}
         </tbody>
       </table>
+    );
+  };
+
+  // Render the enrollment cards for a user
+  const renderEnrollments = () => {
+    if (enrollmentsLoading) {
+      return <div className={styles.loading}>Loading enrollments...</div>;
+    }
+
+    if (userEnrollments.length === 0) {
+      return (
+        <div className={styles["no-data"]}>
+          This user has not enrolled in any courses.
+        </div>
+      );
+    }
+
+    return (
+      <div className="enrollment-list">
+        {userEnrollments.map((enrollment) => (
+          <div key={enrollment.id} className="enrollment-card">
+            <div className="enrollment-course-image">
+              {enrollment.courseImage ? (
+                <img src={enrollment.courseImage} alt={enrollment.courseName} />
+              ) : (
+                <div className="course-image-placeholder">
+                  {enrollment.courseName?.charAt(0).toUpperCase() || "C"}
+                </div>
+              )}
+            </div>
+            <div className="enrollment-details">
+              <h4>{enrollment.courseName}</h4>
+              <div className="enrollment-meta">
+                <span className="enrollment-category">
+                  {enrollment.courseCategory}
+                </span>
+                <span className="enrollment-date">
+                  Enrolled: {formatDate(enrollment.enrollmentDate)}
+                </span>
+              </div>
+              <div className="enrollment-status">
+                <span
+                  className={`status-badge ${
+                    enrollment.status === "completed"
+                      ? "status-completed"
+                      : enrollment.status === "active"
+                      ? "status-active"
+                      : enrollment.status === "cancelled"
+                      ? "status-cancelled"
+                      : "status-pending"
+                  }`}
+                >
+                  {enrollment.status
+                    ? enrollment.status.charAt(0).toUpperCase() +
+                      enrollment.status.slice(1)
+                    : "Pending"}
+                </span>
+              </div>
+              {enrollment.amount && (
+                <div className="enrollment-amount">
+                  Amount: ${parseFloat(enrollment.amount).toFixed(2)}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Render the purchases table for a user
+  const renderPurchases = () => {
+    if (enrollmentsLoading) {
+      return <div className={styles.loading}>Loading purchases...</div>;
+    }
+
+    if (userEnrollments.length === 0) {
+      return (
+        <div className={styles["no-data"]}>
+          This user has not made any purchases.
+        </div>
+      );
+    }
+
+    return (
+      <div className="purchases-table-container">
+        <table className="purchases-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {userEnrollments.map((enrollment) => (
+              <tr key={enrollment.id}>
+                <td>{enrollment.courseName}</td>
+                <td>{formatDate(enrollment.enrollmentDate)}</td>
+                <td>
+                  $
+                  {enrollment.amount
+                    ? parseFloat(enrollment.amount).toFixed(2)
+                    : "0.00"}
+                </td>
+                <td>
+                  <span
+                    className={`status-badge ${
+                      enrollment.paymentStatus === "completed"
+                        ? "status-completed"
+                        : enrollment.paymentStatus === "refunded"
+                        ? "status-cancelled"
+                        : enrollment.paymentStatus === "failed"
+                        ? "status-failed"
+                        : "status-pending"
+                    }`}
+                  >
+                    {enrollment.paymentStatus
+                      ? enrollment.paymentStatus.charAt(0).toUpperCase() +
+                        enrollment.paymentStatus.slice(1)
+                      : "Pending"}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   };
 
@@ -358,8 +550,11 @@ export default function Users() {
       </div>
 
       {isModalOpen && selectedUser && (
-        <div className={styles.modal}>
-          <div className={styles["modal-content"]}>
+        <div className={styles.modal} style={{ maxWidth: "900px" }}>
+          <div
+            className={styles["modal-content"]}
+            style={{ width: "100%", maxWidth: "900px" }}
+          >
             <span
               className={styles.close}
               onClick={() => setIsModalOpen(false)}
@@ -368,8 +563,8 @@ export default function Users() {
             </span>
             <h2>User Details</h2>
 
-            <div className={styles["user-details"]}>
-              <div className={styles["user-header"]}>
+            <div className="user-profile-card">
+              <div className="user-header">
                 <div className={styles["large-avatar"]}>
                   {selectedUser.photoURL ? (
                     <img
@@ -386,118 +581,416 @@ export default function Users() {
                     </div>
                   )}
                 </div>
-                <div>
+                <div className="user-info">
                   <h3>{selectedUser.displayName || "No Name"}</h3>
-                  <p>{selectedUser.email}</p>
-                  <p>Joined: {formatDate(selectedUser.createdAt)}</p>
-                  <p>
-                    Role:{" "}
+                  <p className="user-email">{selectedUser.email}</p>
+                  <div className="user-meta">
                     <span
-                      className={`${styles.role} ${
-                        styles[selectedUser.role || "user"]
+                      className={`user-status ${
+                        selectedUser.status === "active"
+                          ? "status-active"
+                          : "status-inactive"
                       }`}
                     >
+                      {selectedUser.status || "Unknown Status"}
+                    </span>
+                    <span className="user-role">
                       {selectedUser.role || "user"}
                     </span>
-                  </p>
-                  <p>
-                    Status:{" "}
-                    <span
-                      className={`${styles.status} ${
-                        styles[selectedUser.status || "active"]
-                      }`}
-                    >
-                      {selectedUser.status || "Active"}
+                    <span className="user-joined">
+                      Joined: {formatDate(selectedUser.createdAt)}
                     </span>
-                  </p>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className={styles["details-section"]}>
-                <h4>Profile Information</h4>
-                <p>
-                  <strong>User ID:</strong> {selectedUser.id}
-                </p>
-                <p>
-                  <strong>Phone:</strong>{" "}
-                  {selectedUser.phoneNumber || "Not provided"}
-                </p>
-                <p>
-                  <strong>Email Verified:</strong>{" "}
-                  {selectedUser.emailVerified ? "Yes" : "No"}
-                </p>
+            <div className="tabs-container">
+              <div className="tabs-header">
+                <button
+                  className={`tab-button ${
+                    userDetailTab === "profile" ? "active" : ""
+                  }`}
+                  onClick={() => setUserDetailTab("profile")}
+                >
+                  Profile
+                </button>
+                <button
+                  className={`tab-button ${
+                    userDetailTab === "enrollments" ? "active" : ""
+                  }`}
+                  onClick={() => setUserDetailTab("enrollments")}
+                >
+                  Enrollments
+                </button>
+                <button
+                  className={`tab-button ${
+                    userDetailTab === "purchases" ? "active" : ""
+                  }`}
+                  onClick={() => setUserDetailTab("purchases")}
+                >
+                  Purchases
+                </button>
               </div>
 
-              {selectedUser.courses &&
-                Object.keys(selectedUser.courses).length > 0 && (
-                  <div className={styles["details-section"]}>
-                    <h4>Enrolled Courses</h4>
-                    <ul>
-                      {Object.keys(selectedUser.courses).map((courseId) => (
-                        <li key={courseId}>{courseId}</li>
-                      ))}
-                    </ul>
+              <div className="tab-content">
+                {userDetailTab === "profile" && (
+                  <div className="profile-tab">
+                    <div className={styles["details-section"]}>
+                      <h4>Profile Information</h4>
+                      <p>
+                        <strong>User ID:</strong> {selectedUser.id}
+                      </p>
+                      <p>
+                        <strong>Phone:</strong>{" "}
+                        {selectedUser.phoneNumber || "Not provided"}
+                      </p>
+                      <p>
+                        <strong>Email Verified:</strong>{" "}
+                        {selectedUser.emailVerified ? "Yes" : "No"}
+                      </p>
+                    </div>
+
+                    {selectedUser.courses &&
+                      Object.keys(selectedUser.courses).length > 0 && (
+                        <div className={styles["details-section"]}>
+                          <h4>Enrolled Courses</h4>
+                          <ul>
+                            {Object.keys(selectedUser.courses).map(
+                              (courseId) => (
+                                <li key={courseId}>{courseId}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
+
+                    <div className={styles["detail-actions"]}>
+                      <button
+                        className={`${styles["action-btn"]} ${styles["activate-btn"]}`}
+                        onClick={() => {
+                          handleUpdateUser(selectedUser.id, "active");
+                          setSelectedUser({
+                            ...selectedUser,
+                            status: "active",
+                          });
+                        }}
+                        disabled={selectedUser.status === "active"}
+                      >
+                        Activate User
+                      </button>
+                      <button
+                        className={`${styles["action-btn"]} ${styles["suspend-btn"]}`}
+                        onClick={() => {
+                          handleUpdateUser(selectedUser.id, "suspended");
+                          setSelectedUser({
+                            ...selectedUser,
+                            status: "suspended",
+                          });
+                        }}
+                        disabled={selectedUser.status === "suspended"}
+                      >
+                        Suspend User
+                      </button>
+                      <button
+                        className={`${styles["action-btn"]} ${styles["admin-btn"]}`}
+                        onClick={() => {
+                          if (selectedUser.role !== "admin") {
+                            handleUpdateRole(selectedUser.id, "admin");
+                          } else {
+                            handleUpdateRole(selectedUser.id, "user");
+                          }
+                        }}
+                        disabled={
+                          selectedUser.role === "admin" &&
+                          auth.currentUser &&
+                          auth.currentUser.uid === selectedUser.id
+                        }
+                      >
+                        {selectedUser.role !== "admin"
+                          ? "Make Administrator"
+                          : "Remove Administrator Role"}
+                      </button>
+                      <button
+                        className={`${styles["action-btn"]} ${styles["delete-btn"]}`}
+                        onClick={() => {
+                          handleDeleteUser(selectedUser.id);
+                          setIsModalOpen(false);
+                        }}
+                        disabled={
+                          auth.currentUser &&
+                          auth.currentUser.uid === selectedUser.id
+                        }
+                      >
+                        Delete User
+                      </button>
+                    </div>
                   </div>
                 )}
 
-              <div className={styles["detail-actions"]}>
-                <button
-                  className={`${styles["action-btn"]} ${styles["activate-btn"]}`}
-                  onClick={() => {
-                    handleUpdateUser(selectedUser.id, "active");
-                    setSelectedUser({ ...selectedUser, status: "active" });
-                  }}
-                  disabled={selectedUser.status === "active"}
-                >
-                  Activate User
-                </button>
-                <button
-                  className={`${styles["action-btn"]} ${styles["suspend-btn"]}`}
-                  onClick={() => {
-                    handleUpdateUser(selectedUser.id, "suspended");
-                    setSelectedUser({ ...selectedUser, status: "suspended" });
-                  }}
-                  disabled={selectedUser.status === "suspended"}
-                >
-                  Suspend User
-                </button>
-                <button
-                  className={`${styles["action-btn"]} ${styles["admin-btn"]}`}
-                  onClick={() => {
-                    if (selectedUser.role !== "admin") {
-                      handleUpdateRole(selectedUser.id, "admin");
-                    } else {
-                      handleUpdateRole(selectedUser.id, "user");
-                    }
-                    setIsModalOpen(false); // Close modal after role change to refresh view
-                  }}
-                  disabled={
-                    selectedUser.role === "admin" &&
-                    auth.currentUser &&
-                    auth.currentUser.uid === selectedUser.id
-                  }
-                >
-                  {selectedUser.role !== "admin"
-                    ? "Make Administrator"
-                    : "Remove Administrator Role"}
-                </button>
-                <button
-                  className={`${styles["action-btn"]} ${styles["delete-btn"]}`}
-                  onClick={() => {
-                    handleDeleteUser(selectedUser.id);
-                    setIsModalOpen(false);
-                  }}
-                  disabled={
-                    auth.currentUser && auth.currentUser.uid === selectedUser.id
-                  }
-                >
-                  Delete User
-                </button>
+                {userDetailTab === "enrollments" && (
+                  <div className="enrollments-tab">
+                    <h3>Course Enrollments</h3>
+                    {renderEnrollments()}
+                  </div>
+                )}
+
+                {userDetailTab === "purchases" && (
+                  <div className="purchases-tab">
+                    <h3>Purchase History</h3>
+                    {renderPurchases()}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        .user-profile-card {
+          background-color: white;
+          border-radius: 8px;
+          padding: 20px;
+          margin-bottom: 20px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-header {
+          display: flex;
+          align-items: center;
+        }
+
+        .user-info {
+          flex: 1;
+          margin-left: 20px;
+        }
+
+        .user-info h3 {
+          margin: 0 0 5px 0;
+          color: #2c3e50;
+          font-size: 1.5rem;
+        }
+
+        .user-email {
+          margin: 0 0 10px 0;
+          color: #7f8c8d;
+          font-size: 1rem;
+        }
+
+        .user-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .user-status,
+        .user-role {
+          padding: 4px 10px;
+          border-radius: 20px;
+          font-size: 0.85rem;
+          font-weight: 500;
+        }
+
+        .status-active {
+          background-color: #e8f5e9;
+          color: #2e7d32;
+        }
+
+        .status-inactive {
+          background-color: #ffebee;
+          color: #c62828;
+        }
+
+        .user-role {
+          background-color: #e3f2fd;
+          color: #1565c0;
+          text-transform: capitalize;
+        }
+
+        .user-joined {
+          color: #7f8c8d;
+          font-size: 0.85rem;
+        }
+
+        .tabs-container {
+          background-color: white;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tabs-header {
+          display: flex;
+          border-bottom: 1px solid #ecf0f1;
+        }
+
+        .tab-button {
+          padding: 15px 20px;
+          background: none;
+          border: none;
+          font-size: 1rem;
+          color: #7f8c8d;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .tab-button.active {
+          color: #3498db;
+          border-bottom: 2px solid #3498db;
+          font-weight: 500;
+        }
+
+        .tab-button:hover {
+          background-color: #f8f9fa;
+        }
+
+        .tab-content {
+          padding: 20px;
+        }
+
+        h3 {
+          margin-top: 0;
+          margin-bottom: 20px;
+          color: #2c3e50;
+          font-size: 1.25rem;
+        }
+
+        .enrollment-list {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 20px;
+        }
+
+        .enrollment-card {
+          display: flex;
+          background-color: #f8f9fa;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .enrollment-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .enrollment-course-image {
+          width: 100px;
+          height: 100px;
+          flex-shrink: 0;
+          background-color: #dfe6e9;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .enrollment-course-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .course-image-placeholder {
+          font-size: 2.5rem;
+          font-weight: bold;
+          color: #b2bec3;
+        }
+
+        .enrollment-details {
+          flex: 1;
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .enrollment-details h4 {
+          margin: 0 0 8px 0;
+          font-size: 1rem;
+          color: #2c3e50;
+        }
+
+        .enrollment-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+
+        .enrollment-category {
+          background-color: #edf2f7;
+          color: #4a5568;
+          padding: 3px 8px;
+          border-radius: 4px;
+          font-size: 0.75rem;
+        }
+
+        .enrollment-date,
+        .enrollment-amount {
+          font-size: 0.85rem;
+          color: #7f8c8d;
+        }
+
+        .enrollment-status {
+          margin-top: auto;
+        }
+
+        .status-badge {
+          display: inline-block;
+          padding: 3px 8px;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+
+        .status-completed {
+          background-color: #e3f2fd;
+          color: #1565c0;
+        }
+
+        .status-active {
+          background-color: #e8f5e9;
+          color: #2e7d32;
+        }
+
+        .status-cancelled,
+        .status-failed {
+          background-color: #ffebee;
+          color: #c62828;
+        }
+
+        .status-pending {
+          background-color: #fff8e1;
+          color: #ff8f00;
+        }
+
+        .purchases-table-container {
+          overflow-x: auto;
+        }
+
+        .purchases-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .purchases-table th,
+        .purchases-table td {
+          padding: 12px 15px;
+          text-align: left;
+          border-bottom: 1px solid #ecf0f1;
+        }
+
+        .purchases-table th {
+          background-color: #f8f9fa;
+          font-weight: 600;
+          color: #7f8c8d;
+        }
+
+        .purchases-table tr:hover {
+          background-color: #f8f9fa;
+        }
+      `}</style>
     </Layout>
   );
 }

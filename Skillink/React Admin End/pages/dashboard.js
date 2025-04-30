@@ -20,6 +20,7 @@ function Dashboard() {
     enrollments: 0,
     revenue: 0,
     banners: 0,
+    updates: 0,
   });
   const [recentEnrollments, setRecentEnrollments] = useState([]);
   const [recentBooks, setRecentBooks] = useState([]);
@@ -49,6 +50,7 @@ function Dashboard() {
         const booksSnap = await getDocs(collection(db, "books"));
         const enrollmentsSnap = await getDocs(collection(db, "enrollments"));
         const bannersSnap = await getDocs(collection(db, "banners"));
+        const updatesSnap = await getDocs(collection(db, "updates"));
 
         // Calculate total revenue
         let totalRevenue = 0;
@@ -66,6 +68,7 @@ function Dashboard() {
           enrollments: enrollmentsSnap.size,
           revenue: totalRevenue.toFixed(2),
           banners: bannersSnap.size,
+          updates: updatesSnap.size,
         });
 
         // Fetch recent enrollments
@@ -175,6 +178,13 @@ function Dashboard() {
                 <h3>App Banners</h3>
                 <p className="stat-value">{stats.banners}</p>
                 <a href="/banners" className="manage-link">
+                  Manage
+                </a>
+              </div>
+              <div className="stat-card">
+                <h3>Updates</h3>
+                <p className="stat-value">{stats.updates}</p>
+                <a href="/updates" className="manage-link">
                   Manage
                 </a>
               </div>
