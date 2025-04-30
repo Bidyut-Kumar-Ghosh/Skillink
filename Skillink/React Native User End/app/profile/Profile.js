@@ -1079,12 +1079,15 @@ function Profile() {
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.badgesScrollContainer}
+          contentContainerStyle={styles.badgesScrollContent}
+          decelerationRate="normal"
         >
           {achievementBadges.map((badge, index) => (
             <Animated.View
               key={badge.id}
               style={{
                 transform: [{ scale: badgeScales[index] }],
+                margin: 3,
               }}
             >
               <TouchableOpacity
@@ -1105,25 +1108,29 @@ function Profile() {
                     { backgroundColor: badge.color + "15" },
                   ]}
                 >
-                  <Ionicons name={badge.icon} size={36} color={badge.color} />
+                  <Ionicons name={badge.icon} size={32} color={badge.color} />
                 </View>
-                <Text
-                  style={[
-                    styles.badgeTitle,
-                    { color: isDarkMode ? "#FFFFFF" : "#333333" },
-                  ]}
-                >
-                  {badge.title}
-                </Text>
-                <Text
-                  style={[
-                    styles.badgeDescription,
-                    { color: isDarkMode ? "#8F96AB" : "#666666" },
-                  ]}
-                  numberOfLines={2}
-                >
-                  {badge.description}
-                </Text>
+                <View style={styles.badgeTextContainer}>
+                  <Text
+                    style={[
+                      styles.badgeTitle,
+                      { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                    ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {badge.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.badgeDescription,
+                      { color: isDarkMode ? "#8F96AB" : "#666666" },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {badge.description}
+                  </Text>
+                </View>
               </TouchableOpacity>
             </Animated.View>
           ))}
@@ -1828,7 +1835,7 @@ const styles = StyleSheet.create({
   // Achievement styles
   achievementsContainer: {
     backgroundColor: "#242B42",
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     shadowColor: "#000",
@@ -1843,16 +1850,23 @@ const styles = StyleSheet.create({
   badgesScrollContainer: {
     marginTop: 15,
   },
+  badgesScrollContent: {
+    paddingHorizontal: 5,
+    paddingBottom: 10,
+    paddingTop: 5,
+  },
   badgeContainer: {
-    width: 110,
-    height: 150,
+    width: 120,
+    minHeight: 160,
     borderRadius: 16,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderWidth: 1,
-    padding: 12,
+    padding: 15,
     marginRight: 15,
+    marginBottom: 5,
+    marginTop: 5,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -1861,14 +1875,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4.65,
     elevation: 6,
+    overflow: "visible",
   },
   badgeIconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 65,
+    height: 65,
+    borderRadius: 32.5,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 15,
+    marginBottom: 12,
+    marginTop: 5,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -1878,18 +1894,26 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 3,
   },
+  badgeTextContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+  },
   badgeTitle: {
     fontSize: 14,
     fontWeight: "bold",
-    marginVertical: 5,
+    marginBottom: 6,
     textAlign: "center",
     fontFamily: "Inter-SemiBold",
   },
   badgeDescription: {
-    fontSize: 12,
+    fontSize: 11,
     textAlign: "center",
     fontFamily: "Inter-Regular",
-    lineHeight: 16,
+    lineHeight: 14,
+    flexWrap: "wrap",
+    paddingHorizontal: 2,
   },
   coverImageLoadingContainer: {
     width: "100%",
