@@ -1,32 +1,34 @@
-## Project Name: SkillLink\*
+## Project Name: Skillink
 
 - **Type**: College Final Year Project
-- **Technology Stack**: React Native, Expo, Firebase, Strapi, MySQL
+- **Technology Stack**: React Native, Expo, Firebase, Next.js, MySQL
 
-# SkillLink\*
+# Skillink
 
 ## Connecting Learners and Educators through Interactive Courses
 
-SkillLink\* is a mobile application designed to bridge the gap between learners and educators by providing an interactive and engaging platform for online courses. Built using **React Native with Expo**, **Firebase**, **Strapi**, and **MySQL**, the app ensures a seamless learning experience with real-time interaction and dynamic course content.
+Skillink is a mobile application designed to bridge the gap between learners and educators by providing an interactive and engaging platform for online courses. Built using **React Native with Expo** for the user end, **Next.js** for the admin dashboard, **Firebase**, and **MySQL**, the app ensures a seamless learning experience with real-time interaction and dynamic course content.
 
 ---
 
 ## Features
 
 - **User Authentication**: Secure login/signup using Firebase Authentication.
-- **Course Management**: Educators can create, update, and manage courses through Strapi CMS.
+- **Course Management**: Educators can create, update, and manage courses through the admin dashboard.
 - **Interactive Learning**: Students can enroll in courses, complete lessons, and participate in quizzes.
 - **Real-Time Chat & Notifications**: Stay connected with instant messaging and course notifications.
 - **Progress Tracking**: Users can track their learning progress and achievements.
 - **Secure Payment System**: Integration with payment gateways for paid courses.
-- **Cross-Platform Compatibility**: Built with React Native, ensuring smooth performance on both iOS and Android.
+- **Cross-Platform Compatibility**: User end built with React Native, ensuring smooth performance on both iOS and Android.
+- **Admin Dashboard**: Comprehensive admin interface built with Next.js for content management.
 
 ---
 
 ## Tech Stack
 
-- **Frontend**: React Native with Expo
-- **Backend**: Strapi (Headless CMS) & Firebase
+- **User Frontend**: React Native with Expo
+- **Admin Frontend**: Next.js
+- **Backend**: Firebase
 - **Database**: MySQL
 - **Authentication**: Firebase Authentication
 - **Cloud Storage**: Firebase Storage
@@ -41,9 +43,9 @@ SkillLink\* is a mobile application designed to bridge the gap between learners 
 Make sure you have the following installed:
 
 - Node.js (latest LTS version)
-- Expo CLI
+- Expo CLI (for user end)
+- Next.js (for admin end)
 - MySQL Server
-- Strapi CMS
 - Firebase Account
 
 ### Steps to Run Locally
@@ -55,58 +57,69 @@ Make sure you have the following installed:
    cd skilllink
    ```
 
-2. **Install Dependencies**
+2. **Setup User End (React Native)**
 
    ```sh
+   cd Skillink/React\ Native\ User\ End
    npm install
+   expo start
    ```
 
-3. **Start Expo Development Server**
+3. **Setup Admin End (Next.js)**
 
    ```sh
-   expo start
+   cd Skillink/React\ Admin\ End
+   npm install
+   npm run dev
    ```
 
 4. **Setup Firebase**
 
    - Create a Firebase project.
    - Enable Authentication, Firestore, and Storage.
-   - Add Firebase configuration to `firebaseConfig.js`.
+   - Add Firebase configuration to the respective config files.
 
-5. **Setup Strapi Backend**
+5. **Run the Applications**
 
-   - Navigate to the `backend/` folder.
-   - Run `npm install`.
-   - Start Strapi with `npm run develop`.
-   - Connect Strapi to MySQL.
-
-6. **Run the Application**
-
-   - Use an emulator or scan the QR code with Expo Go to test the app.
+   - User End: Use an emulator or scan the QR code with Expo Go to test the app.
+   - Admin End: Access the admin dashboard at http://localhost:3000.
 
 ---
 
 ## Folder Structure
 
 ```
-SkillLink/
-├── frontend/               # React Native app
-│   ├── src/
-│   │   ├── components/
-│   │   ├── screens/
-│   │   ├── navigation/
-│   │   ├── services/
-│   │   └── firebaseConfig.js
-│   ├── package.json
-│   └── App.js
-├── backend/                # Strapi CMS
-│   ├── api/
-│   ├── config/
-│   ├── database/
-│   ├── package.json
-│   └── server.js
-├── README.md
-└── .gitignore
+Skillink/
+├── React Native User End/       # Mobile app for users
+│   ├── app/                     # Main application screens
+│   │   ├── authentication/      # Login, signup, and auth screens
+│   │   ├── components/          # Screen-specific components
+│   │   ├── profile/             # User profile screens
+│   │   ├── _layout.js           # Root layout
+│   │   └── [various screens]    # Learning, wishlist, settings, etc.
+│   ├── components/              # Shared UI components
+│   ├── constants/               # App constants and configurations
+│   ├── context/                 # Context providers
+│   ├── hooks/                   # Custom React hooks
+│   ├── utils/                   # Utility functions
+│   ├── assets/                  # Images, fonts, and other static assets
+│   ├── config/                  # Configuration files
+│   └── app.json                 # Expo configuration
+│
+├── React Admin End/             # Admin dashboard
+│   ├── pages/                   # Admin dashboard pages
+│   │   ├── api/                 # API routes
+│   │   ├── dashboard.js         # Main dashboard
+│   │   ├── courses.js           # Course management
+│   │   ├── users.js             # User management
+│   │   ├── books.js             # Book resources
+│   │   ├── enrollments.js       # Course enrollments
+│   │   ├── feedback.js          # User feedback
+│   │   └── [other pages]        # Various admin functionalities
+│   ├── components/              # UI components
+│   ├── styles/                  # CSS and styling
+│   ├── firebase/                # Firebase configuration and utilities
+│   └── public/                  # Static files
 ```
 
 ---
