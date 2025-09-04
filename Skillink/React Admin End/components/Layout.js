@@ -43,7 +43,7 @@ export default function Layout({ children }) {
   // Auto-logout after inactivity
   useEffect(() => {
     if (!user) return;
-
+//testing
     // Update remaining time every second
     timerRef.current = setInterval(() => {
       const elapsed = Date.now() - lastActivityRef.current;
