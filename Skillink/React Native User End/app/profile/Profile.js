@@ -907,6 +907,81 @@ function Profile() {
               color={isDarkMode ? "#5D6986" : "#CBD5E0"}
             />
           </TouchableOpacity>
+
+          <View
+            style={[
+              styles.itemDivider,
+              { backgroundColor: isDarkMode ? "#1E1E1E" : "#F1F5F9" },
+            ]}
+          />
+
+          {/* Premium Help Button */}
+          <TouchableOpacity
+            style={[
+              styles.premiumHelpButton,
+              {
+                backgroundColor: isDarkMode ? "#3366FF15" : "#3366FF10",
+                borderColor: "#3366FF",
+              },
+            ]}
+            onPress={() => router.push("/help")}
+            activeOpacity={0.7}
+          >
+            <LinearGradient
+              colors={isDarkMode ? ["#3366FF20", "#3366FF10"] : ["#3366FF15", "#3366FF08"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.premiumHelpGradient}
+            >
+              <View style={styles.premiumHelpContent}>
+                <View
+                  style={[
+                    styles.profileMenuIconContainer,
+                    styles.premiumHelpIconContainer,
+                    { backgroundColor: "#3366FF" },
+                  ]}
+                >
+                  <Ionicons
+                    name="headset"
+                    size={22}
+                    color="#FFFFFF"
+                  />
+                </View>
+                <View style={styles.profileMenuTextContainer}>
+                  <View style={styles.premiumHelpTitleRow}>
+                    <Text
+                      style={[
+                        styles.profileMenuTitle,
+                        styles.premiumHelpTitle,
+                        { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                      ]}
+                    >
+                      Premium Help & Support
+                    </Text>
+                    <View style={styles.premiumBadgeSmall}>
+                      <Ionicons name="star" size={10} color="#FFD700" />
+                      <Text style={styles.premiumBadgeTextSmall}>PRO</Text>
+                    </View>
+                  </View>
+                  <Text
+                    style={[
+                      styles.profileMenuDescription,
+                      { color: isDarkMode ? "#8F96AB" : "#718096" },
+                    ]}
+                  >
+                    Get 24/7 priority support • Live chat
+                  </Text>
+                </View>
+                <View style={styles.premiumHelpArrow}>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={22}
+                    color="#3366FF"
+                  />
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -1904,6 +1979,74 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#252836",
+  },
+  // Premium Help Button Styles
+  premiumHelpButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 2,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+    shadowColor: "#3366FF",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  premiumHelpGradient: {
+    borderRadius: 14,
+  },
+  premiumHelpContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 18,
+  },
+  premiumHelpIconContainer: {
+    shadowColor: "#3366FF",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  premiumHelpTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  premiumHelpTitle: {
+    fontWeight: "700",
+    fontSize: 16,
+    marginRight: 8,
+  },
+  premiumBadgeSmall: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFD70020",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 3,
+  },
+  premiumBadgeTextSmall: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#FFD700",
+    fontFamily: "Inter-Bold",
+  },
+  premiumHelpArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#3366FF15",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 
