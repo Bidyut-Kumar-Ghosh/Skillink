@@ -281,7 +281,9 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
             // Extract first name from full name
             if (user.name) {
                 const firstNameOnly = user.name.split(' ')[0];
-                setFirstName(firstNameOnly);
+                // Capitalize the first letter
+                const capitalizedFirstName = firstNameOnly.charAt(0).toUpperCase() + firstNameOnly.slice(1);
+                setFirstName(capitalizedFirstName);
             }
 
             // Mock storage values - would come from backend in real app

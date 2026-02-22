@@ -206,7 +206,7 @@ export default function Enrollments() {
                 <tbody>
                   {filteredEnrollments.map((enrollment) => (
                     <tr key={enrollment.id}>
-                      <td>{enrollment.studentName}</td>
+                      <td>{enrollment.studentName ? enrollment.studentName.charAt(0).toUpperCase() + enrollment.studentName.slice(1) : enrollment.studentName}</td>
                       <td>{enrollment.courseName}</td>
                       <td>{enrollment.enrollmentDate.toLocaleDateString()}</td>
                       <td>
@@ -328,7 +328,7 @@ export default function Enrollments() {
                   </p>
                   <p>
                     <strong>Instructor:</strong>{" "}
-                    {selectedEnrollment.course.instructor || "N/A"}
+                    {selectedEnrollment.course.instructor ? selectedEnrollment.course.instructor.charAt(0).toUpperCase() + selectedEnrollment.course.instructor.slice(1) : "N/A"}
                   </p>
                   <p>
                     <strong>Category:</strong>{" "}

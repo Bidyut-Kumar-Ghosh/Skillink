@@ -339,7 +339,7 @@ export default function Courses() {
                     <div className="course-details">
                       <h3>{course.title}</h3>
                       <p className="instructor">
-                        by {course.instructor || "Unknown"}
+                        by {course.instructor ? course.instructor.charAt(0).toUpperCase() + course.instructor.slice(1) : "Unknown"}
                       </p>
                       <p className="category">{course.category}</p>
                       <div className="course-meta">

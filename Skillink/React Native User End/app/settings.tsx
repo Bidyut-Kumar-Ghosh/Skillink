@@ -301,7 +301,7 @@ function SettingsContent() {
                                         styles.nameValue,
                                         { color: isDarkMode ? '#FFFFFF' : '#222B45' }
                                     ]}>
-                                        {user?.name || 'User'}
+                                        {user?.name ? user.name.charAt(0).toUpperCase() + user.name.slice(1) : 'User'}
                                     </Text>
                                     <TouchableOpacity
                                         style={styles.editNameButton}

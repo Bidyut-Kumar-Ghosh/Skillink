@@ -163,7 +163,7 @@ export default function UserDetails() {
   return (
     <Layout>
       <Head>
-        <title>{user.displayName} - User Details | Admin Panel</title>
+        <title>{user.displayName ? user.displayName.charAt(0).toUpperCase() + user.displayName.slice(1) : user.displayName} - User Details | Admin Panel</title>
       </Head>
 
       <div className="user-details-container">
@@ -186,7 +186,7 @@ export default function UserDetails() {
               )}
             </div>
             <div className="user-info">
-              <h2>{user.displayName}</h2>
+              <h2>{user.displayName ? user.displayName.charAt(0).toUpperCase() + user.displayName.slice(1) : user.displayName}</h2>
               <p className="user-email">{user.email}</p>
               <div className="user-meta">
                 <span
