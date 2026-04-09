@@ -1,110 +1,103 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  FlatList,
+  SafeAreaView,
+  StatusBar,
   StyleSheet,
-  View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
-  ActivityIndicator,
-  StatusBar,
-  Platform,
-  Animated,
-  FlatList,
+  View,
 } from "react-native";
-import { useAuth } from "@/context/AuthContext";
-import { useTheme } from "@/context/ThemeContext";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useFonts } from "expo-font";
+import { useTheme } from "@/context/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
+import { db } from "@/config/firebase";
+import {
+  collection,
+  getDocs,
+  limit,
+  query,
+  where,
+} from "firebase/firestore/lite";
 
 function Purchases() {
-  const { user, loading } = useAuth();
-  const { theme, isDarkMode } = useTheme();
-  const [purchases, setPurchases] = useState([]);
+  const { isDarkMode } = useTheme();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [purchases, setPurchases] = useState([]);
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const totalSpent = useMemo(
+    () => purchases.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [purchases]
+  );
 
-  // Load custom fonts
-  const [fontsLoaded] = useFonts({
-    "Inter-Bold": require("@/assets/fonts/Inter-Bold.ttf"),
-    "Inter-Medium": require("@/assets/fonts/Inter-Medium.ttf"),
-    "Inter-Regular": require("@/assets/fonts/Inter-Regular.ttf"),
-    "Inter-SemiBold": require("@/assets/fonts/Inter-SemiBold.ttf"),
-  });
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "Unknown date";
 
-  // Run animations when component mounts
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    try {
+      if (typeof dateValue.toDate === "function") {
+        return dateValue.toDate().toLocaleDateString();
+      }
 
-    // Simulate loading purchases data
-    setTimeout(() => {
-      setPurchases([
-        {
-          id: "1",
-          name: "Banking Exam Premium",
-          date: "15 Mar 2023",
-          price: "₹999",
-          status: "active",
-        },
-        {
-          id: "2",
-          name: "SSC Study Material",
-          date: "20 Jan 2023",
-          price: "₹799",
-          status: "active",
-        },
-        {
-          id: "3",
-          name: "UPSC Prelims Course",
-          date: "5 Dec 2022",
-          price: "₹1999",
-          status: "expired",
-        },
-      ]);
-      setIsLoading(false);
-    }, 1000);
-  }, []);
-
-  // Handle back button with animation
-  const handleBackPress = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: -30,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      router.back();
-    });
+      return new Date(dateValue).toLocaleDateString();
+    } catch {
+      return "Unknown date";
+    }
   };
 
-  // Show loading while checking authentication or loading fonts
-  if (loading || !fontsLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3366FF" />
-      </View>
-    );
-  }
+  useEffect(() => {
+    const loadPurchases = async () => {
+      if (!user?.id) {
+        setPurchases([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const purchasesQuery = query(
+          collection(db, "purchases"),
+          where("userId", "==", user.id),
+          limit(100)
+        );
+
+        const snapshot = await getDocs(purchasesQuery);
+        const list = [];
+
+        snapshot.forEach((purchaseDoc) => {
+          const data = purchaseDoc.data();
+          const purchasedAtRaw = data.purchasedAt?.toDate
+            ? data.purchasedAt.toDate().getTime()
+            : new Date(data.purchasedAt || 0).getTime();
+
+          list.push({
+            id: purchaseDoc.id,
+            name: data.title || "Untitled Course",
+            amount: Number(data.amount || 0),
+            status: data.status || "active",
+            paymentStatus: data.paymentStatus || "completed",
+            date: formatDate(data.purchasedAt),
+            purchasedAtRaw,
+          });
+        });
+
+        const sorted = list.sort((a, b) => {
+          return (b.purchasedAtRaw || 0) - (a.purchasedAtRaw || 0);
+        });
+
+        setPurchases(sorted);
+      } catch (error) {
+        console.error("Error loading purchases:", error);
+        setPurchases([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPurchases();
+  }, [user?.id]);
 
   const renderItem = ({ item }) => (
     <View
@@ -137,14 +130,14 @@ function Purchases() {
               { color: isDarkMode ? "#FFFFFF" : "#333333" },
             ]}
           >
-            {item.price}
+            ${item.amount.toFixed(2)}
           </Text>
           <View
             style={[
               styles.statusBadge,
               {
                 backgroundColor:
-                  item.status === "active"
+                  item.paymentStatus === "completed"
                     ? isDarkMode
                       ? "#1E3A5F"
                       : "#E6F0FF"
@@ -159,7 +152,7 @@ function Purchases() {
                 styles.statusText,
                 {
                   color:
-                    item.status === "active"
+                    item.paymentStatus === "completed"
                       ? isDarkMode
                         ? "#4D9CFF"
                         : "#3366FF"
@@ -169,18 +162,16 @@ function Purchases() {
                 },
               ]}
             >
-              {item.status.toUpperCase()}
+              {String(item.paymentStatus).toUpperCase()}
             </Text>
           </View>
         </View>
       </View>
-      <TouchableOpacity style={styles.viewButton} activeOpacity={0.7}>
-        <Ionicons
-          name="arrow-forward-circle-outline"
-          size={24}
-          color={isDarkMode ? "#4D9CFF" : "#3366FF"}
-        />
-      </TouchableOpacity>
+      <Ionicons
+        name="checkmark-circle-outline"
+        size={22}
+        color={isDarkMode ? "#4D9CFF" : "#3366FF"}
+      />
     </View>
   );
 
@@ -205,7 +196,7 @@ function Purchases() {
           { color: isDarkMode ? "#8F96AB" : "#666666" },
         ]}
       >
-        You haven't made any purchases yet. Browse our courses to get started.
+        You have not purchased any courses yet.
       </Text>
       <TouchableOpacity
         style={[styles.browseButton, { backgroundColor: "#3366FF" }]}
@@ -227,60 +218,43 @@ function Purchases() {
       ]}
     >
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+
       <View
         style={[
-          styles.backgroundContainer,
-          isDarkMode
-            ? { backgroundColor: "#000000" }
-            : { backgroundColor: "#F8F9FA" },
+          styles.header,
+          {
+            backgroundColor: isDarkMode ? "#121212" : "#3366FF",
+            borderBottomColor: isDarkMode ? "#1E1E1E" : "transparent",
+          },
         ]}
       >
-        <View
-          style={[
-            styles.header,
-            {
-              backgroundColor: isDarkMode ? "#121212" : "#3366FF",
-              borderBottomColor: isDarkMode ? "#1E1E1E" : "transparent",
-            },
-          ]}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
         >
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBackPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>MY PURCHASES</Text>
-          <View style={styles.headerRight} />
-        </View>
-
-        <Animated.View
-          style={[
-            styles.content,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          {isLoading ? (
-            <ActivityIndicator
-              size="large"
-              color="#3366FF"
-              style={styles.contentLoader}
-            />
-          ) : (
-            <FlatList
-              data={purchases}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.purchasesList}
-              ListEmptyComponent={ListEmptyComponent}
-            />
-          )}
-        </Animated.View>
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>MY PURCHASES</Text>
+        <View style={styles.headerRight} />
       </View>
+
+      <View style={styles.summaryBar}>
+        <Text style={styles.summaryText}>Total purchases: {purchases.length}</Text>
+        <Text style={styles.summaryText}>Spent: ${totalSpent.toFixed(2)}</Text>
+      </View>
+
+      {isLoading ? (
+        <ActivityIndicator size="large" color="#3366FF" style={styles.contentLoader} />
+      ) : (
+        <FlatList
+          data={purchases}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.purchasesList}
+          ListEmptyComponent={ListEmptyComponent}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -288,30 +262,15 @@ function Purchases() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1A2138",
-  },
-  backgroundContainer: {
-    flex: 1,
-    backgroundColor: "#1A2138",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 40 : 20,
-    paddingBottom: 20,
-    backgroundColor: "#1A2138",
+    paddingTop: 16,
+    paddingBottom: 18,
     borderBottomWidth: 1,
-    borderBottomColor: "#3D435C",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 4,
   },
   backButton: {
     padding: 10,
@@ -322,14 +281,21 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#FFFFFF",
     letterSpacing: 1,
-    fontFamily: "Inter-SemiBold",
   },
   headerRight: {
     width: 40,
   },
-  content: {
-    flex: 1,
-    padding: 20,
+  summaryBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: "#EAF0FF",
+  },
+  summaryText: {
+    color: "#1E3A8A",
+    fontSize: 12,
+    fontWeight: "700",
   },
   contentLoader: {
     flex: 1,
@@ -338,97 +304,72 @@ const styles = StyleSheet.create({
   },
   purchasesList: {
     flexGrow: 1,
+    padding: 20,
   },
   purchaseItem: {
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
     borderRadius: 10,
     padding: 15,
     marginBottom: 15,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
+    alignItems: "center",
   },
   purchaseContent: {
     flex: 1,
   },
   purchaseName: {
     fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 5,
-    fontFamily: "Inter-SemiBold",
+    fontWeight: "700",
   },
   purchaseDate: {
-    fontSize: 14,
-    marginBottom: 8,
-    fontFamily: "Inter-Regular",
+    fontSize: 12,
+    marginTop: 4,
   },
   purchaseDetails: {
+    marginTop: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   purchasePrice: {
     fontSize: 16,
-    fontWeight: "bold",
-    fontFamily: "Inter-SemiBold",
+    fontWeight: "800",
   },
   statusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    fontFamily: "Inter-SemiBold",
-  },
-  viewButton: {
-    justifyContent: "center",
-    paddingLeft: 10,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#1A2138",
+    fontSize: 10,
+    fontWeight: "700",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 30,
-    paddingTop: 50,
+    justifyContent: "center",
+    paddingTop: 60,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 10,
-    fontFamily: "Inter-SemiBold",
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 12,
   },
   emptyText: {
-    fontSize: 14,
+    marginTop: 8,
     textAlign: "center",
-    marginBottom: 20,
-    fontFamily: "Inter-Regular",
+    maxWidth: 280,
   },
   browseButton: {
-    paddingHorizontal: 20,
+    marginTop: 18,
+    paddingHorizontal: 22,
     paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: "#3366FF",
+    borderRadius: 10,
   },
   browseButtonText: {
-    fontSize: 14,
-    fontWeight: "bold",
     color: "#FFFFFF",
-    fontFamily: "Inter-SemiBold",
+    fontWeight: "700",
   },
 });
 

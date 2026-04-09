@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Image,
     SafeAreaView,
     ScrollView,
@@ -12,8 +13,22 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, getDoc } from 'firebase/firestore';
+import {
+    addDoc,
+    arrayRemove,
+    arrayUnion,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    limit,
+    query,
+    setDoc,
+    updateDoc,
+    where,
+} from 'firebase/firestore/lite';
 import { db } from '@/config/firebase';
+import { useAuth } from '@/context/AuthContext';
 
 type CourseData = {
     title?: string;
@@ -33,9 +48,13 @@ type CourseData = {
 
 export default function CourseDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
+    const { user } = useAuth();
     const [course, setCourse] = useState<CourseData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isInBag, setIsInBag] = useState(false);
+    const [isInCart, setIsInCart] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
         const loadCourse = async () => {
@@ -63,6 +82,40 @@ export default function CourseDetailScreen() {
         loadCourse();
     }, [id]);
 
+    useEffect(() => {
+        const loadUserCourseState = async () => {
+            if (!user?.id || !id || Array.isArray(id)) {
+                setIsInBag(false);
+                setIsInCart(false);
+                return;
+            }
+
+            try {
+                const userSnapshot = await getDoc(doc(db, 'users', user.id));
+                if (!userSnapshot.exists()) {
+                    setIsInBag(false);
+                    setIsInCart(false);
+                    return;
+                }
+
+                const userData = userSnapshot.data();
+                const wishlistIds = Array.isArray(userData?.wishlistCourseIds)
+                    ? userData.wishlistCourseIds
+                    : [];
+                const cartIds = Array.isArray(userData?.cartCourseIds)
+                    ? userData.cartCourseIds
+                    : [];
+
+                setIsInBag(wishlistIds.includes(id));
+                setIsInCart(cartIds.includes(id));
+            } catch (stateError) {
+                console.error('Failed loading user course state:', stateError);
+            }
+        };
+
+        loadUserCourseState();
+    }, [id, user?.id]);
+
     const imageUrl = course?.imageUrl || course?.image || course?.thumbnail;
     const title = course?.title || 'Course Details';
     const author = course?.author || course?.instructor || 'Course Instructor';
@@ -71,6 +124,138 @@ export default function CourseDetailScreen() {
     const level = course?.level || course?.difficulty || 'All Levels';
     const duration = course?.duration || 'Self-paced';
     const priceValue = course?.price;
+    const parsedPrice = Number(priceValue || 0);
+
+    const upsertUserArrayField = async (
+        fieldName: 'wishlistCourseIds' | 'cartCourseIds',
+        courseId: string,
+        shouldAdd: boolean
+    ) => {
+        if (!user?.id) {
+            Alert.alert('Sign in required', 'Please sign in to continue.');
+            return false;
+        }
+
+        const userRef = doc(db, 'users', user.id);
+        const payload = {
+            [fieldName]: shouldAdd ? arrayUnion(courseId) : arrayRemove(courseId),
+        };
+
+        try {
+            await updateDoc(userRef, payload);
+        } catch {
+            await setDoc(userRef, payload, { merge: true });
+        }
+
+        return true;
+    };
+
+    const handleToggleBag = async () => {
+        if (!id || Array.isArray(id)) return;
+
+        setActionLoading(true);
+        try {
+            const nextState = !isInBag;
+            const success = await upsertUserArrayField('wishlistCourseIds', id, nextState);
+            if (!success) return;
+
+            setIsInBag(nextState);
+            Alert.alert(nextState ? 'Added to Bag' : 'Removed from Bag');
+        } catch (bagError) {
+            console.error('Bag update failed:', bagError);
+            Alert.alert('Update failed', 'Could not update bag right now.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleToggleCart = async () => {
+        if (!id || Array.isArray(id)) return;
+
+        setActionLoading(true);
+        try {
+            const nextState = !isInCart;
+            const success = await upsertUserArrayField('cartCourseIds', id, nextState);
+            if (!success) return;
+
+            setIsInCart(nextState);
+            Alert.alert(nextState ? 'Added to Cart' : 'Removed from Cart');
+        } catch (cartError) {
+            console.error('Cart update failed:', cartError);
+            Alert.alert('Update failed', 'Could not update cart right now.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handlePurchaseNow = async () => {
+        if (!user?.id) {
+            Alert.alert('Sign in required', 'Please sign in to make a purchase.');
+            return;
+        }
+
+        if (!id || Array.isArray(id) || !course) {
+            Alert.alert('Invalid course', 'Could not purchase this course.');
+            return;
+        }
+
+        setActionLoading(true);
+        try {
+            const purchaseQuery = query(
+                collection(db, 'purchases'),
+                where('userId', '==', user.id),
+                where('courseId', '==', id),
+                limit(1)
+            );
+            const purchaseSnapshot = await getDocs(purchaseQuery);
+
+            if (!purchaseSnapshot.empty) {
+                Alert.alert('Already purchased', 'You already own this course.');
+                return;
+            }
+
+            await addDoc(collection(db, 'purchases'), {
+                userId: user.id,
+                courseId: id,
+                title: course.title || 'Untitled Course',
+                author: course.author || course.instructor || 'Course Instructor',
+                category: course.category || 'Course',
+                imageUrl: course.imageUrl || course.image || course.thumbnail || null,
+                amount: parsedPrice,
+                paymentStatus: 'completed',
+                status: 'active',
+                purchasedAt: new Date(),
+            });
+
+            await addDoc(collection(db, 'enrollments'), {
+                userId: user.id,
+                courseId: id,
+                enrollmentDate: new Date(),
+                amount: parsedPrice,
+                status: 'active',
+                paymentStatus: 'completed',
+            });
+
+            await upsertUserArrayField('cartCourseIds', id, false);
+            setIsInCart(false);
+
+            Alert.alert('Purchase successful', 'Course purchased successfully.', [
+                {
+                    text: 'View Purchases',
+                    onPress: () => router.push('/profile/purchases'),
+                },
+                {
+                    text: 'OK',
+                    style: 'cancel',
+                },
+            ]);
+        } catch (purchaseError) {
+            console.error('Purchase failed:', purchaseError);
+            Alert.alert('Purchase failed', 'Could not complete your purchase. Please try again.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -154,6 +339,63 @@ export default function CourseDetailScreen() {
                                     {course?.description || 'No course description is available for this item yet.'}
                                 </Text>
                             </View>
+
+                            <View style={styles.actionsRow}>
+                                <TouchableOpacity
+                                    style={[styles.secondaryAction, isInBag && styles.secondaryActionActive]}
+                                    onPress={handleToggleBag}
+                                    disabled={actionLoading}
+                                >
+                                    <Ionicons
+                                        name={isInBag ? 'heart' : 'heart-outline'}
+                                        size={16}
+                                        color={isInBag ? '#FFFFFF' : '#334155'}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.secondaryActionText,
+                                            isInBag && styles.secondaryActionTextActive,
+                                        ]}
+                                    >
+                                        {isInBag ? 'In Wishlist' : 'Add to Wishlist'}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.secondaryAction, isInCart && styles.secondaryActionActive]}
+                                    onPress={handleToggleCart}
+                                    disabled={actionLoading}
+                                >
+                                    <Ionicons
+                                        name={isInCart ? 'cart' : 'cart-outline'}
+                                        size={16}
+                                        color={isInCart ? '#FFFFFF' : '#334155'}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.secondaryActionText,
+                                            isInCart && styles.secondaryActionTextActive,
+                                        ]}
+                                    >
+                                        {isInCart ? 'In Cart' : 'Add to Cart'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity
+                                style={[styles.purchaseButton, actionLoading && styles.purchaseButtonDisabled]}
+                                onPress={handlePurchaseNow}
+                                disabled={actionLoading}
+                            >
+                                {actionLoading ? (
+                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                ) : (
+                                    <>
+                                        <Ionicons name="flash-outline" size={18} color="#FFFFFF" />
+                                        <Text style={styles.purchaseButtonText}>Purchase Now</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
                         </View>
                     </>
                 )}
@@ -372,5 +614,52 @@ const styles = StyleSheet.create({
         color: '#475569',
         fontSize: 14,
         lineHeight: 22,
+    },
+    actionsRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 18,
+    },
+    secondaryAction: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#D1D9E8',
+        backgroundColor: '#F8FAFC',
+        paddingVertical: 12,
+    },
+    secondaryActionActive: {
+        backgroundColor: '#3366FF',
+        borderColor: '#3366FF',
+    },
+    secondaryActionText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#334155',
+    },
+    secondaryActionTextActive: {
+        color: '#FFFFFF',
+    },
+    purchaseButton: {
+        marginTop: 12,
+        backgroundColor: '#0F172A',
+        borderRadius: 14,
+        paddingVertical: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    purchaseButtonDisabled: {
+        opacity: 0.75,
+    },
+    purchaseButtonText: {
+        color: '#FFFFFF',
+        fontSize: 15,
+        fontWeight: '800',
     },
 });

@@ -401,7 +401,7 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
     };
 
     const navigateToCart = () => {
-        router.push('/profile/purchases');
+        router.push('/cart');
     };
 
     // Update the renderSliderItem function
@@ -1006,7 +1006,7 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
                         style={[styles.headerActionButton, isDarkMode && styles.darkHeaderActionButton]}
                         onPress={navigateToBag}
                     >
-                        <Ionicons name="bag-outline" size={18} color={isDarkMode ? '#D6DBE7' : '#334155'} />
+                        <Ionicons name="heart-outline" size={18} color={isDarkMode ? '#D6DBE7' : '#334155'} />
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.headerActionButton, isDarkMode && styles.darkHeaderActionButton]}
