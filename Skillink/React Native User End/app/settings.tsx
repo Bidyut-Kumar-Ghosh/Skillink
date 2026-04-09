@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Dimensions } from 'react-native';
 import ProtectedRoute from './components/ProtectedRoute';
 import LogoutDialog from '@/app/components/LogoutDialog';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore/lite';
 import { db } from '@/config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

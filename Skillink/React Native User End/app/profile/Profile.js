@@ -32,7 +32,7 @@ import {
   orderBy,
   limit,
   getDoc,
-} from "firebase/firestore";
+} from "firebase/firestore/lite";
 import { db } from "@/config/firebase";
 import { useFonts } from "expo-font";
 import LogoutDialog from "@/app/components/LogoutDialog";

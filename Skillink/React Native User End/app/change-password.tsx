@@ -17,7 +17,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore/lite';
 import { db } from '@/config/firebase';
 import { hashPassword, verifyPassword } from '@/utils/crypto';
 import ProtectedRoute from './components/ProtectedRoute';

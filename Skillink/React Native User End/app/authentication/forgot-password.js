@@ -21,7 +21,7 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "@/config/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore/lite";
 import { showError, showSuccess } from "@/app/components/NotificationHandler";
 
 const { width, height } = Dimensions.get("window");

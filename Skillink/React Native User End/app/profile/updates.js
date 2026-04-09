@@ -26,7 +26,7 @@ import {
   orderBy,
   doc,
   updateDoc,
-} from "firebase/firestore";
+} from "firebase/firestore/lite";
 
 // Auto-refresh interval in milliseconds (30 seconds)
 const AUTO_REFRESH_INTERVAL = 30000;

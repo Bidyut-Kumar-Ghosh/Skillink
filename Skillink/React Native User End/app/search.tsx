@@ -28,9 +28,8 @@ import {
     doc,
     getDoc,
     DocumentData,
-    QuerySnapshot,
-    onSnapshot
-} from 'firebase/firestore';
+    QuerySnapshot
+} from 'firebase/firestore/lite';
 import { db } from '@/config/firebase';
 
 // Define types for search results

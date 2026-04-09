@@ -40,7 +40,7 @@ import {
     where,
     query as firestoreQuery,
     DocumentData
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
 import { db } from '@/config/firebase';
 import { LinearGradient } from 'expo-linear-gradient';
 

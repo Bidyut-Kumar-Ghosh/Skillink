@@ -11,7 +11,7 @@ import {
     UserCredential,
     User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, FieldValue } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, FieldValue } from 'firebase/firestore/lite';
 import { auth, db } from '@/config/firebase';
 import { hashPassword, verifyPassword } from '@/utils/crypto';
 import { showError, showSuccess, getErrorCode } from '@/app/components/NotificationHandler';

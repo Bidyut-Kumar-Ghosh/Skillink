@@ -28,7 +28,7 @@ import {
   doc,
   setDoc,
   getDoc,
-} from "firebase/firestore";
+} from "firebase/firestore/lite";
 import { useFonts } from "expo-font";
 import LottieView from "lottie-react-native";
 
