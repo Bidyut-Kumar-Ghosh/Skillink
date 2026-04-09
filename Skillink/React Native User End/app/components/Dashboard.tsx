@@ -17,6 +17,7 @@ import {
     Easing,
     ActivityIndicator,
     Modal,
+    Alert,
 } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -25,11 +26,17 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import {
     collection,
+    doc,
+    getDoc,
     getDocs,
     limit,
     orderBy,
     startAt,
     endAt,
+    updateDoc,
+    setDoc,
+    arrayUnion,
+    arrayRemove,
     where,
     query as firestoreQuery,
     DocumentData
@@ -108,7 +115,7 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
     // Refs for slider
     const sliderRef = useRef<FlatList<SlideItem>>(null);
     const scrollX = useRef(new Animated.Value(0)).current;
-    const autoScrollTimer = useRef<NodeJS.Timeout | null>(null);
+    const autoScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Animation values for rotate effect
     const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -133,6 +140,81 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
 
     // Add state for original unfiltered category data
     const [originalCategoryData, setOriginalCategoryData] = useState<CategoryCourses[]>([]);
+    const [wishlistCourseIds, setWishlistCourseIds] = useState<string[]>([]);
+    const [wishlistUpdatingIds, setWishlistUpdatingIds] = useState<string[]>([]);
+
+    // Load current user's wishlist ids so cards can show saved state.
+    useEffect(() => {
+        const fetchWishlist = async () => {
+            if (!user?.id) {
+                setWishlistCourseIds([]);
+                return;
+            }
+
+            try {
+                const userSnapshot = await getDoc(doc(db, 'users', user.id));
+                if (!userSnapshot.exists()) {
+                    setWishlistCourseIds([]);
+                    return;
+                }
+
+                const userData = userSnapshot.data();
+                const ids = Array.isArray(userData?.wishlistCourseIds)
+                    ? userData.wishlistCourseIds.filter((item: unknown): item is string => typeof item === 'string')
+                    : [];
+
+                setWishlistCourseIds(ids);
+            } catch (error) {
+                console.error('Error loading wishlist:', error);
+            }
+        };
+
+        fetchWishlist();
+    }, [user?.id]);
+
+    const handleToggleWishlist = async (course: CourseItem) => {
+        if (!user?.id) {
+            Alert.alert('Sign in required', 'Please sign in to save courses to your wishlist.');
+            return;
+        }
+
+        if (wishlistUpdatingIds.includes(course.id)) {
+            return;
+        }
+
+        const isWishlisted = wishlistCourseIds.includes(course.id);
+
+        // Optimistic update for instant icon feedback.
+        setWishlistCourseIds((prev) =>
+            isWishlisted ? prev.filter((id) => id !== course.id) : [...prev, course.id]
+        );
+        setWishlistUpdatingIds((prev) => [...prev, course.id]);
+
+        try {
+            const userRef = doc(db, 'users', user.id);
+            const payload = {
+                wishlistCourseIds: isWishlisted ? arrayRemove(course.id) : arrayUnion(course.id),
+            };
+
+            try {
+                await updateDoc(userRef, payload);
+            } catch {
+                // Fallback if user doc is missing.
+                await setDoc(userRef, payload, { merge: true });
+            }
+        } catch (error) {
+            console.error('Error updating wishlist:', error);
+
+            // Revert optimistic state if request fails.
+            setWishlistCourseIds((prev) =>
+                isWishlisted ? [...prev, course.id] : prev.filter((id) => id !== course.id)
+            );
+
+            Alert.alert('Update failed', 'Could not update wishlist. Please try again.');
+        } finally {
+            setWishlistUpdatingIds((prev) => prev.filter((id) => id !== course.id));
+        }
+    };
 
     // Fetch banners from Firebase
     useEffect(() => {
@@ -310,6 +392,14 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
 
     const navigateToWishlist = () => {
         router.push('/wishlist');
+    };
+
+    const navigateToBag = () => {
+        router.push('/wishlist');
+    };
+
+    const navigateToCart = () => {
+        router.push('/profile/purchases');
     };
 
     // Update the renderSliderItem function
@@ -910,6 +1000,18 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
                     </Text>
                 </View>
                 <View style={styles.headerRightSection}>
+                    <TouchableOpacity
+                        style={[styles.headerActionButton, isDarkMode && styles.darkHeaderActionButton]}
+                        onPress={navigateToBag}
+                    >
+                        <Ionicons name="bag-outline" size={18} color={isDarkMode ? '#D6DBE7' : '#334155'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.headerActionButton, isDarkMode && styles.darkHeaderActionButton]}
+                        onPress={navigateToCart}
+                    >
+                        <Ionicons name="cart-outline" size={18} color={isDarkMode ? '#D6DBE7' : '#334155'} />
+                    </TouchableOpacity>
                     <TouchableOpacity onPress={navigateToProfile}>
                         {user?.photoURL ? (
                             <Image source={{ uri: user.photoURL }} style={styles.avatar} />
@@ -1065,6 +1167,29 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
                                             onPress={() => router.push(`/course/${course.id}`)}
                                         >
                                             <View style={styles.courseImageContainer}>
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.wishlistButton,
+                                                        isDarkMode && styles.darkWishlistButton,
+                                                        wishlistCourseIds.includes(course.id) && styles.wishlistButtonActive,
+                                                    ]}
+                                                    onPress={(event) => {
+                                                        event.stopPropagation();
+                                                        handleToggleWishlist(course);
+                                                    }}
+                                                    disabled={wishlistUpdatingIds.includes(course.id)}
+                                                    hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                                                >
+                                                    <Ionicons
+                                                        name={wishlistCourseIds.includes(course.id) ? 'heart' : 'heart-outline'}
+                                                        size={16}
+                                                        color={
+                                                            wishlistCourseIds.includes(course.id)
+                                                                ? '#FFFFFF'
+                                                                : (isDarkMode ? '#D6DBE7' : '#334155')
+                                                        }
+                                                    />
+                                                </TouchableOpacity>
                                                 {course.imageUrl ? (
                                                     <Image
                                                         source={{ uri: course.imageUrl }}
@@ -1193,7 +1318,22 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        minWidth: 80,
+        minWidth: 140,
+        gap: 10,
+    },
+    headerActionButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    darkHeaderActionButton: {
+        backgroundColor: '#1A1A1A',
+        borderColor: '#2C2C2C',
     },
     welcomeMessage: {
         fontSize: 18,
@@ -1434,6 +1574,29 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         marginBottom: 10,
         overflow: 'hidden',
+        position: 'relative',
+    },
+    wishlistButton: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.95)',
+        zIndex: 10,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    darkWishlistButton: {
+        backgroundColor: 'rgba(15,23,42,0.9)',
+        borderColor: '#334155',
+    },
+    wishlistButtonActive: {
+        backgroundColor: '#EF4444',
+        borderColor: '#EF4444',
     },
     courseImagePlaceholder: {
         width: '100%',
