@@ -216,7 +216,7 @@ export default function Feedback() {
                   <div className="feedback-card" key={item.id}>
                     <div className="feedback-header">
                       <div className="user-info">
-                        <h3>{item.userName || "Anonymous User"}</h3>
+                        <h3>{item.userName ? item.userName.charAt(0).toUpperCase() + item.userName.slice(1) : "Anonymous User"}</h3>
                         <p className="email">
                           {item.userEmail || "No email provided"}
                         </p>
@@ -301,7 +301,7 @@ export default function Feedback() {
 
               <div className="feedback-details">
                 <h3>
-                  Feedback from {currentFeedback.userName || "Anonymous User"}
+                  Feedback from {currentFeedback.userName ? currentFeedback.userName.charAt(0).toUpperCase() + currentFeedback.userName.slice(1) : "Anonymous User"}
                 </h3>
                 <p className="date">
                   Submitted on {currentFeedback.createdAt.toLocaleDateString()}

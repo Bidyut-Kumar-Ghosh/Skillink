@@ -676,7 +676,7 @@ function Profile() {
               { color: isDarkMode ? "#FFFFFF" : "#333333" },
             ]}
           >
-            {user?.name || "User"}
+            {user?.name ? user.name.charAt(0).toUpperCase() + user.name.slice(1) : "User"}
           </Text>
         </View>
 

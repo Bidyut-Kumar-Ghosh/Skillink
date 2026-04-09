@@ -269,7 +269,7 @@ function Dashboard() {
                             {book.title || "Unknown"}
                           </h3>
                           <p className="book-author">
-                            by {book.author || "Unknown"}
+                            by {book.author ? book.author.charAt(0).toUpperCase() + book.author.slice(1) : "Unknown"}
                           </p>
                           {book.publishDate && (
                             <p className="book-date">
@@ -333,7 +333,7 @@ function Dashboard() {
                             {course.title || "Unknown"}
                           </h3>
                           <p className="course-instructor">
-                            by {course.instructor || "Unknown"}
+                            by {course.instructor ? course.instructor.charAt(0).toUpperCase() + course.instructor.slice(1) : "Unknown"}
                           </p>
                           <div className="course-meta">
                             <span className="course-level">

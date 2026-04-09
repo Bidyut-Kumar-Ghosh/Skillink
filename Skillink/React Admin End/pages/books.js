@@ -373,7 +373,7 @@ export default function Books() {
                     </div>
                     <div className="book-details">
                       <h3>{book.title}</h3>
-                      <p className="author">by {book.author || "Unknown"}</p>
+                      <p className="author">by {book.author ? book.author.charAt(0).toUpperCase() + book.author.slice(1) : "Unknown"}</p>
                       <p className="category">{book.category}</p>
                       <div className="book-meta">
                         <span className="date">

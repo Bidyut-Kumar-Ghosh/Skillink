@@ -290,13 +290,13 @@ export default function Users() {
                       <img src={user.photoURL} alt={user.displayName} />
                     ) : (
                       <div className={styles["avatar-placeholder"]}>
-                        {user.displayName?.charAt(0) ||
+                        {(user.displayName?.charAt(0).toUpperCase()) ||
                           user.email?.charAt(0) ||
                           "?"}
                       </div>
                     )}
                   </div>
-                  <span>{user.displayName || "No Name"}</span>
+                  <span>{user.displayName ? user.displayName.charAt(0).toUpperCase() + user.displayName.slice(1) : "No Name"}</span>
                 </div>
               </td>
               <td>{user.email}</td>
@@ -575,14 +575,14 @@ export default function Users() {
                     <div
                       className={`${styles["avatar-placeholder"]} ${styles.large}`}
                     >
-                      {selectedUser.displayName?.charAt(0) ||
+                      {(selectedUser.displayName?.charAt(0).toUpperCase()) ||
                         selectedUser.email?.charAt(0) ||
                         "?"}
                     </div>
                   )}
                 </div>
                 <div className="user-info">
-                  <h3>{selectedUser.displayName || "No Name"}</h3>
+                  <h3>{selectedUser.displayName ? selectedUser.displayName.charAt(0).toUpperCase() + selectedUser.displayName.slice(1) : "No Name"}</h3>
                   <p className="user-email">{selectedUser.email}</p>
                   <div className="user-meta">
                     <span
