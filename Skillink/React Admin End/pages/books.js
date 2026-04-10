@@ -9,6 +9,7 @@ import {
   deleteDoc,
   addDoc,
   updateDoc,
+  deleteField,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -16,11 +17,14 @@ export default function Books() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [pdfUploading, setPdfUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [bookImage, setBookImage] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
+  const [pdfFile, setPdfFile] = useState(null);
+  const [pdfFileName, setPdfFileName] = useState("");
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
@@ -31,6 +35,8 @@ export default function Books() {
     status: "available",
     hasPrintedVersion: false,
     printedBookPrice: "",
+    pdfUrl: "",
+    pdfPublicId: "",
     pdfData: null,
   });
 
@@ -80,8 +86,64 @@ export default function Books() {
     )
       return "Valid printed book price is required";
     if (!formData.imageUrl && !bookImage) return "Book cover image is required";
-    if (!formData.pdfData && !isEditMode) return "PDF file is required";
+    if (!formData.pdfUrl && !formData.pdfData && !pdfFile)
+      return "PDF file is required";
     return null;
+  };
+
+  const getCloudinaryConfig = () => {
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      throw new Error(
+        "Cloudinary is not configured. Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
+      );
+    }
+
+    return { cloudName, uploadPreset };
+  };
+
+  const uploadPdfToCloudinary = async (file) => {
+    const { cloudName, uploadPreset } = getCloudinaryConfig();
+    const payload = new FormData();
+
+    payload.append("file", file);
+    payload.append("upload_preset", uploadPreset);
+    payload.append("folder", "skillink/books/pdfs");
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`,
+      {
+        method: "POST",
+        body: payload,
+      }
+    );
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      throw new Error(
+        `Cloudinary upload failed (${response.status}): ${responseText}`
+      );
+    }
+
+    return response.json();
+  };
+
+  const deleteCloudinaryPdf = async (publicId) => {
+    if (!publicId) return;
+
+    try {
+      await fetch("/api/cloudinary/delete-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ publicId }),
+      });
+    } catch (deleteError) {
+      console.warn("Failed to delete previous Cloudinary PDF:", deleteError);
+    }
   };
 
   const handleImageChange = (e) => {
@@ -182,15 +244,12 @@ export default function Books() {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setFormData({
-          ...formData,
-          pdfData: e.target.result,
-        });
-      };
-
-      reader.readAsDataURL(file);
+      setPdfFile(file);
+      setPdfFileName(file.name);
+      setFormData({
+        ...formData,
+        pdfData: null,
+      });
       setError(null);
     }
   };
@@ -206,10 +265,14 @@ export default function Books() {
       imageUrl: null,
       hasPrintedVersion: false,
       printedBookPrice: "",
+      pdfUrl: "",
+      pdfPublicId: "",
       pdfData: null,
     });
     setBookImage(null);
     setImagePreview("");
+    setPdfFile(null);
+    setPdfFileName("");
     setIsEditMode(false);
     setError(null);
   };
@@ -221,11 +284,16 @@ export default function Books() {
         imageUrl: book.imageUrl || null,
         hasPrintedVersion: book.hasPrintedVersion || false,
         printedBookPrice: book.printedBookPrice?.toString() || "",
+        pdfUrl: book.pdfUrl || "",
+        pdfPublicId: book.pdfPublicId || "",
+        pdfData: book.pdfData || null,
         publishDate: book.publishDate
           ? new Date(book.publishDate).toISOString().split("T")[0]
           : "",
       });
       setImagePreview(book.imageUrl || "");
+      setPdfFile(null);
+      setPdfFileName((book.pdfUrl || book.pdfData) ? "Existing PDF attached" : "");
       setIsEditMode(true);
     } else {
       resetForm();
@@ -247,6 +315,19 @@ export default function Books() {
     setError(null);
 
     try {
+      const previousPdfPublicId = formData.pdfPublicId || "";
+      let pdfUrl = formData.pdfUrl || "";
+      let pdfPublicId = formData.pdfPublicId || "";
+      let pdfData = formData.pdfData || null;
+
+      if (pdfFile) {
+        setPdfUploading(true);
+        const uploadedPdf = await uploadPdfToCloudinary(pdfFile);
+        pdfUrl = uploadedPdf.secure_url;
+        pdfPublicId = uploadedPdf.public_id;
+        pdfData = null;
+      }
+
       // Convert price to a valid number format if applicable
       const formattedData = {
         ...formData,
@@ -254,11 +335,10 @@ export default function Books() {
           formData.hasPrintedVersion && formData.printedBookPrice
             ? parseFloat(formData.printedBookPrice)
             : 0,
+        pdfUrl,
+        pdfPublicId,
+        pdfData,
       };
-
-      // The image is already stored in formData.imageUrl as a base64 string
-      // PDF is stored in formData.pdfData as a base64 string
-      // No need to upload to Firebase Storage
 
       const bookData = {
         ...formattedData,
@@ -267,6 +347,12 @@ export default function Books() {
 
       // Remove any fields that shouldn't be stored in Firestore
       delete bookData.id;
+
+      if (isEditMode && pdfFile) {
+        bookData.pdfData = deleteField();
+      } else if (!isEditMode) {
+        delete bookData.pdfData;
+      }
 
       if (isEditMode) {
         // Update existing book
@@ -291,23 +377,33 @@ export default function Books() {
         ]);
       }
 
+      if (pdfFile && previousPdfPublicId && previousPdfPublicId !== pdfPublicId) {
+        await deleteCloudinaryPdf(previousPdfPublicId);
+      }
+
       setIsModalOpen(false);
       resetForm();
     } catch (error) {
       console.error("Error saving book:", error);
       setError("Failed to save book: " + error.message);
     } finally {
+      setPdfUploading(false);
       setSubmitting(false);
     }
   };
 
   const handleDeleteBook = async (bookId) => {
+    const bookToDelete = books.find((book) => book.id === bookId);
     if (
       window.confirm(
         "Are you sure you want to delete this book? This action cannot be undone."
       )
     ) {
       try {
+        if (bookToDelete?.pdfPublicId) {
+          await deleteCloudinaryPdf(bookToDelete.pdfPublicId);
+        }
+
         // Delete book document from Firestore
         await deleteDoc(doc(db, "books", bookId));
 
@@ -391,7 +487,7 @@ export default function Books() {
                         )}
                       </div>
                       <div className="format-options">
-                        {book.pdfData && (
+                        {(book.pdfUrl || book.pdfData) && (
                           <span className="format-badge pdf">
                             PDF Available
                           </span>
@@ -578,21 +674,23 @@ export default function Books() {
                   id="pdfFile"
                   accept="application/pdf"
                   onChange={handlePdfUpload}
-                  required={!isEditMode && !formData.pdfData}
+                  required={!isEditMode && !formData.pdfUrl && !formData.pdfData}
                 />
                 <small className="pdf-guide">
                   PDF file is mandatory. Please upload a well-formatted PDF
                   document.
                 </small>
-                {isEditMode && !formData.pdfData && (
+                {isEditMode && !formData.pdfUrl && !formData.pdfData && (
                   <small>
                     Current PDF file will be preserved unless a new one is
                     uploaded
                   </small>
                 )}
-                {formData.pdfData && (
+                {pdfFileName && (
                   <div className="pdf-status">
-                    <span className="success-text">✓ PDF file uploaded</span>
+                    <span className="success-text">
+                      {pdfUploading ? "Uploading PDF..." : `✓ ${pdfFileName}`}
+                    </span>
                   </div>
                 )}
               </div>

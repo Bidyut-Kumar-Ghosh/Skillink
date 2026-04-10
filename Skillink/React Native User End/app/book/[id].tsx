@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Modal,
     Image,
+    Platform,
     SafeAreaView,
     ScrollView,
     StatusBar,
@@ -14,6 +16,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore/lite';
 import { db } from '@/config/firebase';
+import { WebView } from 'react-native-webview';
+import * as WebBrowser from 'expo-web-browser';
 
 type BookData = {
     title?: string;
@@ -24,6 +28,8 @@ type BookData = {
     image?: string;
     coverImage?: string;
     thumbnail?: string;
+    pdfUrl?: string;
+    pdfData?: string;
     rating?: number;
     price?: number | string;
     level?: string;
@@ -35,6 +41,9 @@ export default function BookDetailScreen() {
     const [book, setBook] = useState<BookData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
+    const [viewerIndex, setViewerIndex] = useState(0);
+    const [pdfPreviewError, setPdfPreviewError] = useState<string | null>(null);
 
     useEffect(() => {
         const loadBook = async () => {
@@ -52,8 +61,9 @@ export default function BookDetailScreen() {
                 } else {
                     setBook(snapshot.data() as BookData);
                 }
-            } catch (fetchError) {
-                setError('Failed to load book details.');
+            } catch (fetchError: any) {
+                console.error('Error loading book details:', fetchError);
+                setError(fetchError?.message || 'Failed to load book details.');
             } finally {
                 setLoading(false);
             }
@@ -63,6 +73,22 @@ export default function BookDetailScreen() {
     }, [id]);
 
     const imageUrl = book?.imageUrl || book?.image || book?.coverImage || book?.thumbnail;
+    const pdfUrl = book?.pdfUrl || book?.pdfData;
+    const encodedPdfUrl = pdfUrl ? encodeURIComponent(pdfUrl) : '';
+    const viewerSources = pdfUrl
+        ? Platform.OS === 'ios'
+            ? [
+                pdfUrl,
+                `https://docs.google.com/gview?embedded=true&url=${encodedPdfUrl}`,
+                `https://drive.google.com/viewerng/viewer?embedded=true&url=${encodedPdfUrl}`,
+            ]
+            : [
+                `https://docs.google.com/gview?embedded=true&url=${encodedPdfUrl}`,
+                `https://drive.google.com/viewerng/viewer?embedded=true&url=${encodedPdfUrl}`,
+                pdfUrl,
+            ]
+        : [];
+    const pdfViewerUrl = viewerSources[viewerIndex] || null;
     const title = book?.title || 'Book Details';
     const author = book?.author || 'Unknown Author';
     const category = book?.category || 'Book';
@@ -154,10 +180,103 @@ export default function BookDetailScreen() {
                                     {book?.description || 'No book description is available for this item yet.'}
                                 </Text>
                             </View>
+
+                            {pdfViewerUrl && (
+                                <TouchableOpacity
+                                    style={styles.pdfButton}
+                                    onPress={() => {
+                                        setViewerIndex(0);
+                                        setPdfPreviewError(null);
+                                        setPdfViewerVisible(true);
+                                    }}
+                                >
+                                    <Ionicons name="document-text-outline" size={18} color="#FFFFFF" />
+                                    <Text style={styles.pdfButtonText}>Open PDF in App</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </>
                 )}
             </ScrollView>
+
+            <Modal
+                visible={pdfViewerVisible}
+                animationType="slide"
+                presentationStyle="fullScreen"
+                onRequestClose={() => setPdfViewerVisible(false)}
+            >
+                <SafeAreaView style={styles.viewerContainer}>
+                    <View style={styles.viewerHeader}>
+                        <TouchableOpacity
+                            style={styles.viewerCloseButton}
+                            onPress={() => setPdfViewerVisible(false)}
+                        >
+                            <Ionicons name="close" size={22} color="#0F172A" />
+                        </TouchableOpacity>
+                        <Text style={styles.viewerTitle} numberOfLines={1}>
+                            {title}
+                        </Text>
+                        <View style={styles.viewerHeaderSpacer} />
+                    </View>
+
+                    {pdfViewerUrl ? (
+                        <>
+                            {pdfPreviewError ? (
+                                <View style={styles.webViewLoading}>
+                                    <Text style={styles.stateText}>{pdfPreviewError}</Text>
+                                </View>
+                            ) : (
+                                <WebView
+                                    key={pdfViewerUrl}
+                                    source={{ uri: pdfViewerUrl }}
+                                    style={styles.webView}
+                                    originWhitelist={['*']}
+                                    javaScriptEnabled
+                                    domStorageEnabled
+                                    allowsInlineMediaPlayback
+                                    startInLoadingState
+                                    renderLoading={() => (
+                                        <View style={styles.webViewLoading}>
+                                            <ActivityIndicator size="large" color="#0F172A" />
+                                        </View>
+                                    )}
+                                    onError={() => {
+                                        if (viewerIndex < viewerSources.length - 1) {
+                                            setViewerIndex((current) => current + 1);
+                                        } else {
+                                            setPdfPreviewError('Preview failed in app. Tap Open in Browser.');
+                                        }
+                                    }}
+                                    onHttpError={() => {
+                                        if (viewerIndex < viewerSources.length - 1) {
+                                            setViewerIndex((current) => current + 1);
+                                        } else {
+                                            setPdfPreviewError('Preview failed in app. Tap Open in Browser.');
+                                        }
+                                    }}
+                                />
+                            )}
+
+                            <View style={styles.viewerActions}>
+                                <TouchableOpacity
+                                    style={styles.viewerActionButton}
+                                    onPress={async () => {
+                                        if (!pdfUrl) return;
+                                        await WebBrowser.openBrowserAsync(pdfUrl);
+                                    }}
+                                >
+                                    <Ionicons name="open-outline" size={18} color="#FFFFFF" />
+                                    <Text style={styles.viewerActionText}>Open in Browser</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    ) : (
+                        <View style={styles.webViewLoading}>
+                            <Text style={styles.stateText}>No PDF available.</Text>
+                        </View>
+                    )}
+                </SafeAreaView>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -372,5 +491,85 @@ const styles = StyleSheet.create({
         color: '#475569',
         fontSize: 14,
         lineHeight: 22,
+    },
+    pdfButton: {
+        marginTop: 18,
+        backgroundColor: '#0F172A',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 14,
+        borderRadius: 16,
+    },
+    pdfButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    viewerContainer: {
+        flex: 1,
+        backgroundColor: '#F6F8FC',
+    },
+    viewerHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5EBF5',
+        backgroundColor: '#FFFFFF',
+    },
+    viewerCloseButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F1F5F9',
+    },
+    viewerTitle: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#0F172A',
+        marginHorizontal: 12,
+    },
+    viewerHeaderSpacer: {
+        width: 40,
+        height: 40,
+    },
+    webView: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+    },
+    webViewLoading: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FFFFFF',
+    },
+    viewerActions: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#E5EBF5',
+        backgroundColor: '#FFFFFF',
+    },
+    viewerActionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: '#0F172A',
+        borderRadius: 12,
+        paddingVertical: 12,
+    },
+    viewerActionText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '700',
     },
 });

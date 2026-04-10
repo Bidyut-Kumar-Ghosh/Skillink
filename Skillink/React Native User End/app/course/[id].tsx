@@ -72,8 +72,9 @@ export default function CourseDetailScreen() {
                 } else {
                     setCourse(snapshot.data() as CourseData);
                 }
-            } catch (fetchError) {
-                setError('Failed to load course details.');
+            } catch (fetchError: any) {
+                console.error('Error loading course details:', fetchError);
+                setError(fetchError?.message || 'Failed to load course details.');
             } finally {
                 setLoading(false);
             }

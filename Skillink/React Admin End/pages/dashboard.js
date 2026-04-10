@@ -282,7 +282,7 @@ function Dashboard() {
                             </span>
                           )}
                           <div className="book-formats">
-                            {book.pdfData && (
+                            {(book.pdfUrl || book.pdfData) && (
                               <span className="format pdf">PDF</span>
                             )}
                             {book.hasPrintedVersion && (

@@ -1,3 +1,16 @@
+## Cloudinary PDF uploads
+
+Book PDFs are uploaded to Cloudinary and only the resulting URL is stored in Firestore.
+
+Add these environment variables before running the admin app:
+
+- `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`
+- `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+
+The public preset is used for client-side uploads. The server credentials are used only to delete old PDF files when a book is replaced or removed.
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
 
 ## Getting Started
