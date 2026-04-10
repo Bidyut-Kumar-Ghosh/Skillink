@@ -576,20 +576,37 @@ export default function SearchScreen() {
             />
 
             {/* Header with back button */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={goBack} style={styles.backButton}>
+            <View style={[
+                styles.header,
+                isDarkMode ? styles.darkHeader : null
+            ]}>
+                <TouchableOpacity
+                    onPress={goBack}
+                    style={[
+                        styles.backButton,
+                        isDarkMode ? styles.darkBackButton : null
+                    ]}
+                >
                     <Ionicons
                         name="arrow-back"
-                        size={24}
-                        color={isDarkMode ? '#FFFFFF' : '#000000'}
+                        size={20}
+                        color={isDarkMode ? '#E2E8F0' : '#0F172A'}
                     />
                 </TouchableOpacity>
-                <Text style={[
-                    styles.headerTitle,
-                    isDarkMode ? styles.darkText : null
-                ]}>
-                    Search
-                </Text>
+                <View style={styles.headerTextWrap}>
+                    <Text style={[
+                        styles.headerTitle,
+                        isDarkMode ? styles.darkText : null
+                    ]}>
+                        Discover
+                    </Text>
+                    <Text style={[
+                        styles.headerSubtitle,
+                        isDarkMode ? styles.darkSubtleText : null
+                    ]}>
+                        Find premium books and courses quickly
+                    </Text>
+                </View>
             </View>
 
             {/* Search input */}
@@ -625,7 +642,10 @@ export default function SearchScreen() {
                 </View>
 
                 <TouchableOpacity
-                    style={styles.searchButton}
+                    style={[
+                        styles.searchButton,
+                        isDarkMode ? styles.darkSearchButton : null
+                    ]}
                     onPress={handleSearch}
                 >
                     <Text style={styles.searchButtonText}>Search</Text>
@@ -634,13 +654,19 @@ export default function SearchScreen() {
 
             {/* Filter tabs */}
             <View style={styles.filterContainerWrapper}>
-                <Text style={[styles.filterTitle, isDarkMode && styles.darkText]}>
-                    Browse Content
+                <Text style={[styles.filterTitle, isDarkMode ? styles.darkText : null]}>
+                    Quick Filters
+                </Text>
+                <Text style={[styles.resultsSummary, isDarkMode ? styles.darkSubtleText : null]}>
+                    {isLoading
+                        ? 'Refreshing results...'
+                        : `${searchResults.length} result${searchResults.length === 1 ? '' : 's'} in ${searchType}`}
                 </Text>
                 <View style={styles.filterContainer}>
                     <TouchableOpacity
                         style={[
                             styles.filterTab,
+                            isDarkMode ? styles.darkFilterTab : null,
                             searchType === 'all' ? styles.activeFilterTab : null
                         ]}
                         onPress={() => {
@@ -665,6 +691,7 @@ export default function SearchScreen() {
                     <TouchableOpacity
                         style={[
                             styles.filterTab,
+                            isDarkMode ? styles.darkFilterTab : null,
                             searchType === 'courses' ? styles.activeFilterTab : null
                         ]}
                         onPress={() => {
@@ -689,6 +716,7 @@ export default function SearchScreen() {
                     <TouchableOpacity
                         style={[
                             styles.filterTab,
+                            isDarkMode ? styles.darkFilterTab : null,
                             searchType === 'books' ? styles.activeFilterTab : null
                         ]}
                         onPress={() => {
@@ -736,7 +764,11 @@ export default function SearchScreen() {
                     />
                 ) : (
                     <View style={styles.noResultsContainer}>
-                        <Ionicons name="search-outline" size={60} color="#CCCCCC" />
+                        <Ionicons
+                            name="search-outline"
+                            size={60}
+                            color={isDarkMode ? '#64748B' : '#94A3B8'}
+                        />
                         <Text style={[
                             styles.noResultsText,
                             isDarkMode ? styles.darkText : null
@@ -764,58 +796,95 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: 'rgba(255, 255, 255, 0.52)',
+        paddingHorizontal: 18,
+        paddingVertical: 14,
+        backgroundColor: 'rgba(255, 255, 255, 0.62)',
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(148, 163, 184, 0.18)',
+        borderBottomColor: 'rgba(148, 163, 184, 0.14)',
+    },
+    darkHeader: {
+        backgroundColor: 'rgba(10, 16, 30, 0.58)',
+        borderBottomColor: 'rgba(100, 116, 139, 0.18)',
     },
     backButton: {
-        padding: 8,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(15, 23, 42, 0.08)',
+    },
+    darkBackButton: {
+        backgroundColor: 'rgba(148, 163, 184, 0.18)',
+    },
+    headerTextWrap: {
+        marginLeft: 12,
+        flex: 1,
     },
     headerTitle: {
         fontSize: 20,
-        fontWeight: 'bold',
-        marginLeft: 16,
+        fontWeight: '800',
+        color: '#0F172A',
+        letterSpacing: 0.2,
+    },
+    headerSubtitle: {
+        fontSize: 12,
+        marginTop: 2,
+        color: '#64748B',
     },
     darkText: {
-        color: '#FFFFFF',
+        color: '#E2E8F0',
+    },
+    darkSubtleText: {
+        color: '#94A3B8',
     },
     searchInputContainer: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        paddingBottom: 16,
+        paddingTop: 14,
+        paddingBottom: 14,
         alignItems: 'center',
     },
     searchBar: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F5F5F5',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        marginRight: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.78)',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(148, 163, 184, 0.22)',
+        paddingHorizontal: 14,
+        paddingVertical: 11,
+        marginRight: 10,
     },
     darkSearchBar: {
-        backgroundColor: '#2A2A2A',
+        backgroundColor: 'rgba(15, 23, 42, 0.72)',
+        borderColor: 'rgba(100, 116, 139, 0.25)',
     },
     searchIcon: {
         marginRight: 8,
     },
     searchInput: {
         flex: 1,
-        fontSize: 16,
+        fontSize: 15,
         color: '#333333',
     },
     darkSearchInput: {
         color: '#FFFFFF',
     },
     searchButton: {
-        backgroundColor: '#3366FF',
-        paddingVertical: 10,
+        backgroundColor: '#2563EB',
+        paddingVertical: 11,
         paddingHorizontal: 16,
-        borderRadius: 8,
+        borderRadius: 12,
+        shadowColor: '#1D4ED8',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
+        elevation: 3,
+    },
+    darkSearchButton: {
+        backgroundColor: '#3B82F6',
     },
     searchButtonText: {
         color: '#FFFFFF',
@@ -827,9 +896,14 @@ const styles = StyleSheet.create({
     },
     filterTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 8,
-        color: '#333333',
+        fontWeight: '700',
+        marginBottom: 3,
+        color: '#0F172A',
+    },
+    resultsSummary: {
+        fontSize: 12,
+        color: '#64748B',
+        marginBottom: 10,
     },
     filterContainer: {
         flexDirection: 'row',
@@ -838,17 +912,24 @@ const styles = StyleSheet.create({
     filterTab: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        paddingVertical: 9,
+        paddingHorizontal: 14,
         marginRight: 8,
-        borderRadius: 20,
-        backgroundColor: '#F0F0F0',
+        borderRadius: 999,
+        backgroundColor: 'rgba(255, 255, 255, 0.72)',
+        borderWidth: 1,
+        borderColor: 'rgba(148, 163, 184, 0.24)',
+    },
+    darkFilterTab: {
+        backgroundColor: 'rgba(15, 23, 42, 0.68)',
+        borderColor: 'rgba(100, 116, 139, 0.24)',
     },
     filterIcon: {
         marginRight: 4,
     },
     activeFilterTab: {
-        backgroundColor: '#3366FF',
+        backgroundColor: '#2563EB',
+        borderColor: '#2563EB',
     },
     filterTabText: {
         fontSize: 14,
@@ -871,7 +952,8 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     resultsList: {
-        padding: 16,
+        paddingHorizontal: 16,
+        paddingBottom: 24,
     },
     noResultsContainer: {
         flex: 1,
@@ -892,23 +974,26 @@ const styles = StyleSheet.create({
     },
     searchResultItem: {
         flexDirection: 'row',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.78)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(148, 163, 184, 0.20)',
         padding: 12,
         marginBottom: 12,
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-        elevation: 2,
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.07,
+        shadowRadius: 14,
+        elevation: 4,
     },
     darkSearchResultItem: {
-        backgroundColor: '#1E1E1E',
+        backgroundColor: 'rgba(15, 23, 42, 0.76)',
+        borderColor: 'rgba(100, 116, 139, 0.20)',
     },
     searchItemImageContainer: {
         width: 80,
         height: 80,
-        borderRadius: 8,
+        borderRadius: 12,
         overflow: 'hidden',
         marginRight: 12,
     },
@@ -929,7 +1014,8 @@ const styles = StyleSheet.create({
     },
     searchItemTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontWeight: '700',
+        color: '#0F172A',
         marginBottom: 4,
     },
     searchItemAuthor: {
