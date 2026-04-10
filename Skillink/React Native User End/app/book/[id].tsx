@@ -3,7 +3,6 @@ import {
     ActivityIndicator,
     Modal,
     Image,
-    Platform,
     SafeAreaView,
     ScrollView,
     StatusBar,
@@ -42,7 +41,6 @@ export default function BookDetailScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
-    const [viewerIndex, setViewerIndex] = useState(0);
     const [pdfPreviewError, setPdfPreviewError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -75,20 +73,9 @@ export default function BookDetailScreen() {
     const imageUrl = book?.imageUrl || book?.image || book?.coverImage || book?.thumbnail;
     const pdfUrl = book?.pdfUrl || book?.pdfData;
     const encodedPdfUrl = pdfUrl ? encodeURIComponent(pdfUrl) : '';
-    const viewerSources = pdfUrl
-        ? Platform.OS === 'ios'
-            ? [
-                pdfUrl,
-                `https://docs.google.com/gview?embedded=true&url=${encodedPdfUrl}`,
-                `https://drive.google.com/viewerng/viewer?embedded=true&url=${encodedPdfUrl}`,
-            ]
-            : [
-                `https://docs.google.com/gview?embedded=true&url=${encodedPdfUrl}`,
-                `https://drive.google.com/viewerng/viewer?embedded=true&url=${encodedPdfUrl}`,
-                pdfUrl,
-            ]
-        : [];
-    const pdfViewerUrl = viewerSources[viewerIndex] || null;
+    const pdfViewerUrl = pdfUrl
+        ? `https://docs.google.com/gview?embedded=true&url=${encodedPdfUrl}`
+        : null;
     const title = book?.title || 'Book Details';
     const author = book?.author || 'Unknown Author';
     const category = book?.category || 'Book';
@@ -185,7 +172,6 @@ export default function BookDetailScreen() {
                                 <TouchableOpacity
                                     style={styles.pdfButton}
                                     onPress={() => {
-                                        setViewerIndex(0);
                                         setPdfPreviewError(null);
                                         setPdfViewerVisible(true);
                                     }}
@@ -223,7 +209,11 @@ export default function BookDetailScreen() {
                         <>
                             {pdfPreviewError ? (
                                 <View style={styles.webViewLoading}>
-                                    <Text style={styles.stateText}>{pdfPreviewError}</Text>
+                                    <View style={styles.previewErrorCard}>
+                                        <Ionicons name="document-text-outline" size={28} color="#334155" />
+                                        <Text style={styles.previewErrorTitle}>Preview unavailable</Text>
+                                        <Text style={styles.previewErrorText}>{pdfPreviewError}</Text>
+                                    </View>
                                 </View>
                             ) : (
                                 <WebView
@@ -234,6 +224,8 @@ export default function BookDetailScreen() {
                                     javaScriptEnabled
                                     domStorageEnabled
                                     allowsInlineMediaPlayback
+                                    mixedContentMode="always"
+                                    allowsBackForwardNavigationGestures
                                     startInLoadingState
                                     renderLoading={() => (
                                         <View style={styles.webViewLoading}>
@@ -241,18 +233,10 @@ export default function BookDetailScreen() {
                                         </View>
                                     )}
                                     onError={() => {
-                                        if (viewerIndex < viewerSources.length - 1) {
-                                            setViewerIndex((current) => current + 1);
-                                        } else {
-                                            setPdfPreviewError('Preview failed in app. Tap Open in Browser.');
-                                        }
+                                        setPdfPreviewError('Could not render the PDF in-app. You can still open it in browser.');
                                     }}
                                     onHttpError={() => {
-                                        if (viewerIndex < viewerSources.length - 1) {
-                                            setViewerIndex((current) => current + 1);
-                                        } else {
-                                            setPdfPreviewError('Preview failed in app. Tap Open in Browser.');
-                                        }
+                                        setPdfPreviewError('Could not render the PDF in-app. You can still open it in browser.');
                                     }}
                                 />
                             )}
@@ -571,5 +555,27 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 14,
         fontWeight: '700',
+    },
+    previewErrorCard: {
+        width: '90%',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        paddingHorizontal: 16,
+        paddingVertical: 20,
+        alignItems: 'center',
+        gap: 8,
+    },
+    previewErrorTitle: {
+        color: '#0F172A',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    previewErrorText: {
+        color: '#64748B',
+        fontSize: 13,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });
