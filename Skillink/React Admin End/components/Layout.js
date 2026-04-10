@@ -11,6 +11,7 @@ export default function Layout({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState(INACTIVITY_TIMEOUT);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const router = useRouter();
   const timerRef = useRef(null);
   const activityTimerRef = useRef(null);
@@ -28,6 +29,25 @@ export default function Layout({ children }) {
       .toString()
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   }, [timeRemaining]);
+
+  // Format current local time
+  const formatCurrentTime = useCallback(() => {
+    return currentTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  }, [currentTime]);
+
+  // Update current time every second
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timeInterval);
+  }, []);
 
   // Reset the auto-logout timer when there's activity
   const resetTimer = useCallback(() => {
@@ -213,12 +233,39 @@ export default function Layout({ children }) {
           </ul>
         </nav>
       )}
-      <main className="content">{children}</main>
+      <div className="main-wrapper">
+        <header className="top-header">
+          <div className="local-time">
+            {formatCurrentTime()}
+          </div>
+        </header>
+        <main className="content">{children}</main>
+      </div>
 
       <style jsx>{`
         .admin-layout {
           display: flex;
           min-height: 100vh;
+        }
+        .main-wrapper {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+        }
+        .top-header {
+          background-color: white;
+          padding: 15px 20px;
+          border-bottom: 1px solid #e0e0e0;
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .local-time {
+          font-size: 1rem;
+          font-weight: 500;
+          color: #2c3e50;
+          font-family: "Courier New", monospace;
         }
         .sidebar {
           width: 250px;
@@ -284,6 +331,7 @@ export default function Layout({ children }) {
           flex: 1;
           padding: 20px;
           background-color: #f5f7fa;
+          overflow-y: auto;
         }
         .loading {
           display: flex;
