@@ -1,11 +1,12 @@
 import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
+import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { useTheme } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { usePathname, router } from "expo-router";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   View,
   Text,
@@ -13,11 +14,14 @@ import {
   Platform,
   UIManager,
   LogBox,
+  StatusBar as RNStatusBar,
+  StyleSheet,
 } from "react-native";
 import { NotificationHandler } from "./components/NotificationHandler";
 import { useFonts } from "expo-font";
 import { enableScreens } from "react-native-screens";
 import * as SplashScreen from "expo-splash-screen";
+import { LinearGradient } from "expo-linear-gradient";
 
 // Disable yellow box warnings and console errors/warnings in production
 if (!__DEV__) {
@@ -76,7 +80,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <RootLayoutNav />
+        <SafeAreaProvider>
+          <RootLayoutNav />
+        </SafeAreaProvider>
       </AuthProvider>
     </ThemeProvider>
   );
@@ -87,6 +93,13 @@ function RootLayoutNav() {
   const { isDarkMode } = useTheme();
   const { user, loading } = useAuth();
   const currentPath = usePathname();
+  const insets = useSafeAreaInsets();
+
+  const androidTopInset =
+    Platform.OS === "android"
+      ? Math.max(insets.top, RNStatusBar.currentHeight || 0)
+      : 0;
+  const androidBottomInset = Platform.OS === "android" ? Math.max(insets.bottom, 8) : 0;
 
   // List of protected paths that require authentication
   const publicPaths = [
@@ -109,20 +122,87 @@ function RootLayoutNav() {
   }, [user, loading, currentPath, isPublicRoute]);
 
   return (
-    <>
-      <StatusBar
-        style={isDarkMode ? "light-content" : "dark-content"}
-        backgroundColor={isDarkMode ? "#000000" : "#ffffff"}
+    <View style={styles.rootContainer}>
+      <ExpoStatusBar
+        style="light"
+        backgroundColor="#000000"
+        translucent={false}
       />
-      <NotificationHandler />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "transparent" },
-          animation: "fade_from_bottom",
-          animationDuration: 200,
-        }}
-      />
-    </>
+
+      <View style={[styles.contentFrame, { marginTop: androidTopInset, marginBottom: androidBottomInset }]}>
+        <LinearGradient
+          colors={
+            isDarkMode
+              ? ["#1A2545", "#253764", "#2F4680"]
+              : ["#FCFEFF", "#F4F9FF", "#EAF3FF"]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+
+        <View style={styles.decorLayer} pointerEvents="none">
+          <LinearGradient
+            colors={
+              isDarkMode
+                ? ["rgba(125, 211, 252, 0.22)", "rgba(125, 211, 252, 0)"]
+                : ["rgba(147, 197, 253, 0.22)", "rgba(147, 197, 253, 0)"]
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.topGlow}
+          />
+          <LinearGradient
+            colors={
+              isDarkMode
+                ? ["rgba(56, 189, 248, 0.18)", "rgba(56, 189, 248, 0)"]
+                : ["rgba(125, 211, 252, 0.16)", "rgba(125, 211, 252, 0)"]
+            }
+            start={{ x: 1, y: 1 }}
+            end={{ x: 0, y: 0 }}
+            style={styles.bottomGlow}
+          />
+        </View>
+
+        <NotificationHandler />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: "transparent" },
+            animation: "fade_from_bottom",
+            animationDuration: 200,
+          }}
+        />
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+    backgroundColor: "#000000",
+  },
+  contentFrame: {
+    flex: 1,
+  },
+  decorLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  topGlow: {
+    position: "absolute",
+    top: -60,
+    left: -40,
+    width: 260,
+    height: 260,
+    borderRadius: 140,
+  },
+  bottomGlow: {
+    position: "absolute",
+    right: -70,
+    bottom: -90,
+    width: 300,
+    height: 300,
+    borderRadius: 170,
+  },
+});

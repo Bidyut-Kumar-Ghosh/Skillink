@@ -8,7 +8,6 @@ import {
     SafeAreaView,
     TextInput,
     Image,
-    StatusBar,
     Dimensions,
     FlatList,
     Animated,
@@ -686,6 +685,27 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
         router.push('/search');
     };
 
+    const navigateToSeeAll = (category?: string) => {
+        if (category) {
+            const title = `Top courses in ${capitalizeFirstLetter(category)}`;
+            router.push({
+                pathname: '/see-all',
+                params: {
+                    category,
+                    title,
+                },
+            });
+            return;
+        }
+
+        router.push({
+            pathname: '/see-all',
+            params: {
+                title: 'All Courses',
+            },
+        });
+    };
+
     // Add a function to fetch top editing courses from Firebase
     useEffect(() => {
         const fetchEditingCourses = async () => {
@@ -960,28 +980,28 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
         return (
             <View style={[styles.bottomNavContainer, isDarkMode && styles.darkBottomNav]}>
                 <TouchableOpacity style={styles.navItem} onPress={() => router.push('/')}>
-                    <Ionicons name="home" size={24} color={currentPath === '/' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Home</Text>
+                    <Ionicons name={currentPath === '/' ? 'home' : 'home-outline'} size={24} color={currentPath === '/' ? "#EF4444" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/' ? [styles.navTextActive, { color: '#EF4444' }] : [styles.navText, isDarkMode && styles.darkNavText]}>Home</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToSearch}>
-                    <Ionicons name="search" size={24} color={currentPath === '/search' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/search' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Search</Text>
+                    <Ionicons name={currentPath === '/search' ? 'sparkles' : 'sparkles-outline'} size={24} color={currentPath === '/search' ? "#F59E0B" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/search' ? [styles.navTextActive, { color: '#F59E0B' }] : [styles.navText, isDarkMode && styles.darkNavText]}>Search</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToMyLearning}>
-                    <Ionicons name="play-circle" size={24} color={currentPath === '/learning' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/learning' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>My learning</Text>
+                    <Ionicons name={currentPath === '/learning' ? 'play-circle' : 'play-circle-outline'} size={24} color={currentPath === '/learning' ? "#FACC15" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/learning' ? [styles.navTextActive, { color: '#FACC15' }] : [styles.navText, isDarkMode && styles.darkNavText]}>My learning</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToWishlist}>
-                    <Ionicons name="heart" size={24} color={currentPath === '/wishlist' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/wishlist' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Wishlist</Text>
+                    <Ionicons name={currentPath === '/wishlist' ? 'heart' : 'heart-outline'} size={24} color={currentPath === '/wishlist' ? "#DC2626" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/wishlist' ? [styles.navTextActive, { color: '#DC2626' }] : [styles.navText, isDarkMode && styles.darkNavText]}>Wishlist</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToProfile}>
-                    <Ionicons name="person" size={24} color={currentPath === '/profile' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/profile' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Account</Text>
+                    <Ionicons name={currentPath === '/profile' ? 'person-circle' : 'person-circle-outline'} size={24} color={currentPath === '/profile' ? "#EAB308" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/profile' ? [styles.navTextActive, { color: '#EAB308' }] : [styles.navText, isDarkMode && styles.darkNavText]}>Account</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -1097,7 +1117,7 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
 
                 <View style={styles.sectionHeader}>
                     <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Categories</Text>
-                    <TouchableOpacity>
+                    <TouchableOpacity onPress={() => navigateToSeeAll()}>
                         <Text style={styles.seeAllText}>See all</Text>
                     </TouchableOpacity>
                 </View>
@@ -1155,7 +1175,7 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
                                 <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
                                     Top courses in <Text style={styles.highlightText}>{capitalizeFirstLetter(category.name)}</Text>
                                 </Text>
-                                <TouchableOpacity>
+                                <TouchableOpacity onPress={() => navigateToSeeAll(category.name)}>
                                     <Text style={styles.seeAllText}>See all</Text>
                                 </TouchableOpacity>
                             </View>
@@ -1268,28 +1288,28 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
 
             <View style={[styles.bottomNavContainer, isDarkMode && styles.darkBottomNav]}>
                 <TouchableOpacity style={styles.navItem} onPress={() => router.push('/')}>
-                    <Ionicons name="home" size={24} color={currentPath === '/' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Home</Text>
+                    <Ionicons name={currentPath === '/' ? 'home' : 'home-outline'} size={24} color={currentPath === '/' ? "#EF4444" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/' ? [styles.navTextActive, { color: '#EF4444' }] : [styles.navText, isDarkMode && styles.darkNavText]}>Home</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToSearch}>
-                    <Ionicons name="search" size={24} color={currentPath === '/search' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/search' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Search</Text>
+                    <Ionicons name={currentPath === '/search' ? 'sparkles' : 'sparkles-outline'} size={24} color={currentPath === '/search' ? "#F59E0B" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/search' ? [styles.navTextActive, { color: '#F59E0B' }] : [styles.navText, isDarkMode && styles.darkNavText]}>Search</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToMyLearning}>
-                    <Ionicons name="play-circle" size={24} color={currentPath === '/learning' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/learning' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>My learning</Text>
+                    <Ionicons name={currentPath === '/learning' ? 'play-circle' : 'play-circle-outline'} size={24} color={currentPath === '/learning' ? "#FACC15" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/learning' ? [styles.navTextActive, { color: '#FACC15' }] : [styles.navText, isDarkMode && styles.darkNavText]}>My learning</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToWishlist}>
-                    <Ionicons name="heart" size={24} color={currentPath === '/wishlist' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/wishlist' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Wishlist</Text>
+                    <Ionicons name={currentPath === '/wishlist' ? 'heart' : 'heart-outline'} size={24} color={currentPath === '/wishlist' ? "#DC2626" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/wishlist' ? [styles.navTextActive, { color: '#DC2626' }] : [styles.navText, isDarkMode && styles.darkNavText]}>Wishlist</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.navItem} onPress={navigateToProfile}>
-                    <Ionicons name="person" size={24} color={currentPath === '/profile' ? "#3366FF" : isDarkMode ? "#AAAAAA" : "#888"} />
-                    <Text style={currentPath === '/profile' ? styles.navTextActive : [styles.navText, isDarkMode && styles.darkNavText]}>Account</Text>
+                    <Ionicons name={currentPath === '/profile' ? 'person-circle' : 'person-circle-outline'} size={24} color={currentPath === '/profile' ? "#EAB308" : isDarkMode ? "#AAAAAA" : "#888"} />
+                    <Text style={currentPath === '/profile' ? [styles.navTextActive, { color: '#EAB308' }] : [styles.navText, isDarkMode && styles.darkNavText]}>Account</Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -1299,10 +1319,10 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: 'transparent',
     },
     darkBackground: {
-        backgroundColor: '#000000',
+        backgroundColor: 'transparent',
     },
     header: {
         flexDirection: 'row',
@@ -1382,7 +1402,7 @@ const styles = StyleSheet.create({
     searchContainer: {
         paddingHorizontal: 20,
         marginTop: 10,
-        marginBottom: 15,
+        marginBottom: 2,
     },
     darkSearchContainer: {
         backgroundColor: 'transparent',
@@ -1424,7 +1444,8 @@ const styles = StyleSheet.create({
         width: '100%',
         alignItems: 'center',
         justifyContent: 'center',
-        marginVertical: 15,
+        marginTop: 0,
+        marginBottom: 15,
     },
     sliderContainer: {
         height: 230,
@@ -1667,12 +1688,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 15,
         borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
-        backgroundColor: '#FFFFFF',
+        borderTopColor: 'rgba(251, 146, 60, 0.30)',
+        backgroundColor: 'rgba(255, 245, 220, 0.72)',
     },
     darkBottomNav: {
-        backgroundColor: '#121212',
-        borderTopColor: '#222222',
+        backgroundColor: 'rgba(57, 22, 11, 0.72)',
+        borderTopColor: 'rgba(251, 146, 60, 0.35)',
     },
     navItem: {
         alignItems: 'center',
@@ -1688,7 +1709,7 @@ const styles = StyleSheet.create({
     navTextActive: {
         fontSize: 12,
         marginTop: 4,
-        color: '#3366FF',
+        color: '#F59E0B',
         fontWeight: '500',
     },
     backgroundBubble: {

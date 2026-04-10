@@ -21,7 +21,7 @@ import Dashboard from './components/Dashboard';
 
 type WishlistCourse = {
     id: string;
-    title: string;
+        backgroundColor: 'transparent',
     author: string;
     category: string;
     imageUrl?: string;
@@ -217,22 +217,22 @@ export default function Wishlist() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: 'transparent',
     },
     darkContainer: {
-        backgroundColor: '#000000',
+        backgroundColor: 'transparent',
     },
     header: {
         paddingHorizontal: 20,
         paddingTop: Platform.OS === 'android' ? 15 : 18,
         paddingBottom: 16,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'rgba(255, 255, 255, 0.56)',
         borderBottomWidth: 1,
-        borderBottomColor: '#EEF2F7',
+        borderBottomColor: 'rgba(148, 163, 184, 0.20)',
     },
     darkHeader: {
-        backgroundColor: '#121212',
-        borderBottomColor: '#1E2637',
+        backgroundColor: 'rgba(10, 16, 30, 0.62)',
+        borderBottomColor: 'rgba(100, 116, 139, 0.24)',
     },
     headerTopRow: {
         flexDirection: 'row',

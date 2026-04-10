@@ -38,7 +38,7 @@ interface ThemeContextType {
 const lightTheme: ThemeColors = {
     primary: '#3366FF',
     primaryDark: '#2A5AE0',
-    background: '#F8F9FA',
+    background: 'rgba(248, 250, 252, 0.72)',
     cardBackground: '#FFFFFF',
     surface: '#FFFFFF',
     text: '#2E3A59',
@@ -63,7 +63,7 @@ const lightTheme: ThemeColors = {
 const darkTheme: ThemeColors = {
     primary: '#3366FF',
     primaryDark: '#598BFF',
-    background: '#222B45',
+    background: 'rgba(12, 18, 36, 0.70)',
     cardBackground: '#1A2138',
     surface: '#323759',
     text: '#EDF1F7',

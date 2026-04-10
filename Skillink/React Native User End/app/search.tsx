@@ -756,16 +756,19 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'transparent',
     },
     darkContainer: {
-        backgroundColor: '#121212',
+        backgroundColor: 'transparent',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingVertical: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.52)',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(148, 163, 184, 0.18)',
     },
     backButton: {
         padding: 8,

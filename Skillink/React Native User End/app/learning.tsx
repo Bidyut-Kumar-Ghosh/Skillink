@@ -46,23 +46,23 @@ export default function MyLearning() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: 'transparent',
     },
     darkContainer: {
-        backgroundColor: '#000000',
+        backgroundColor: 'transparent',
     },
     header: {
         padding: 20,
         paddingTop: Platform.OS === 'android' ? 15 : 10,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'rgba(255, 255, 255, 0.54)',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.03,
         shadowRadius: 3,
-        elevation: 3,
+        elevation: 1,
     },
     darkHeader: {
-        backgroundColor: '#121212',
+        backgroundColor: 'rgba(10, 16, 30, 0.60)',
     },
     headerTitle: {
         fontSize: 22,
