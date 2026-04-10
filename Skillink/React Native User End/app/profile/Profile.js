@@ -37,7 +37,7 @@ import { db } from "@/config/firebase";
 import { useFonts } from "expo-font";
 import LogoutDialog from "@/app/components/LogoutDialog";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width, height } = Dimensions.get("window");

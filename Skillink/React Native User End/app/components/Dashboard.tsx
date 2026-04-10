@@ -1688,12 +1688,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 15,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(251, 146, 60, 0.30)',
-        backgroundColor: 'rgba(255, 245, 220, 0.72)',
+        borderTopColor: 'rgba(255, 255, 255, 0.16)',
+        backgroundColor: '#000000',
     },
     darkBottomNav: {
-        backgroundColor: 'rgba(57, 22, 11, 0.72)',
-        borderTopColor: 'rgba(251, 146, 60, 0.35)',
+        backgroundColor: '#000000',
+        borderTopColor: 'rgba(255, 255, 255, 0.16)',
     },
     navItem: {
         alignItems: 'center',
