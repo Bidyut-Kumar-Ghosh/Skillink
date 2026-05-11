@@ -9,57 +9,84 @@ import {
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/router";
 import { auth, db } from "./config";
+import {
+  clearAdminSession,
+  findAdminUserByEmailAndPassword,
+  getStoredAdminSession,
+  normalizeEmail,
+  persistAdminSession,
+} from "./session";
 
-// Create context for authentication state
 const AuthContext = createContext();
 
-// Main auth hook provider component
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const router = useRouter();
 
-  // Clear any auth errors
   const clearError = () => setError(null);
 
-  // Login function
   const login = async (email, password) => {
     clearError();
     setLoading(true);
 
+    const normalizedEmail = normalizeEmail(email);
+
     try {
-      // Set auth persistence to LOCAL to survive page refreshes and server restarts
       await setPersistence(auth, browserLocalPersistence);
 
-      // Sign in
       const userCredential = await signInWithEmailAndPassword(
         auth,
-        email,
+        normalizedEmail,
         password
       );
 
-      // Verify admin role
       const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
 
       if (!userDoc.exists() || userDoc.data().role !== "admin") {
         await firebaseSignOut(auth);
+        clearAdminSession();
         throw new Error(
           "You don't have administrator privileges. If you are a student, please use the mobile app instead."
         );
       }
 
-      return userCredential.user;
-    } catch (err) {
-      let message = "Login failed. Please try again.";
+      const adminUser = {
+        uid: userCredential.user.uid,
+        id: userCredential.user.uid,
+        email: userCredential.user.email || normalizedEmail,
+        name: userDoc.data().name || "",
+        role: "admin",
+      };
 
-      // Handle specific error codes
-      if (
+      persistAdminSession(adminUser);
+      setUser(adminUser);
+
+      return adminUser;
+    } catch (err) {
+      const isCredentialError =
         err.code === "auth/invalid-credential" ||
         err.code === "auth/user-not-found" ||
         err.code === "auth/wrong-password" ||
-        err.code === "auth/invalid-email"
-      ) {
+        err.code === "auth/invalid-email";
+
+      if (isCredentialError) {
+        const firestoreAdminUser = await findAdminUserByEmailAndPassword(
+          normalizedEmail,
+          password
+        );
+
+        if (firestoreAdminUser) {
+          setUser(firestoreAdminUser);
+          persistAdminSession(firestoreAdminUser);
+          return firestoreAdminUser;
+        }
+      }
+
+      let message = "Login failed. Please try again.";
+
+      if (isCredentialError) {
         message = "Invalid email or password. Please check your credentials.";
       } else if (err.code === "auth/too-many-requests") {
         message = "Too many failed login attempts. Please try again later.";
@@ -74,10 +101,10 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Logout function
   const logout = async () => {
     try {
       await firebaseSignOut(auth);
+      clearAdminSession();
       router.push("/login");
     } catch (err) {
       setError("Failed to log out. Please try again.");
@@ -85,50 +112,50 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Listen for auth state changes when the component mounts
   useEffect(() => {
-    // Store the last known valid auth state in localStorage
-    const persistAuthState = (user) => {
-      if (user) {
-        localStorage.setItem("authUser", "true");
-      } else {
-        localStorage.removeItem("authUser");
-      }
-    };
-
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
 
       try {
         if (firebaseUser) {
-          // Verify admin role on each auth state change
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
 
           if (userDoc.exists() && userDoc.data().role === "admin") {
-            // Set user in state if they are an admin
-            setUser(firebaseUser);
-            persistAuthState(firebaseUser);
+            const adminUser = {
+              uid: firebaseUser.uid,
+              id: firebaseUser.uid,
+              email: firebaseUser.email || "",
+              name: userDoc.data().name || "",
+              role: "admin",
+            };
+
+            setUser(adminUser);
+            persistAdminSession(adminUser);
           } else {
-            // Not an admin, sign them out
             await firebaseSignOut(auth);
             setUser(null);
-            persistAuthState(null);
+            clearAdminSession();
             if (router.pathname !== "/login") {
               router.push("/login");
             }
           }
         } else {
-          // No user is signed in
-          setUser(null);
-          persistAuthState(null);
-          if (router.pathname !== "/login") {
-            router.push("/login");
+          const storedSession = getStoredAdminSession();
+
+          if (storedSession) {
+            setUser(storedSession);
+          } else {
+            setUser(null);
+            clearAdminSession();
+            if (router.pathname !== "/login") {
+              router.push("/login");
+            }
           }
         }
       } catch (err) {
         console.error("Auth state error:", err);
         setUser(null);
-        persistAuthState(null);
+        clearAdminSession();
         if (router.pathname !== "/login") {
           router.push("/login");
         }
@@ -137,16 +164,14 @@ export function AuthProvider({ children }) {
       }
     });
 
-    // Redirect to login if on app restart we detect no auth
-    const isAuthenticated = localStorage.getItem("authUser") === "true";
-    if (!isAuthenticated && router.pathname !== "/login") {
+    const storedSession = getStoredAdminSession();
+    if (!storedSession && router.pathname !== "/login") {
       router.push("/login");
     }
 
     return () => unsubscribe();
   }, [router]);
 
-  // Provide the auth context value to children
   return (
     <AuthContext.Provider
       value={{ user, loading, error, login, logout, clearError }}
@@ -156,7 +181,6 @@ export function AuthProvider({ children }) {
   );
 }
 
-// Custom hook to use the auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -165,13 +189,11 @@ export function useAuth() {
   return context;
 }
 
-// HOC to protect routes
 export function withAuth(Component) {
   return function AuthenticatedComponent(props) {
     const { user, loading } = useAuth();
     const router = useRouter();
 
-    // If auth is still loading, show a loading indicator
     if (loading) {
       return (
         <div
@@ -192,18 +214,16 @@ export function withAuth(Component) {
               borderRadius: "50%",
               animation: "spin 1s linear infinite",
             }}
-          ></div>
+          />
         </div>
       );
     }
 
-    // If user is not authenticated, redirect to login
     if (!user && router.pathname !== "/login") {
       router.push("/login");
       return null;
     }
 
-    // If user is authenticated, render the component
     return <Component {...props} />;
   };
 }

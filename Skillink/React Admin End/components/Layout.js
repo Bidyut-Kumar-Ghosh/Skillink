@@ -3,6 +3,11 @@ import { useRouter } from "next/router";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { auth } from "../firebase/config";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import {
+  clearAdminSession,
+  getStoredAdminSession,
+  persistAdminSession,
+} from "../firebase/session";
 
 // Auto-logout after 2 hours of inactivity (in milliseconds)
 const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000;
@@ -54,6 +59,7 @@ export default function Layout({ children }) {
       // Log out if time expires
       if (remaining === 0) {
         signOut(auth);
+        clearAdminSession();
         router.push("/login");
         clearInterval(timerRef.current);
       }
@@ -83,13 +89,29 @@ export default function Layout({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        setUser(user);
+        const adminUser = {
+          uid: user.uid,
+          id: user.uid,
+          email: user.email || "",
+          role: "admin",
+        };
+
+        setUser(adminUser);
+        persistAdminSession(adminUser);
         // Reset the timer when user logs in
         resetTimer();
       } else {
-        setUser(null);
-        if (router.pathname !== "/login") {
-          router.push("/login");
+        const storedSession = getStoredAdminSession();
+
+        if (storedSession) {
+          setUser(storedSession);
+          resetTimer();
+        } else {
+          setUser(null);
+          clearAdminSession();
+          if (router.pathname !== "/login") {
+            router.push("/login");
+          }
         }
       }
       setLoading(false);
@@ -101,6 +123,7 @@ export default function Layout({ children }) {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      clearAdminSession();
       router.push("/login");
     } catch (error) {
       console.error("Error signing out:", error);
