@@ -143,12 +143,21 @@ export default function CourseDetailScreen() {
         };
 
         try {
-            await updateDoc(userRef, payload);
-        } catch {
-            await setDoc(userRef, payload, { merge: true });
+            try {
+                await updateDoc(userRef, payload);
+            } catch (err) {
+                // fallback to setDoc if update fails
+                await setDoc(userRef, payload, { merge: true });
+            }
+            return true;
+        } catch (error: any) {
+            const permDenied = error?.code === 'permission-denied' || (error?.message && error.message.includes('Missing or insufficient permissions'));
+            console.error('Error updating user field:', error);
+            if (permDenied) {
+                Alert.alert('Permission denied', 'You do not have permission to update this resource.');
+            }
+            return false;
         }
-
-        return true;
     };
 
     const handleToggleBag = async () => {
@@ -224,6 +233,7 @@ export default function CourseDetailScreen() {
                 imageUrl: course.imageUrl || course.image || course.thumbnail || null,
                 amount: parsedPrice,
                 paymentStatus: 'completed',
+                paymentMethod: 'online',
                 status: 'active',
                 purchasedAt: new Date(),
             });
@@ -235,6 +245,7 @@ export default function CourseDetailScreen() {
                 amount: parsedPrice,
                 status: 'active',
                 paymentStatus: 'completed',
+                paymentMethod: 'online',
             });
 
             await upsertUserArrayField('cartCourseIds', id, false);

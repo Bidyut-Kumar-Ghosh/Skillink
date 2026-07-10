@@ -21,7 +21,6 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "@/config/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore/lite";
 import { showError, showSuccess } from "@/app/components/NotificationHandler";
 
 const { width, height } = Dimensions.get("window");
@@ -129,21 +128,6 @@ export default function ForgotPasswordScreen() {
     });
   };
 
-  // Function to check if user email exists in Firebase
-  const checkUserExists = async (email) => {
-    try {
-      // Query Firestore to check if user with email exists
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("email", "==", email));
-      const querySnapshot = await getDocs(q);
-
-      return !querySnapshot.empty;
-    } catch (error) {
-      console.error("Error checking user existence:", error);
-      return false;
-    }
-  };
-
   // Function for password reset using Firebase
   const handleResetPassword = async () => {
     try {
@@ -160,17 +144,6 @@ export default function ForgotPasswordScreen() {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         showError("auth/invalid-email", "Please enter a valid email address");
-        setLoading(false);
-        return;
-      }
-
-      // Check if user exists in Firebase
-      const userExists = await checkUserExists(email);
-      if (!userExists) {
-        showError(
-          "auth/user-not-found",
-          "No account associated with this email. Please sign up first."
-        );
         setLoading(false);
         return;
       }

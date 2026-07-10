@@ -26,15 +26,22 @@ function Dashboard() {
   const [recentBooks, setRecentBooks] = useState([]);
   const [recentCourses, setRecentCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setError(null); // Clear previous errors
+        setLoading(true);
+        
+        console.log("Starting dashboard data fetch...");
+        
         // Fetch students (non-admin users)
         const usersRef = collection(db, "users");
 
         // Count all users
         const allUsersSnap = await getDocs(usersRef);
+        console.log("Users count:", allUsersSnap.size);
 
         // Filter out admin users to get only students
         let studentCount = 0;
@@ -44,13 +51,23 @@ function Dashboard() {
             studentCount++;
           }
         });
+        console.log("Student count:", studentCount);
 
         // Fetch other collection counts
         const coursesSnap = await getDocs(collection(db, "courses"));
+        console.log("Courses count:", coursesSnap.size);
+        
         const booksSnap = await getDocs(collection(db, "books"));
+        console.log("Books count:", booksSnap.size);
+        
         const enrollmentsSnap = await getDocs(collection(db, "enrollments"));
+        console.log("Enrollments count:", enrollmentsSnap.size);
+        
         const bannersSnap = await getDocs(collection(db, "banners"));
+        console.log("Banners count:", bannersSnap.size);
+        
         const updatesSnap = await getDocs(collection(db, "updates"));
+        console.log("Updates count:", updatesSnap.size);
 
         // Calculate total revenue
         let totalRevenue = 0;
@@ -71,67 +88,118 @@ function Dashboard() {
           updates: updatesSnap.size,
         });
 
-        // Fetch recent enrollments
-        const recentEnrollmentsQuery = query(
-          collection(db, "enrollments"),
-          orderBy("enrollmentDate", "desc"),
-          limit(5)
-        );
-
-        const recentEnrollmentsSnap = await getDocs(recentEnrollmentsQuery);
-        const recentEnrollmentsList = [];
-
-        recentEnrollmentsSnap.forEach((doc) => {
-          recentEnrollmentsList.push({
-            id: doc.id,
-            ...doc.data(),
-            enrollmentDate: doc.data().enrollmentDate?.toDate?.() || new Date(),
+        // Fetch recent enrollments - with fallback if orderBy fails
+        let recentEnrollmentsList = [];
+        try {
+          const recentEnrollmentsQuery = query(
+            collection(db, "enrollments"),
+            orderBy("enrollmentDate", "desc"),
+            limit(5)
+          );
+          const recentEnrollmentsSnap = await getDocs(recentEnrollmentsQuery);
+          console.log("Recent enrollments fetched:", recentEnrollmentsSnap.size);
+          
+          recentEnrollmentsSnap.forEach((doc) => {
+            recentEnrollmentsList.push({
+              id: doc.id,
+              ...doc.data(),
+              enrollmentDate: doc.data().enrollmentDate?.toDate?.() || new Date(),
+            });
           });
-        });
+        } catch (enrollmentError) {
+          console.warn("Failed to fetch recent enrollments with orderBy, trying without:", enrollmentError);
+          // Fallback: fetch without orderBy
+          const enrollmentsSnap = await getDocs(collection(db, "enrollments"));
+          const tempList = [];
+          enrollmentsSnap.forEach((doc) => {
+            tempList.push({
+              id: doc.id,
+              ...doc.data(),
+              enrollmentDate: doc.data().enrollmentDate?.toDate?.() || new Date(),
+            });
+          });
+          recentEnrollmentsList = tempList.slice(0, 5);
+        }
 
         setRecentEnrollments(recentEnrollmentsList);
 
-        // Fetch recent books
-        const recentBooksQuery = query(
-          collection(db, "books"),
-          orderBy("createdAt", "desc"),
-          limit(5)
-        );
-
-        const recentBooksSnap = await getDocs(recentBooksQuery);
-        const recentBooksList = [];
-
-        recentBooksSnap.forEach((doc) => {
-          recentBooksList.push({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+        // Fetch recent books - with fallback if orderBy fails
+        let recentBooksList = [];
+        try {
+          const recentBooksQuery = query(
+            collection(db, "books"),
+            orderBy("createdAt", "desc"),
+            limit(5)
+          );
+          const recentBooksSnap = await getDocs(recentBooksQuery);
+          console.log("Recent books fetched:", recentBooksSnap.size);
+          
+          recentBooksSnap.forEach((doc) => {
+            recentBooksList.push({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+            });
           });
-        });
+        } catch (booksError) {
+          console.warn("Failed to fetch recent books with orderBy, trying without:", booksError);
+          // Fallback: fetch without orderBy
+          const booksSnap = await getDocs(collection(db, "books"));
+          const tempList = [];
+          booksSnap.forEach((doc) => {
+            tempList.push({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+            });
+          });
+          recentBooksList = tempList.slice(0, 5);
+        }
 
         setRecentBooks(recentBooksList);
 
-        // Fetch recent courses
-        const recentCoursesQuery = query(
-          collection(db, "courses"),
-          orderBy("createdAt", "desc"),
-          limit(5)
-        );
-
-        const recentCoursesSnap = await getDocs(recentCoursesQuery);
-        const recentCoursesList = [];
-
-        recentCoursesSnap.forEach((doc) => {
-          recentCoursesList.push({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+        // Fetch recent courses - with fallback if orderBy fails
+        let recentCoursesList = [];
+        try {
+          const recentCoursesQuery = query(
+            collection(db, "courses"),
+            orderBy("createdAt", "desc"),
+            limit(5)
+          );
+          const recentCoursesSnap = await getDocs(recentCoursesQuery);
+          console.log("Recent courses fetched:", recentCoursesSnap.size);
+          
+          recentCoursesSnap.forEach((doc) => {
+            recentCoursesList.push({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+            });
           });
-        });
+        } catch (coursesError) {
+          console.warn("Failed to fetch recent courses with orderBy, trying without:", coursesError);
+          // Fallback: fetch without orderBy
+          const coursesSnap = await getDocs(collection(db, "courses"));
+          const tempList = [];
+          coursesSnap.forEach((doc) => {
+            tempList.push({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+            });
+          });
+          recentCoursesList = tempList.slice(0, 5);
+        }
 
         setRecentCourses(recentCoursesList);
+        console.log("Dashboard data fetch completed successfully");
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        console.error("Error code:", error.code);
+        console.error("Error message:", error.message);
+        setError(
+          error.message || "Failed to load dashboard data. Please check your Firebase connection and ensure all collections exist."
+        );
       } finally {
         setLoading(false);
       }
@@ -148,6 +216,18 @@ function Dashboard() {
 
       <div className="dashboard">
         <h1>Dashboard</h1>
+
+        {error && (
+          <div className="error-banner">
+            <div className="error-content">
+              <span className="error-icon">⚠️</span>
+              <div>
+                <strong>Error Loading Dashboard</strong>
+                <p>{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="loading">Loading dashboard data...</div>
@@ -386,6 +466,38 @@ function Dashboard() {
           height: 300px;
           font-size: 1.2rem;
           color: #7f8c8d;
+        }
+
+        .error-banner {
+          background-color: #ffebee;
+          border-left: 4px solid #c62828;
+          border-radius: 4px;
+          padding: 16px;
+          margin-bottom: 24px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .error-content {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+        }
+
+        .error-icon {
+          font-size: 1.5rem;
+          flex-shrink: 0;
+        }
+
+        .error-banner strong {
+          display: block;
+          color: #c62828;
+          margin-bottom: 4px;
+        }
+
+        .error-banner p {
+          margin: 0;
+          color: #d32f2f;
+          font-size: 0.9rem;
         }
 
         .stats-grid {

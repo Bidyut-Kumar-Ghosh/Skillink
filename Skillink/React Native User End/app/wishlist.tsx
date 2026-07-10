@@ -10,6 +10,7 @@ import {
     Platform,
     ActivityIndicator,
     Image,
+    Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -79,8 +80,12 @@ export default function Wishlist() {
                     });
 
                 setWishlistCourses(courses);
-            } catch (error) {
+            } catch (error: any) {
+                const permDenied = error?.code === 'permission-denied' || (error?.message && error.message.includes('Missing or insufficient permissions'));
                 console.error('Error loading wishlist courses:', error);
+                if (permDenied) {
+                    Alert.alert('Wishlist', 'Unable to load wishlist due to missing permissions. Please check your account.');
+                }
                 setWishlistCourses([]);
             } finally {
                 setLoading(false);

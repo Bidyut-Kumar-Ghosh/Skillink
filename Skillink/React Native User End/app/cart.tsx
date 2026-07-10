@@ -8,6 +8,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -24,6 +25,7 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore/lite';
+import { auth } from '@/config/firebase';
 
 type CartCourse = {
   id: string;
@@ -33,11 +35,33 @@ type CartCourse = {
   price: number;
 };
 
+type PaymentMethod = 'online' | 'cod';
+
+type ShippingAddress = {
+  fullName: string;
+  phone: string;
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+};
+
 export default function CartScreen() {
-  const { user } = useAuth();
+  const { user, loading: authStateLoading, authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [items, setItems] = useState<CartCourse[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('online');
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
+    fullName: '',
+    phone: '',
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: '',
+  });
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.price, 0), [items]);
 
@@ -57,10 +81,23 @@ export default function CartScreen() {
         return;
       }
 
-      const userData = userSnapshot.data();
+      const userData = userSnapshot.data() as any;
       const cartIds = Array.isArray(userData?.cartCourseIds)
         ? userData.cartCourseIds.filter((id: unknown): id is string => typeof id === 'string')
         : [];
+
+      const savedAddress = userData?.shippingAddress;
+      if (savedAddress && typeof savedAddress === 'object') {
+        setShippingAddress((prev) => ({
+          fullName: savedAddress.fullName || prev.fullName,
+          phone: savedAddress.phone || prev.phone,
+          street: savedAddress.street || prev.street,
+          city: savedAddress.city || prev.city,
+          state: savedAddress.state || prev.state,
+          postalCode: savedAddress.postalCode || prev.postalCode,
+          country: savedAddress.country || prev.country,
+        }));
+      }
 
       if (cartIds.length === 0) {
         setItems([]);
@@ -91,8 +128,28 @@ export default function CartScreen() {
   };
 
   useEffect(() => {
+    if (authStateLoading) return;
     loadCart();
-  }, [user?.id]);
+  }, [user?.id, authStateLoading]);
+
+  const updateAddressField = (field: keyof ShippingAddress, value: string) => {
+    setShippingAddress((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const validateShippingAddress = () => {
+    const missingField = Object.entries(shippingAddress).find(([, value]) => value.trim() === '');
+    if (missingField) {
+      Alert.alert('Missing address', 'Please complete all address fields before checking out.');
+      return false;
+    }
+
+    if (!/^\+?[0-9]{7,15}$/.test(shippingAddress.phone.trim())) {
+      Alert.alert('Invalid phone number', 'Please enter a valid phone number.');
+      return false;
+    }
+
+    return true;
+  };
 
   const removeFromCart = async (courseId: string) => {
     if (!user?.id) return;
@@ -115,23 +172,40 @@ export default function CartScreen() {
   };
 
   const handleCheckout = async () => {
-    if (!user?.id || items.length === 0) {
+    if (authLoading) {
+      Alert.alert('Please wait', 'Checking your authentication status before checkout.');
+      return;
+    }
+
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid || items.length === 0) {
+      Alert.alert('Sign in required', 'Please sign in to complete checkout.');
+      return;
+    }
+
+    if (!validateShippingAddress()) {
       return;
     }
 
     setCheckoutLoading(true);
     try {
+      const paymentStatus = paymentMethod === 'cod' ? 'pending' : 'completed';
+      const orderStatus = paymentMethod === 'cod' ? 'pending' : 'active';
+      const paymentMethodValue = paymentMethod === 'cod' ? 'cash_on_delivery' : 'online';
+
       await Promise.all(
         items.map(async (item) => {
           await addDoc(collection(db, 'purchases'), {
-            userId: user.id,
+            userId: currentUid,
             courseId: item.id,
             title: item.title,
             author: item.author,
             amount: item.price,
-            paymentStatus: 'completed',
-            status: 'active',
+            paymentStatus,
+            paymentMethod: paymentMethodValue,
+            status: orderStatus,
             purchasedAt: new Date(),
+            shippingAddress,
           });
 
           await addDoc(collection(db, 'enrollments'), {
@@ -139,27 +213,35 @@ export default function CartScreen() {
             courseId: item.id,
             enrollmentDate: new Date(),
             amount: item.price,
-            status: 'active',
-            paymentStatus: 'completed',
+            status: orderStatus,
+            paymentStatus,
+            paymentMethod: paymentMethodValue,
+            shippingAddress,
           });
         })
       );
 
-      const userRef = doc(db, 'users', user.id);
+      const userRef = doc(db, 'users', currentUid);
       try {
-        await updateDoc(userRef, { cartCourseIds: [] });
+        await updateDoc(userRef, { cartCourseIds: [], shippingAddress });
       } catch {
-        await setDoc(userRef, { cartCourseIds: [] }, { merge: true });
+        await setDoc(userRef, { cartCourseIds: [], shippingAddress }, { merge: true });
       }
 
       setItems([]);
-      Alert.alert('Purchase successful', 'All cart items were purchased.', [
-        {
-          text: 'View Purchases',
-          onPress: () => router.push('/profile/purchases'),
-        },
-        { text: 'OK', style: 'cancel' },
-      ]);
+      Alert.alert(
+        paymentMethod === 'cod' ? 'Order placed' : 'Purchase successful',
+        paymentMethod === 'cod'
+          ? 'Your order is placed with Cash on Delivery. We will confirm the payment details with you soon.'
+          : 'All cart items were purchased successfully.',
+        [
+          {
+            text: 'View Purchases',
+            onPress: () => router.push('/profile/purchases'),
+          },
+          { text: 'OK', style: 'cancel' },
+        ]
+      );
     } catch (error) {
       console.error('Checkout failed:', error);
       Alert.alert('Checkout failed', 'Could not complete checkout. Please try again.');
@@ -197,6 +279,102 @@ export default function CartScreen() {
       ) : (
         <>
           <ScrollView contentContainerStyle={styles.listContent}>
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Payment Method</Text>
+              <View style={styles.paymentOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.paymentOption,
+                    paymentMethod === 'online' && styles.paymentOptionActive,
+                  ]}
+                  onPress={() => setPaymentMethod('online')}
+                >
+                  <Text style={styles.paymentOptionLabel}>Pay Online</Text>
+                  <Text style={styles.paymentOptionDescription}>
+                    Complete payment immediately and get instant access.
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.paymentOption,
+                    paymentMethod === 'cod' && styles.paymentOptionActive,
+                  ]}
+                  onPress={() => setPaymentMethod('cod')}
+                >
+                  <Text style={styles.paymentOptionLabel}>Cash on Delivery</Text>
+                  <Text style={styles.paymentOptionDescription}>
+                    Pay later when your order is confirmed.
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Shipping Address</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Full name"
+                placeholderTextColor="#94A3B8"
+                value={shippingAddress.fullName}
+                onChangeText={(text) => updateAddressField('fullName', text)}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Phone number"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                value={shippingAddress.phone}
+                onChangeText={(text) => updateAddressField('phone', text)}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Street address"
+                placeholderTextColor="#94A3B8"
+                value={shippingAddress.street}
+                onChangeText={(text) => updateAddressField('street', text)}
+              />
+              <View style={styles.formRow}>
+                <TextInput
+                  style={[styles.input, styles.inputHalf]}
+                  placeholder="City"
+                  placeholderTextColor="#94A3B8"
+                  value={shippingAddress.city}
+                  onChangeText={(text) => updateAddressField('city', text)}
+                />
+                <TextInput
+                  style={[styles.input, styles.inputHalf]}
+                  placeholder="State"
+                  placeholderTextColor="#94A3B8"
+                  value={shippingAddress.state}
+                  onChangeText={(text) => updateAddressField('state', text)}
+                />
+              </View>
+              <View style={styles.formRow}>
+                <TextInput
+                  style={[styles.input, styles.inputHalf]}
+                  placeholder="Postal code"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="number-pad"
+                  value={shippingAddress.postalCode}
+                  onChangeText={(text) => updateAddressField('postalCode', text)}
+                />
+                <TextInput
+                  style={[styles.input, styles.inputHalf]}
+                  placeholder="Country"
+                  placeholderTextColor="#94A3B8"
+                  value={shippingAddress.country}
+                  onChangeText={(text) => updateAddressField('country', text)}
+                />
+              </View>
+
+              <Text style={styles.shippingNote}>
+                {paymentMethod === 'cod'
+                  ? 'Cash on Delivery orders are subject to address verification and confirmation.'
+                  : 'Enter your shipping details to complete the order.'}
+              </Text>
+            </View>
+
             {items.map((item) => (
               <View key={item.id} style={styles.itemCard}>
                 <View style={styles.thumbWrap}>
@@ -366,6 +544,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FEF2F2',
+  },
+  sectionContainer: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  paymentOptions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  paymentOption: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 14,
+    padding: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  paymentOptionActive: {
+    borderColor: '#0F172A',
+    backgroundColor: '#F8FAFC',
+  },
+  paymentOptionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  paymentOptionDescription: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 18,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#0F172A',
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  inputHalf: {
+    flex: 1,
+  },
+  shippingNote: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 8,
   },
   checkoutBar: {
     position: 'absolute',

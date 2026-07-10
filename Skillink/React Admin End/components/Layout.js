@@ -3,11 +3,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { auth } from "../firebase/config";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import {
-  clearAdminSession,
-  getStoredAdminSession,
-  persistAdminSession,
-} from "../firebase/session";
+import { clearAdminSession, persistAdminSession } from "../firebase/session";
 
 // Auto-logout after 2 hours of inactivity (in milliseconds)
 const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000;

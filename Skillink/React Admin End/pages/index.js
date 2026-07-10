@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { auth } from "../firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
+import { withAuth } from "../firebase/useAuth";
 import Head from "next/head";
 
-export default function Home() {
+function Home() {
   const router = useRouter();
 
   useEffect(() => {
@@ -48,3 +49,5 @@ export default function Home() {
     </div>
   );
 }
+
+export default withAuth(Home);

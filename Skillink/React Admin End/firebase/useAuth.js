@@ -11,7 +11,6 @@ import { useRouter } from "next/router";
 import { auth, db } from "./config";
 import {
   clearAdminSession,
-  findAdminUserByEmailAndPassword,
   getStoredAdminSession,
   normalizeEmail,
   persistAdminSession,
@@ -71,18 +70,8 @@ export function AuthProvider({ children }) {
         err.code === "auth/wrong-password" ||
         err.code === "auth/invalid-email";
 
-      if (isCredentialError) {
-        const firestoreAdminUser = await findAdminUserByEmailAndPassword(
-          normalizedEmail,
-          password
-        );
-
-        if (firestoreAdminUser) {
-          setUser(firestoreAdminUser);
-          persistAdminSession(firestoreAdminUser);
-          return firestoreAdminUser;
-        }
-      }
+      // Do not fallback to Firestore-only admin authentication.
+      // Admin access must require a valid Firebase Auth session.
 
       let message = "Login failed. Please try again.";
 
@@ -140,16 +129,10 @@ export function AuthProvider({ children }) {
             }
           }
         } else {
-          const storedSession = getStoredAdminSession();
-
-          if (storedSession) {
-            setUser(storedSession);
-          } else {
-            setUser(null);
-            clearAdminSession();
-            if (router.pathname !== "/login") {
-              router.push("/login");
-            }
+          setUser(null);
+          clearAdminSession();
+          if (router.pathname !== "/login") {
+            router.push("/login");
           }
         }
       } catch (err) {

@@ -135,19 +135,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const checkPersistedUser = async () => {
             try {
-                // First check AsyncStorage for persisted user
-                const storedUser = await AsyncStorage.getItem('user');
-                if (storedUser) {
-                    const parsedUser = JSON.parse(storedUser);
-                    setUser(parsedUser);
-                    setLoading(false);
-                    return;
-                }
+                // Keep the cached data for persistence only. Do not expose
+                // it as the authenticated session until Firebase confirms it.
+                await AsyncStorage.getItem('user');
             } catch (error) {
                 console.error('Error checking persisted user:', error);
             }
 
-            // If no persisted user, check Firebase auth state
+            // Always verify Firebase auth state before marking the session ready.
             try {
                 const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
                     try {
@@ -172,6 +167,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                                     await AsyncStorage.setItem('user', JSON.stringify(userObj));
                                 } catch (storageError) {
                                     console.error('Error saving user to storage:', storageError);
+                                }
+                            } else {
+                                // User authenticated but Firestore profile is missing.
+                                // This can cause permission denied errors if we keep stale local state.
+                                try {
+                                    await signOut(auth);
+                                } catch (signOutError) {
+                                    console.error('Error signing out stale auth state:', signOutError);
+                                }
+                                setUser(null);
+                                try {
+                                    await AsyncStorage.removeItem('user');
+                                } catch (storageError) {
+                                    console.error('Error removing stale user from storage:', storageError);
                                 }
                             }
                         } else {
@@ -337,52 +346,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 router.replace('/');
 
             } catch (firebaseAuthError: any) {
-                // Firebase Auth failed, try to find if user exists in Firestore
-                const userByEmail = await getUserByEmail(email);
-
-                if (!userByEmail) {
-                    // Don't log error here, will be caught by outer catch
-                    throw new Error('No user found with this email address');
-                }
-
-                // Check if user is suspended
-                if (userByEmail.status === 'suspended') {
-                    showError(
-                        'auth/account-suspended',
-                        'Your account has been suspended. Please contact Skillink Support for assistance.'
-                    );
-                    setAuthLoading(false);
-                    return;
-                }
-
-                // Verify password match
-                const passwordMatches = await verifyPassword(password, userByEmail.password);
-
-                if (!passwordMatches) {
-                    // Don't log error here, will be caught by outer catch
-                    throw new Error('Incorrect email or password');
-                }
-
-                // Password matches
-                const userObj: User = {
-                    id: userByEmail.id,
-                    email: userByEmail.email,
-                    name: userByEmail.name || '',
-                    role: userByEmail.role || 'user',
-                    createdAt: userByEmail.createdAt,
-                    status: userByEmail.status,
-                };
-
-                setUser(userObj);
-
-                // Store in AsyncStorage
-                await AsyncStorage.setItem('user', JSON.stringify(userObj));
-
-                // Show welcome back message
-                showSuccess('auth/login-welcome-back', `Welcome back, ${userByEmail.name || 'User'}!`);
-
-                // Navigate to home
-                router.replace('/');
+                // Firebase Auth failed. Do not permit Firestore-only fallback login because
+                // Firestore security rules require a valid authenticated session.
+                throw firebaseAuthError;
             }
         } catch (error: any) {
             // This catches any errors from the outer try/catch

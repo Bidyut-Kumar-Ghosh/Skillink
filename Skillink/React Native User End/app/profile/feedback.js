@@ -28,6 +28,11 @@ import {
   doc,
   setDoc,
   getDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
 } from "firebase/firestore/lite";
 import { useFonts } from "expo-font";
 import LottieView from "lottie-react-native";

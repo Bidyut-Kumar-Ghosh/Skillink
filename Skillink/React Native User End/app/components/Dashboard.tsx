@@ -163,8 +163,14 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
                     : [];
 
                 setWishlistCourseIds(ids);
-            } catch (error) {
-                console.error('Error loading wishlist:', error);
+            } catch (error: any) {
+                // Detect Firestore permission errors and provide a clear message
+                const message = error?.code === 'permission-denied' || (error?.message && error.message.includes('Missing or insufficient permissions'))
+                    ? 'Unable to load wishlist: missing permissions. Please sign in or check your account permissions.'
+                    : 'Error loading wishlist: ' + (error?.message || String(error));
+
+                console.error(message, error);
+                Alert.alert('Wishlist', message);
             }
         };
 
@@ -201,7 +207,10 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
                 // Fallback if user doc is missing.
                 await setDoc(userRef, payload, { merge: true });
             }
-        } catch (error) {
+        } catch (error: any) {
+            // Handle permission denied specifically so users get a helpful message
+            const permDenied = error?.code === 'permission-denied' || (error?.message && error.message.includes('Missing or insufficient permissions'));
+
             console.error('Error updating wishlist:', error);
 
             // Revert optimistic state if request fails.
@@ -209,7 +218,11 @@ const Dashboard = ({ isNested = false }: DashboardProps) => {
                 isWishlisted ? [...prev, course.id] : prev.filter((id) => id !== course.id)
             );
 
-            Alert.alert('Update failed', 'Could not update wishlist. Please try again.');
+            if (permDenied) {
+                Alert.alert('Update failed', 'You do not have permission to update the wishlist. Please check your account permissions.');
+            } else {
+                Alert.alert('Update failed', 'Could not update wishlist. Please try again.');
+            }
         } finally {
             setWishlistUpdatingIds((prev) => prev.filter((id) => id !== course.id));
         }
