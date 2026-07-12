@@ -5,7 +5,6 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
-
     // Simplified admin check - checks custom claims first
     function isAdmin() {
       return isAuthenticated() && (
@@ -56,6 +55,69 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow read: if isAuthenticated();
       allow update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && (isAdmin() || isOwner(userId));
+      allow delete: if isAdmin();
+    }
+
+    match /courses/{courseId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /books/{bookId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /updates/{updateId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /feedback/{feedbackId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated()
+        && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow update, delete: if isAuthenticated()
+        && (isAdmin() || resource.data.userId == request.auth.uid);
+    }
+
+    match /enrollments/{enrollmentId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated()
+        && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow update, delete: if isAuthenticated()
+        && (isAdmin() || resource.data.userId == request.auth.uid);
+    }
+
+    match /purchases/{purchaseId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated()
+        && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow update, delete: if isAuthenticated()
+        && (isAdmin() || resource.data.userId == request.auth.uid);
     }
 
     match /{document=**} {

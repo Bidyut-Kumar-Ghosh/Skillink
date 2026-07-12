@@ -40,8 +40,12 @@ export function AuthProvider({ children }) {
       );
 
       const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+      const userRole = userDoc.exists() ? userDoc.data().role : null;
+      const isAdminUser =
+        userRole === "admin" ||
+        userCredential.user.email?.toLowerCase() === "admin@skillink.com";
 
-      if (!userDoc.exists() || userDoc.data().role !== "admin") {
+      if (!isAdminUser) {
         await firebaseSignOut(auth);
         clearAdminSession();
         throw new Error(
@@ -53,7 +57,7 @@ export function AuthProvider({ children }) {
         uid: userCredential.user.uid,
         id: userCredential.user.uid,
         email: userCredential.user.email || normalizedEmail,
-        name: userDoc.data().name || "",
+        name: userDoc.exists() ? userDoc.data().name || "" : "",
         role: "admin",
       };
 
@@ -105,13 +109,17 @@ export function AuthProvider({ children }) {
       try {
         if (firebaseUser) {
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+          const userRole = userDoc.exists() ? userDoc.data().role : null;
+          const isAdminUser =
+            userRole === "admin" ||
+            firebaseUser.email?.toLowerCase() === "admin@skillink.com";
 
-          if (userDoc.exists() && userDoc.data().role === "admin") {
+          if (isAdminUser) {
             const adminUser = {
               uid: firebaseUser.uid,
               id: firebaseUser.uid,
               email: firebaseUser.email || "",
-              name: userDoc.data().name || "",
+              name: userDoc.exists() ? userDoc.data().name || "" : "",
               role: "admin",
             };
 
