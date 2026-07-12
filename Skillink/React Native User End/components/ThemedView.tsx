@@ -15,9 +15,7 @@ export function ThemedView({
   ...otherProps
 }: ThemedViewProps) {
   const { theme } = useTheme();
-  const backgroundColor = lightColor || darkColor
-    ? useThemeColor({ light: lightColor, dark: darkColor }, 'background')
-    : theme.background;
+  const backgroundColor = useThemeColor({ light: lightColor, dark: darkColor }, 'background');
 
   // Create a new style object that includes backgroundColor and pointerEvents
   const combinedStyle = {

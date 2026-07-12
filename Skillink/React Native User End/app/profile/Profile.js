@@ -120,6 +120,256 @@ const featuredCarouselContent = [
   },
 ];
 
+function AchievementsSection({ isDarkMode }) {
+  const badgeScales = useRef(
+    achievementBadges.map(() => new Animated.Value(1))
+  ).current;
+
+  const animateBadgePress = (index, pressed) => {
+    Animated.spring(badgeScales[index], {
+      toValue: pressed ? 0.95 : 1,
+      friction: 5,
+      tension: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.achievementsContainer,
+        {
+          backgroundColor: isDarkMode ? "#121212" : "#FFFFFF",
+          borderWidth: 1,
+          borderColor: isDarkMode ? "#2D3246" : "#f0f0f0",
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.profileHeader,
+          {
+            borderBottomColor: isDarkMode
+              ? "rgba(61, 67, 92, 0.3)"
+              : "rgba(0, 0, 0, 0.05)",
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.achievementIconContainer,
+            { backgroundColor: isDarkMode ? "#252836" : "#f0f4ff" },
+          ]}
+        >
+          <Ionicons name="trophy" size={20} color="#3366FF" />
+        </View>
+        <Text
+          style={[
+            styles.profileTitle,
+            {
+              color: isDarkMode ? "#FFFFFF" : "#333333",
+              marginLeft: 10,
+            },
+          ]}
+        >
+          MY ACHIEVEMENTS
+        </Text>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.badgesScrollContainer}
+        contentContainerStyle={styles.badgesScrollContent}
+        decelerationRate="normal"
+      >
+        {achievementBadges.map((badge, index) => (
+          <Animated.View
+            key={badge.id}
+            style={{
+              transform: [{ scale: badgeScales[index] }],
+              margin: 3,
+            }}
+          >
+            <TouchableOpacity
+              style={[
+                styles.badgeContainer,
+                { borderColor: badge.color + "33" },
+              ]}
+              activeOpacity={0.7}
+              onPressIn={() => animateBadgePress(index, true)}
+              onPressOut={() => animateBadgePress(index, false)}
+              onPress={() => {
+                Alert.alert(badge.title, badge.description);
+              }}
+            >
+              <View
+                style={[
+                  styles.badgeIconContainer,
+                  { backgroundColor: badge.color + "15" },
+                ]}
+              >
+                <Ionicons name={badge.icon} size={32} color={badge.color} />
+              </View>
+              <View style={styles.badgeTextContainer}>
+                <Text
+                  style={[
+                    styles.badgeTitle,
+                    { color: isDarkMode ? "#FFFFFF" : "#333333" },
+                  ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {badge.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.badgeDescription,
+                    { color: isDarkMode ? "#8F96AB" : "#666666" },
+                  ]}
+                  numberOfLines={2}
+                >
+                  {badge.description}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+        ))}
+      </ScrollView>
+    </Animated.View>
+  );
+}
+
+function FeaturedContentCarousel({ isDarkMode, carouselActiveIndex, setCarouselActiveIndex }) {
+  const scrollViewRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(width - 40);
+  const slideWidth = containerWidth - 10;
+
+  const scrollToSlide = React.useCallback(
+    (index) => {
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({ x: index * slideWidth, animated: true });
+      }
+      setCarouselActiveIndex(index);
+    },
+    [slideWidth, setCarouselActiveIndex]
+  );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const nextIndex =
+        carouselActiveIndex === featuredCarouselContent.length - 1
+          ? 0
+          : carouselActiveIndex + 1;
+
+      scrollToSlide(nextIndex);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [carouselActiveIndex, scrollToSlide]);
+
+  const handleContainerLayout = (event) => {
+    const { width: newWidth } = event.nativeEvent.layout;
+    setContainerWidth(newWidth);
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.carouselContainer,
+        { backgroundColor: isDarkMode ? "#121212" : "#FFFFFF" },
+      ]}
+      onLayout={handleContainerLayout}
+    >
+      <View style={styles.profileHeader}>
+        <View
+          style={[
+            styles.achievementIconContainer,
+            { backgroundColor: isDarkMode ? "#252836" : "#f0f4ff" },
+          ]}
+        >
+          <Ionicons name="star" size={20} color="#3366FF" />
+        </View>
+        <Text
+          style={[
+            styles.profileTitle,
+            { color: isDarkMode ? "#FFFFFF" : "#333333", marginLeft: 10 },
+          ]}
+        >
+          FEATURED CONTENT
+        </Text>
+      </View>
+
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+        snapToInterval={slideWidth}
+        snapToAlignment="start"
+        onMomentumScrollEnd={(event) => {
+          const index = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
+          setCarouselActiveIndex(index);
+        }}
+        style={styles.carouselScroll}
+        contentContainerStyle={styles.carouselScrollContent}
+      >
+        {featuredCarouselContent.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={[styles.carouselSlide, { width: slideWidth }]}
+            activeOpacity={0.9}
+            onPress={() => {
+              Alert.alert(item.title, item.description);
+            }}
+          >
+            <Image
+              source={item.image}
+              style={styles.carouselImage}
+              resizeMode="cover"
+              defaultSource={require("@/assets/images/background-image.png")}
+            />
+            <LinearGradient
+              colors={["transparent", "rgba(0,0,0,0.7)", "rgba(0,0,0,0.9)"]}
+              style={styles.carouselGradient}
+            />
+            <View style={styles.carouselTextOverlay}>
+              <Text style={styles.carouselTitle} numberOfLines={1}>
+                {item.title || "Featured Content"}
+              </Text>
+              <Text style={styles.carouselDescription} numberOfLines={2}>
+                {item.description || "Check out our featured content"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <View style={styles.carouselDots}>
+        {featuredCarouselContent.map((_, index) => (
+          <TouchableOpacity
+            key={index}
+            onPress={() => scrollToSlide(index)}
+            style={styles.dotTouchable}
+          >
+            <View
+              style={[
+                styles.carouselDot,
+                carouselActiveIndex === index ? styles.carouselDotActive : null,
+                {
+                  backgroundColor:
+                    carouselActiveIndex === index ? "#3366FF" : "#D0D0D0",
+                },
+              ]}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+    </Animated.View>
+  );
+}
+
 function Profile() {
   const { user, isLoggedIn, logOut, loading, authLoading, setUser } = useAuth();
   const { theme, isDarkMode, toggleTheme } = useTheme();
@@ -988,268 +1238,6 @@ function Profile() {
   };
 
   // Render achievements section with badges
-  const renderAchievements = () => {
-    // Create refs for badge animations
-    const badgeScales = achievementBadges.map(
-      () => useRef(new Animated.Value(1)).current
-    );
-
-    // Function to animate badge press
-    const animateBadgePress = (index, pressed) => {
-      Animated.spring(badgeScales[index], {
-        toValue: pressed ? 0.95 : 1,
-        friction: 5,
-        tension: 300,
-        useNativeDriver: true,
-      }).start();
-    };
-
-    return (
-      <Animated.View
-        style={[
-          styles.achievementsContainer,
-          {
-            backgroundColor: isDarkMode ? "#121212" : "#FFFFFF",
-            borderWidth: 1,
-            borderColor: isDarkMode ? "#2D3246" : "#f0f0f0",
-          },
-        ]}
-      >
-        <View
-          style={[
-            styles.profileHeader,
-            {
-              borderBottomColor: isDarkMode
-                ? "rgba(61, 67, 92, 0.3)"
-                : "rgba(0, 0, 0, 0.05)",
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.achievementIconContainer,
-              { backgroundColor: isDarkMode ? "#252836" : "#f0f4ff" },
-            ]}
-          >
-            <Ionicons name="trophy" size={20} color="#3366FF" />
-          </View>
-          <Text
-            style={[
-              styles.profileTitle,
-              {
-                color: isDarkMode ? "#FFFFFF" : "#333333",
-                marginLeft: 10,
-              },
-            ]}
-          >
-            MY ACHIEVEMENTS
-          </Text>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.badgesScrollContainer}
-          contentContainerStyle={styles.badgesScrollContent}
-          decelerationRate="normal"
-        >
-          {achievementBadges.map((badge, index) => (
-            <Animated.View
-              key={badge.id}
-              style={{
-                transform: [{ scale: badgeScales[index] }],
-                margin: 3,
-              }}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.badgeContainer,
-                  { borderColor: badge.color + "33" }, // Add transparency to the border color
-                ]}
-                activeOpacity={0.7}
-                onPressIn={() => animateBadgePress(index, true)}
-                onPressOut={() => animateBadgePress(index, false)}
-                onPress={() => {
-                  Alert.alert(badge.title, badge.description);
-                }}
-              >
-                <View
-                  style={[
-                    styles.badgeIconContainer,
-                    { backgroundColor: badge.color + "15" },
-                  ]}
-                >
-                  <Ionicons name={badge.icon} size={32} color={badge.color} />
-                </View>
-                <View style={styles.badgeTextContainer}>
-                  <Text
-                    style={[
-                      styles.badgeTitle,
-                      { color: isDarkMode ? "#FFFFFF" : "#333333" },
-                    ]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {badge.title}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.badgeDescription,
-                      { color: isDarkMode ? "#8F96AB" : "#666666" },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {badge.description}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-          ))}
-        </ScrollView>
-      </Animated.View>
-    );
-  };
-
-  // Function to render the featured content carousel
-  const renderFeaturedContentCarousel = () => {
-    const scrollViewRef = useRef(null);
-    const [containerWidth, setContainerWidth] = useState(width - 40);
-    const slideWidth = containerWidth - 10; // Account for container padding and margins
-
-    // Function to scroll to a specific slide
-    const scrollToSlide = (index) => {
-      if (scrollViewRef.current) {
-        scrollViewRef.current.scrollTo({
-          x: index * slideWidth,
-          animated: true,
-        });
-        setCarouselActiveIndex(index);
-      }
-    };
-
-    // Auto scrolling effect
-    useEffect(() => {
-      const interval = setInterval(() => {
-        const nextIndex =
-          carouselActiveIndex === featuredCarouselContent.length - 1
-            ? 0
-            : carouselActiveIndex + 1;
-
-        scrollToSlide(nextIndex);
-      }, 4000);
-
-      return () => clearInterval(interval);
-    }, [carouselActiveIndex, slideWidth]);
-
-    // Measure container width on layout
-    const handleContainerLayout = (event) => {
-      const { width: containerWidth } = event.nativeEvent.layout;
-      setContainerWidth(containerWidth);
-    };
-
-    return (
-      <Animated.View
-        style={[
-          styles.carouselContainer,
-          { backgroundColor: isDarkMode ? "#121212" : "#FFFFFF" },
-        ]}
-        onLayout={handleContainerLayout}
-      >
-        <View style={styles.profileHeader}>
-          <View
-            style={[
-              styles.achievementIconContainer,
-              { backgroundColor: isDarkMode ? "#252836" : "#f0f4ff" },
-            ]}
-          >
-            <Ionicons name="star" size={20} color="#3366FF" />
-          </View>
-          <Text
-            style={[
-              styles.profileTitle,
-              {
-                color: isDarkMode ? "#FFFFFF" : "#333333",
-                marginLeft: 10,
-              },
-            ]}
-          >
-            FEATURED CONTENT
-          </Text>
-        </View>
-
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          snapToInterval={slideWidth}
-          snapToAlignment="start"
-          onMomentumScrollEnd={(event) => {
-            const index = Math.round(
-              event.nativeEvent.contentOffset.x / slideWidth
-            );
-            setCarouselActiveIndex(index);
-          }}
-          style={styles.carouselScroll}
-          contentContainerStyle={styles.carouselScrollContent}
-        >
-          {featuredCarouselContent.map((item, index) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.carouselSlide, { width: slideWidth }]}
-              activeOpacity={0.9}
-              onPress={() => {
-                Alert.alert(item.title, item.description);
-              }}
-            >
-              <Image
-                source={item.image}
-                style={styles.carouselImage}
-                resizeMode="cover"
-                defaultSource={require("@/assets/images/background-image.png")}
-              />
-              <LinearGradient
-                colors={["transparent", "rgba(0,0,0,0.7)", "rgba(0,0,0,0.9)"]}
-                style={styles.carouselGradient}
-              />
-              <View style={styles.carouselTextOverlay}>
-                <Text style={styles.carouselTitle} numberOfLines={1}>
-                  {item.title || "Featured Content"}
-                </Text>
-                <Text style={styles.carouselDescription} numberOfLines={2}>
-                  {item.description || "Check out our featured content"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        <View style={styles.carouselDots}>
-          {featuredCarouselContent.map((_, index) => (
-            <TouchableOpacity
-              key={index}
-              onPress={() => scrollToSlide(index)}
-              style={styles.dotTouchable}
-            >
-              <View
-                style={[
-                  styles.carouselDot,
-                  carouselActiveIndex === index
-                    ? styles.carouselDotActive
-                    : null,
-                  {
-                    backgroundColor:
-                      carouselActiveIndex === index ? "#3366FF" : "#D0D0D0",
-                  },
-                ]}
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Animated.View>
-    );
-  };
 
   const handleLogout = async () => {
     // ... existing code ...
@@ -1326,10 +1314,14 @@ function Profile() {
         {renderProfileMenuItems()}
 
         {/* Add the achievements section */}
-        {renderAchievements()}
+        <AchievementsSection isDarkMode={isDarkMode} />
 
         {/* Featured Content Carousel */}
-        {renderFeaturedContentCarousel()}
+        <FeaturedContentCarousel
+          isDarkMode={isDarkMode}
+          carouselActiveIndex={carouselActiveIndex}
+          setCarouselActiveIndex={setCarouselActiveIndex}
+        />
       </Animated.ScrollView>
 
       <LogoutDialog

@@ -30,19 +30,19 @@ const SplashScreen = ({ onFinish }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Particles animations (random positions, sizes, and timings)
-  const particles = Array(PARTICLES_COUNT)
-    .fill(0)
-    .map(() => ({
+  const particles = useRef(
+    Array.from({ length: PARTICLES_COUNT }, () => ({
       position: {
-        x: useRef(new Animated.Value(Math.random() * width)).current,
-        y: useRef(new Animated.Value(Math.random() * height)).current,
+        x: new Animated.Value(Math.random() * width),
+        y: new Animated.Value(Math.random() * height),
       },
-      opacity: useRef(new Animated.Value(0)).current,
-      scale: useRef(new Animated.Value(Math.random() * 0.5 + 0.5)).current,
+      opacity: new Animated.Value(0),
+      scale: new Animated.Value(Math.random() * 0.5 + 0.5),
       speed: Math.random() * 3000 + 2000,
       delay: Math.random() * 2000,
       size: Math.floor(Math.random() * 10) + 4,
-    }));
+    }))
+  ).current;
 
   // Convert rotate value to rotation degrees string
   const spin = rotateAnim.interpolate({
