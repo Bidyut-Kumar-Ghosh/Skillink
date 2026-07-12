@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { auth } from "../firebase/config";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { clearAdminSession, persistAdminSession } from "../firebase/session";
+import { clearAdminSession } from "../firebase/session";
 
 // Auto-logout after 2 hours of inactivity (in milliseconds)
 const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000;
@@ -113,21 +113,13 @@ export default function Layout({ children }) {
         };
 
         setUser(adminUser);
-        persistAdminSession(adminUser);
         // Reset the timer when user logs in
         resetTimer();
       } else {
-        const storedSession = getStoredAdminSession();
-
-        if (storedSession) {
-          setUser(storedSession);
-          resetTimer();
-        } else {
-          setUser(null);
-          clearAdminSession();
-          if (router.pathname !== "/login") {
-            router.push("/login");
-          }
+        setUser(null);
+        clearAdminSession();
+        if (router.pathname !== "/login") {
+          router.push("/login");
         }
       }
       setLoading(false);

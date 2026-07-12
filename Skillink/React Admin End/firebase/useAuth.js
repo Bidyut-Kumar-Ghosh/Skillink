@@ -11,9 +11,7 @@ import { useRouter } from "next/router";
 import { auth, db } from "./config";
 import {
   clearAdminSession,
-  getStoredAdminSession,
   normalizeEmail,
-  persistAdminSession,
 } from "./session";
 
 const AuthContext = createContext();
@@ -59,7 +57,6 @@ export function AuthProvider({ children }) {
         role: "admin",
       };
 
-      persistAdminSession(adminUser);
       setUser(adminUser);
 
       return adminUser;
@@ -119,7 +116,6 @@ export function AuthProvider({ children }) {
             };
 
             setUser(adminUser);
-            persistAdminSession(adminUser);
           } else {
             await firebaseSignOut(auth);
             setUser(null);
@@ -146,11 +142,6 @@ export function AuthProvider({ children }) {
         setLoading(false);
       }
     });
-
-    const storedSession = getStoredAdminSession();
-    if (!storedSession && router.pathname !== "/login") {
-      router.push("/login");
-    }
 
     return () => unsubscribe();
   }, [router]);

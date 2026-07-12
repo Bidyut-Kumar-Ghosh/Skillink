@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import Layout from "../components/Layout";
-import { db } from "../firebase/config";
+import { auth, db } from "../firebase/config";
 import {
   collection,
   getDocs,
@@ -35,7 +35,14 @@ function Dashboard() {
         setLoading(true);
         
         console.log("Starting dashboard data fetch...");
-        
+        console.log("Current Firebase auth user:", auth.currentUser);
+
+        if (!auth.currentUser) {
+          throw new Error(
+            "Firebase auth is not available in dashboard. Please log in again."
+          );
+        }
+
         // Fetch students (non-admin users)
         const usersRef = collection(db, "users");
 

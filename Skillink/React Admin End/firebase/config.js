@@ -6,12 +6,13 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBg_u3YRBMEocWRob9N_iSBiPPucdrn8Js",
-  authDomain: "skillink-education-app.firebaseapp.com",
-  projectId: "skillink-education-app",
-  storageBucket: "skillink-education-app.appspot.com",
-  messagingSenderId: "718630093691",
-  appId: "1:718630093691:web:6aa6ec03bc19d6d347f3de",
+  apiKey: "AIzaSyChwNmitDIeX7fwkOWFP2tR4FOt7YzHMnc",
+  authDomain: "skillink-education.firebaseapp.com",
+  projectId: "skillink-education",
+  storageBucket: "skillink-education.firebasestorage.app",
+  messagingSenderId: "408227425879",
+  appId: "1:408227425879:web:1db75f11760dde21e6fd12",
+  measurementId: "G-41N3D73DBF",
 };
 
 // Initialize Firebase - check if app already exists to prevent duplicate initialization
