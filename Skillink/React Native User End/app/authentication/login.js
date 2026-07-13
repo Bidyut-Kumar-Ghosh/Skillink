@@ -328,7 +328,7 @@ export default function LoginScreen() {
                       { color: isDarkMode ? "#AAAAAA" : "#666666" },
                     ]}
                   >
-                    Don't have an account?
+                    Don&apos;t have an account?
                   </Text>
                   <TouchableOpacity
                     onPress={navigateToSignup}

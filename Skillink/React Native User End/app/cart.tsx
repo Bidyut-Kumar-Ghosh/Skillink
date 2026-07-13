@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   SafeAreaView,
   ScrollView,
@@ -53,6 +54,14 @@ export default function CartScreen() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [items, setItems] = useState<CartCourse[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('online');
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successDetails, setSuccessDetails] = useState<{
+    title: string;
+    message: string;
+    method: PaymentMethod;
+  } | null>(null);
+  const successOpacity = useRef(new Animated.Value(0)).current;
+  const successScale = useRef(new Animated.Value(0.92)).current;
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     fullName: '',
     phone: '',
@@ -132,6 +141,28 @@ export default function CartScreen() {
     loadCart();
   }, [user?.id, authStateLoading]);
 
+  useEffect(() => {
+    if (!showSuccess) {
+      successOpacity.setValue(0);
+      successScale.setValue(0.92);
+      return;
+    }
+
+    Animated.parallel([
+      Animated.timing(successOpacity, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.spring(successScale, {
+        toValue: 1,
+        friction: 8,
+        tension: 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [showSuccess, successOpacity, successScale]);
+
   const updateAddressField = (field: keyof ShippingAddress, value: string) => {
     setShippingAddress((prev) => ({ ...prev, [field]: value }));
   };
@@ -189,8 +220,8 @@ export default function CartScreen() {
 
     setCheckoutLoading(true);
     try {
-      const paymentStatus = paymentMethod === 'cod' ? 'pending' : 'completed';
-      const orderStatus = paymentMethod === 'cod' ? 'pending' : 'active';
+      const paymentStatus = 'pending';
+      const orderStatus = paymentMethod === 'cod' ? 'placed' : 'processing';
       const paymentMethodValue = paymentMethod === 'cod' ? 'cash_on_delivery' : 'online';
 
       await Promise.all(
@@ -229,19 +260,15 @@ export default function CartScreen() {
       }
 
       setItems([]);
-      Alert.alert(
-        paymentMethod === 'cod' ? 'Order placed' : 'Purchase successful',
-        paymentMethod === 'cod'
-          ? 'Your order is placed with Cash on Delivery. We will confirm the payment details with you soon.'
-          : 'All cart items were purchased successfully.',
-        [
-          {
-            text: 'View Purchases',
-            onPress: () => router.push('/profile/purchases'),
-          },
-          { text: 'OK', style: 'cancel' },
-        ]
-      );
+      setSuccessDetails({
+        title: paymentMethod === 'cod' ? 'Order placed' : 'Order received',
+        message:
+          paymentMethod === 'cod'
+            ? 'Your cash on delivery order is confirmed and is being prepared for delivery.'
+            : 'Your order is placed and waiting for payment confirmation. We will update you shortly.',
+        method: paymentMethod,
+      });
+      setShowSuccess(true);
     } catch (error) {
       console.error('Checkout failed:', error);
       Alert.alert('Checkout failed', 'Could not complete checkout. Please try again.');
@@ -279,6 +306,19 @@ export default function CartScreen() {
       ) : (
         <>
           <ScrollView contentContainerStyle={styles.listContent}>
+            <View style={styles.summaryCard}>
+              <View>
+                <Text style={styles.summaryEyebrow}>Secure checkout</Text>
+                <Text style={styles.summaryTitle}>Ready to confirm your order?</Text>
+                <Text style={styles.summaryText}>
+                  {items.length} course{items.length === 1 ? '' : 's'} • Total {total.toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.summaryBadge}>
+                <Ionicons name="shield-checkmark" size={18} color="#2563EB" />
+              </View>
+            </View>
+
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Payment Method</Text>
               <View style={styles.paymentOptions}>
@@ -289,9 +329,14 @@ export default function CartScreen() {
                   ]}
                   onPress={() => setPaymentMethod('online')}
                 >
-                  <Text style={styles.paymentOptionLabel}>Pay Online</Text>
+                  <View style={styles.paymentOptionHeader}>
+                    <View style={styles.paymentIconWrap}>
+                      <Ionicons name="card-outline" size={18} color={paymentMethod === 'online' ? '#2563EB' : '#475569'} />
+                    </View>
+                    <Text style={styles.paymentOptionLabel}>Pay Online</Text>
+                  </View>
                   <Text style={styles.paymentOptionDescription}>
-                    Complete payment immediately and get instant access.
+                    Complete payment instantly and unlock your courses right away.
                   </Text>
                 </TouchableOpacity>
 
@@ -302,9 +347,14 @@ export default function CartScreen() {
                   ]}
                   onPress={() => setPaymentMethod('cod')}
                 >
-                  <Text style={styles.paymentOptionLabel}>Cash on Delivery</Text>
+                  <View style={styles.paymentOptionHeader}>
+                    <View style={styles.paymentIconWrap}>
+                      <Ionicons name="cash-outline" size={18} color={paymentMethod === 'cod' ? '#0F172A' : '#475569'} />
+                    </View>
+                    <Text style={styles.paymentOptionLabel}>Cash on Delivery</Text>
+                  </View>
                   <Text style={styles.paymentOptionDescription}>
-                    Pay later when your order is confirmed.
+                    Place the order now and pay when your package is confirmed.
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -371,7 +421,7 @@ export default function CartScreen() {
               <Text style={styles.shippingNote}>
                 {paymentMethod === 'cod'
                   ? 'Cash on Delivery orders are subject to address verification and confirmation.'
-                  : 'Enter your shipping details to complete the order.'}
+                  : 'Your order will be reviewed and confirmed before we complete the payment step.'}
               </Text>
             </View>
 
@@ -420,6 +470,49 @@ export default function CartScreen() {
             </TouchableOpacity>
           </View>
         </>
+      )}
+
+      {showSuccess && successDetails && (
+        <Animated.View style={[styles.successOverlay, { opacity: successOpacity }] } pointerEvents="box-none">
+          <Animated.View style={[styles.successCard, { transform: [{ scale: successScale }] }]}>
+            <View style={styles.successIconWrap}>
+              <Ionicons
+                name="checkmark-circle"
+                size={58}
+                color={successDetails.method === 'cod' ? '#0F172A' : '#2563EB'}
+              />
+            </View>
+            <Text style={styles.successTitle}>{successDetails.title}</Text>
+            <Text style={styles.successMessage}>{successDetails.message}</Text>
+            <View style={styles.successBadge}>
+              <Text style={styles.successBadgeText}>
+                {successDetails.method === 'cod' ? 'Cash on delivery' : 'Awaiting payment confirmation'}
+              </Text>
+            </View>
+            <View style={styles.successActions}>
+              <TouchableOpacity
+                style={styles.successSecondaryBtn}
+                onPress={() => {
+                  setShowSuccess(false);
+                  setSuccessDetails(null);
+                  router.push('/');
+                }}
+              >
+                <Text style={styles.successSecondaryText}>Continue shopping</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.successPrimaryBtn}
+                onPress={() => {
+                  setShowSuccess(false);
+                  setSuccessDetails(null);
+                  router.push('/profile/purchases');
+                }}
+              >
+                <Text style={styles.successPrimaryText}>View orders</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </Animated.View>
       )}
     </SafeAreaView>
   );
@@ -545,6 +638,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FEF2F2',
   },
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  summaryEyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  summaryTitle: {
+    marginTop: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  summaryText: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#64748B',
+  },
+  summaryBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+  },
   sectionContainer: {
     marginBottom: 16,
   },
@@ -567,8 +697,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   paymentOptionActive: {
-    borderColor: '#0F172A',
+    borderColor: '#2563EB',
     backgroundColor: '#F8FAFC',
+  },
+  paymentOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  paymentIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
   },
   paymentOptionLabel: {
     fontSize: 14,
@@ -643,5 +786,78 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 14,
+  },
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.58)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  successCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+  },
+  successIconWrap: {
+    marginBottom: 12,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  successMessage: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  successBadge: {
+    marginTop: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#EFF6FF',
+  },
+  successBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  successActions: {
+    marginTop: 18,
+    width: '100%',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  successSecondaryBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  successSecondaryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  successPrimaryBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+  },
+  successPrimaryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

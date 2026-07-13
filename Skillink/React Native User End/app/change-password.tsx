@@ -192,7 +192,7 @@ function ChangePasswordContent() {
                 <ScrollView style={styles.content}>
                     <View style={[styles.section, cardStyle]}>
                         <Text style={[styles.sectionDescription, textLightStyle]}>
-                            Create a strong, unique password that's different from what you've used before.
+                            Create a strong, unique password that&apos;s different from what you&apos;ve used before.
                         </Text>
 
                         <View style={styles.formSection}>

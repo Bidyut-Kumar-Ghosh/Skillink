@@ -27,7 +27,7 @@ export default function MyLearning() {
                         No courses yet
                     </Text>
                     <Text style={[styles.emptyStateDescription, isDarkMode && { color: '#8F96AB' }]}>
-                        You haven't enrolled in any courses yet. When you do, they'll appear here.
+                        You haven&apos;t enrolled in any courses yet. When you do, they&apos;ll appear here.
                     </Text>
                     <TouchableOpacity
                         style={styles.browseButton}

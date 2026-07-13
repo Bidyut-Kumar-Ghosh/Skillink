@@ -247,7 +247,7 @@ export default function ForgotPasswordScreen() {
                     { color: isDarkMode ? "#AAAAAA" : "#666666" },
                   ]}
                 >
-                  Enter your email address and we'll send you instructions to
+                  Enter your email address and we&apos;ll send you instructions to
                   reset your password
                 </Text>
 
